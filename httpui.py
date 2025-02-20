@@ -720,8 +720,7 @@ class MyHandler(BaseHTTPRequestHandler):
                     b'<br/>If you want to open this tutorial in a new tab for reference during the game, click here  <a href="/tutorial/newtab" target="_blank">here</a><br/>\n'
                 )
                 s.wfile.write(
-                    b'<form action="/tutorialdone" method="POST"><input type="hidden" value="%s" name="gid"/><input type="submit" value="Continue"/></form>\n'
-                    % (gid)
+                    f'<form action="/tutorialdone" method="POST"><input type="hidden" value="{gid}" name="gid"/><input type="submit" value="Continue"/></form>\n'.encode()
                 )
 
             s.wfile.write(tutorial.summary.encode())
@@ -1030,12 +1029,10 @@ class MyHandler(BaseHTTPRequestHandler):
                 ]
             ):
                 s.wfile.write(
-                    b' <a href="/selectreplay/%s">%s</a> - '
-                    % (format_filters(update_filters(filters, "ai", value)), display)
+                    f' <a href="/selectreplay/{format_filters(update_filters(filters, "ai", value))}">{display}</a> - '.encode()
                 )
             s.wfile.write(
-                b' <a href="/selectreplay/%s">any</a></p>'
-                % (format_filters(update_filters(filters, "ai", "")))
+                f' <a href="/selectreplay/{format_filters(update_filters(filters, "ai", ""))}">any</a></p>'.encode()
             )
 
             s.wfile.write(b"<p>Score: ")
@@ -1051,12 +1048,10 @@ class MyHandler(BaseHTTPRequestHandler):
                 ]
             ):
                 s.wfile.write(
-                    b' <a href="/selectreplay/%s">%s</a> - '
-                    % (format_filters(update_filters(filters, "score", value)), display)
+                    f' <a href="/selectreplay/{format_filters(update_filters(filters, "score", value))}">{display}</a> - '.encode()
                 )
             s.wfile.write(
-                b' <a href="/selectreplay/%s">any</a></p>'
-                % (format_filters(update_filters(filters, "score", "")))
+                f' <a href="/selectreplay/{format_filters(update_filters(filters, "score", ""))}">any</a></p>'.encode()
             )
 
             s.wfile.write(b"<p>Deck: ")
@@ -1072,12 +1067,10 @@ class MyHandler(BaseHTTPRequestHandler):
                 ]
             ):
                 s.wfile.write(
-                    b' <a href="/selectreplay/%s">%s</a> - '
-                    % (format_filters(update_filters(filters, "deck", value)), display)
+                    f' <a href="/selectreplay/{format_filters(update_filters(filters, "deck", value))}">{display}</a> - '.encode()
                 )
             s.wfile.write(
-                b' <a href="/selectreplay/%s">any</a></p>'
-                % (format_filters(update_filters(filters, "deck", "")))
+                f' <a href="/selectreplay/{format_filters(update_filters(filters, "deck", ""))}">any</a></p>'.encode()
             )
 
             s.wfile.write(b"Select a replay to view:<br/><ul>")
@@ -1141,14 +1134,12 @@ class MyHandler(BaseHTTPRequestHandler):
                 % round
             )
             s.wfile.write(
-                b'<p>You may choose to use the same AI as the player that was playing the game by clicking <a href="/starttakeover/%s/%d/%s/%s/%s">here</a></p>\n'
-                % (gid, round + 1, ai, action, arg)
+                f'<p>You may choose to use the same AI as the player that was playing the game by clicking <a href="/starttakeover/{gid}/{round + 1}/{ai}/{action}/{arg}">here</a></p>\n'.encode()
             )
             s.wfile.write(b"<p>You may also choose any AI to play with:</p><ul>")
             for a in ais:
                 s.wfile.write(
-                    b'<li><a href="/starttakeover/%s/%d/%s/%s/%s">%s AI</a></li>'
-                    % (gid, round + 1, a, action, arg, a.capitalize())
+                    f'<li><a href="/starttakeover/{gid}/{round + 1}/{a}/{action}/{arg}">{a.capitalize()} AI</a></li>'.encode()
                 )
 
             s.wfile.write(b"</ul></p></body></html>")
@@ -1257,17 +1248,15 @@ class MyHandler(BaseHTTPRequestHandler):
     def add_choice(s, name, question, answers, default=-1):
         s.wfile.write(b"<p>")
         s.wfile.write((question + "<br/>").encode())
-        s.wfile.write(b'<fieldset id="%s">\n' % name)
+        s.wfile.write(f'<fieldset id="{name}">\n'.encode())
         for i, (aname, text) in enumerate(answers):
             if i == default:
                 s.wfile.write(
-                    b'<input name="%s" type="radio" value="%s" id="%s%s" checked="checked"/><label for="%s%s">%s</label><br/>\n'
-                    % (name, aname, name, aname, name, aname, text)
+                    f'<input name="{name}" type="radio" value="{aname}" id="{name}{aname}" checked="checked"/><label for="{name}{aname}">{text}</label><br/>\n'.encode()
                 )
             else:
                 s.wfile.write(
-                    b'<input name="%s" type="radio" value="%s" id="%s%s"/><label for="%s%s">%s</label><br/>\n'
-                    % (name, aname, name, aname, name, aname, text)
+                    f'<input name="{name}" type="radio" value="{aname}" id="{name}{aname}"/><label for="{name}{aname}">{text}</label><br/>\n'.encode()
                 )
         s.wfile.write(b"</fieldset>\n")
         s.wfile.write(b"</p>")
@@ -1275,7 +1264,7 @@ class MyHandler(BaseHTTPRequestHandler):
     def add_question(s, name, question):
         s.wfile.write(b"<p>")
         s.wfile.write((question + "<br/>").encode())
-        s.wfile.write(b'<input name="%s"/>\n' % name)
+        s.wfile.write(f'<input name="{name}"/>\n'.encode())
         s.wfile.write(b"</p>")
 
     def presurvey(s, gid, warn=False):
@@ -1286,7 +1275,7 @@ class MyHandler(BaseHTTPRequestHandler):
         s.wfile.write(b'<form action="/submitpost2" method="POST">')
         s.presurvey_questions()
         s.wfile.write(b"<p>")
-        s.wfile.write(b'<input name="gid" type="hidden" value="%s"/>\n' % gid)
+        s.wfile.write(f'<input name="gid" type="hidden" value="{gid}"/>\n'.encode())
         s.wfile.write(b'<input type="submit" value="Finish"/>\n')
         s.wfile.write(b"</form></td></tr></table></center>")
 
@@ -1410,7 +1399,7 @@ class MyHandler(BaseHTTPRequestHandler):
         s.wfile.write(b'<form action="/submitpost" method="POST">')
         s.postsurvey_questions()
         s.wfile.write(b"<p>")
-        s.wfile.write(b'<input name="gid" type="hidden" value="%s"/>\n' % gid)
+        s.wfile.write(f'<input name="gid" type="hidden" value="{gid}"/>\n'.encode())
         s.wfile.write(b'<input type="submit" value="Continue"/>\n')
         s.wfile.write(b"</form></td></tr></table></center>")
 
