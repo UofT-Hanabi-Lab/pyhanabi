@@ -130,7 +130,6 @@ def format_action(x, gid, replay=None):
         else:
             result += str(action.num) + "s"
     if i == 0:
-        link = ''
         if debug:
             if replay:
                 (gid,round,info) = replay
@@ -295,14 +294,14 @@ def make_card_image(x, links=None, highlight=False):
                        </a>
                        """%(target, ly, text)
         ly += 23
-    l = 35 # left
-    r = 90 # right
-    c = 62 # center (horizontal)
+    left = 35 # left
+    right = 90 # right
+    center_h = 62 # center (horizontal)
     
-    t = 45 # top
-    m = 70 # middle (vertical)
-    b = 95 # bottom
-    circles = {0: [], 1: [(c,m)], 2: [(l,t),(r,b)], 3: [(l,b), (r,b), (c,t)], 4: [(l,b), (r,b), (l,t), (r,t)], 5:[(l,b), (r,b), (l,t), (r,t), (c,m)]}
+    top = 45 # top
+    middle_v = 70 # middle (vertical)
+    bottom = 95 # bottom
+    circles = {0: [], 1: [(center_h,middle_v)], 2: [(left,top),(right,bottom)], 3: [(left,bottom), (right,bottom), (center_h,top)], 4: [(left,bottom), (right,bottom), (left,top), (right,top)], 5:[(left,bottom), (right,bottom), (left,top), (right,top), (center_h,middle_v)]}
     circ = "\n".join(map(lambda x: make_circle(x[0],x[1],hanabi.COLORNAMES[col]), circles[num]))
     highlighttext = ""
     if highlight:
@@ -451,16 +450,16 @@ def get_replay_info(fname):
     deck = None
     score = None
     try:
-        for l in f:
-            if l.startswith("Treatment:"):
+        for line in f:
+            if line.startswith("Treatment:"):
                 try:
-                    items = l.strip().split()
+                    items = line.strip().split()
                     ai = items[-2].strip("'(,")
                     deck = int(items[-1].strip(")"))
                 except Exception:
                     deck = None
-            elif l.startswith("Score"):
-                items = l.strip().split()
+            elif line.startswith("Score"):
+                items = line.strip().split()
                 score = int(items[1])
     except Exception:
         f.close()
@@ -472,9 +471,9 @@ def get_replay_info(fname):
 def get_replay_root(fname):
     f = open(fname)
     parent = None
-    for l in f:
-        if l.startswith("Old GID:"):
-            parent = l[8:].strip()
+    for line in f:
+        if line.startswith("Old GID:"):
+            parent = line[8:].strip()
             break
     f.close()
     if parent:
@@ -604,7 +603,6 @@ class MyHandler(BaseHTTPRequestHandler):
         if s.path.startswith("/consent"):
             s.consentform()
             return
-        doaction = True
         replay = False
         if path.startswith("/new/study/"):
             oldgid = path[11:]
@@ -707,18 +705,18 @@ class MyHandler(BaseHTTPRequestHandler):
                 if s == "None":
                     return None
                 return int(s)
-            for l in f:
-                if l.startswith("Treatment:"):
+            for line in f:
+                if line.startswith("Treatment:"):
                     try:
-                        items = l.strip().split()
+                        items = line.strip().split()
                         ai = items[-2].strip("'(,")
                         players[0].realplayer = ais[ai](ai, 0)
                         deck = int(items[-1].strip(")"))
                         
                     except Exception:
                         deck = None
-                elif l.startswith("MOVE:"):
-                    items = map(lambda s: s.strip(), l.strip().split())
+                elif line.startswith("MOVE:"):
+                    items = map(lambda s: s.strip(), line.strip().split())
                     const, pnum, type, cnr, pnr, col, num = items
                     a = hanabi.Action(convert(type), convert(pnr), convert(col), convert(num), convert(cnr))
                     players[int(pnum)].actions.append(a)
@@ -736,7 +734,6 @@ class MyHandler(BaseHTTPRequestHandler):
             game.started = time.time()
             for i in range(round):
                 game.single_turn()
-            doaction = False
             turn = -1
             gid = ""
         elif path.startswith("/starttakeover/"):
@@ -770,15 +767,15 @@ class MyHandler(BaseHTTPRequestHandler):
                 if s == "None":
                     return None
                 return int(s)
-            for l in f:
-                if l.startswith("Treatment:"):
+            for line in f:
+                if line.startswith("Treatment:"):
                     try:
-                        items = l.strip().split()
+                        items = line.strip().split()
                         deck = int(items[-1].strip(")"))
                     except Exception:
                         deck = None
-                elif l.startswith("MOVE:"):
-                    items = map(lambda s: s.strip(), l.strip().split())
+                elif line.startswith("MOVE:"):
+                    items = map(lambda s: s.strip(), line.strip().split())
                     const, pnum, type, cnr, pnr, col, num = items
                     a = hanabi.Action(convert(type), convert(pnr), convert(col), convert(num), convert(cnr))
                     players[int(pnum)].actions.append(a)
@@ -805,7 +802,6 @@ class MyHandler(BaseHTTPRequestHandler):
                 game.single_turn()
             game.players[0] = game.players[0].realplayer
             game.current_player = 1
-            doaction = False
             turn = round+1
             gameslock.acquire()
             games[gid] = (game,players[1],turn)
@@ -823,9 +819,9 @@ class MyHandler(BaseHTTPRequestHandler):
                 return
             f = open(fname)
             answers = {}
-            for l in f:
-                if l.strip():
-                    q,a = l.split(None, 1)
+            for line in f:
+                if line.strip():
+                    q,a = line.split(None, 1)
                     answers[q.strip()] = a.strip()
             f.close()
             s.wfile.write(b"<html><head><title>Hanabi</title></head>\n")
