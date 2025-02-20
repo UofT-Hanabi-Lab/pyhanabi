@@ -1,5 +1,3 @@
-
-
 consent = """<center><table width="800px"><tr><td>
 <font size="16"><b>NC State University<br/> </font>
 INFORMED CONSENT FORM for RESEARCH<br/></b>

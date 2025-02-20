@@ -1,5 +1,3 @@
-
-
 intro = """
 <h1>Short introduction to the Hanabi User Interface</h1>
 <table width="800px"><tr><td>
@@ -35,4 +33,3 @@ summary = """
 The game lasts until either the last card is drawn, plus one additional turn for each player, or until 3 mistakes have been made.
 </td></tr></table>
 """
-
