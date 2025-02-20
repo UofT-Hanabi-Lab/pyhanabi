@@ -1076,14 +1076,14 @@ class MyHandler(BaseHTTPRequestHandler):
             s.wfile.write(b"Select a replay to view:<br/><ul>")
             replays = []
 
-            def match(f, ai, deck, score):
-                if "ai" in f and ai != f["ai"]:
+            def match(filters, ai, deck, score):
+                if "ai" in filters and ai != filters["ai"]:
                     return False
-                if "score" in f and (score is None or score / 5 != int(f["score"])):
+                if "score" in filters and (score is None or score // 5 != int(filters["score"])):
                     return False
-                if "deck" in f and (
-                    (str(deck) != f["deck"] and f["deck"] != "other")
-                    or (f["deck"] == "other" and deck <= 5)
+                if "deck" in filters and (
+                    (str(deck) != filters["deck"] and filters["deck"] != "other")
+                    or (filters["deck"] == "other" and deck <= 5)
                 ):
                     return False
 
