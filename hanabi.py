@@ -84,6 +84,10 @@ def hint_rank(knowledge, rank, truth):
 
 
 def iscard(x):
+    """
+    Given a card identity, create a matrix representation where the only
+    possible identity is the input's identity.
+    """
     (c, n) = x
     knowledge = []
     for col in Color:
@@ -126,7 +130,7 @@ class Action:
         self.pnr = pnr
         self.col = col
         self.num = num
-        self.cnr = cnr
+        self.cnr = cnr  # card number (i.e. index)
 
     def __str__(self):
         if self.action_type == Action.ActionType.HINT_COLOR:
@@ -183,6 +187,9 @@ class Player:
 
 
 def get_possible(knowledge):
+    """
+    Get all the possible identities for a card given the current knowledge.
+    """
     result = []
     for col in Color:
         for i, cnt in enumerate(knowledge[col]):
@@ -191,30 +198,54 @@ def get_possible(knowledge):
     return result
 
 
-def playable(possible, board):
+def playable(possible, board, dead_colors=None):
+    """
+    Return True iff every possible identity for this card is playable.
+    """
+    if dead_colors is None:
+        dead_colors = {color: 5 for color in Color}
+    
     for col, nr in possible:
-        if board[col][1] + 1 != nr:
+        if board[col][1] + 1 != nr or nr > dead_colors[col]:
             return False
     return True
 
 
-def potentially_playable(possible, board):
+def potentially_playable(possible, board, dead_colors=None):
+    """
+    Return True iff at least one possible identity for this card is playable.
+    """
+    if dead_colors is None:
+        dead_colors = {color: 5 for color in Color}
+
     for col, nr in possible:
-        if board[col][1] + 1 == nr:
+        if board[col][1] + 1 == nr and nr <= dead_colors[col]:
             return True
     return False
 
 
-def discardable(possible, board):
+def discardable(possible, board, dead_colors=None):
+    """
+    Return True iff every possible identity for this card is discardable.
+    """
+    if dead_colors is None:
+        dead_colors = {color: 5 for color in Color}
+
     for col, nr in possible:
-        if board[col][1] < nr:
+        if board[col][1] < nr and nr <= dead_colors[col]:
             return False
     return True
 
 
-def potentially_discardable(possible, board):
+def potentially_discardable(possible, board, dead_colors=None):
+    """
+    Return True iff at least one possible identity for this card is discardable.
+    """
+    if dead_colors is None:
+        dead_colors = {color: 5 for color in Color}
+
     for col, nr in possible:
-        if board[col][1] >= nr:
+        if board[col][1] >= nr or nr > dead_colors[col]:
             return True
     return False
 
@@ -694,10 +725,10 @@ def format_intention(i: str | Intent | None) -> str:
         raise ValueError("Unexpected intent value")
 
 
-def whattodo(knowledge, pointed, board) -> Action.ActionType | None:
+def whattodo(knowledge, pointed, board, dead_colors=None) -> Action.ActionType | None:
     possible = get_possible(knowledge)
-    play = potentially_playable(possible, board)
-    discard = potentially_discardable(possible, board)
+    play = potentially_playable(possible, board, dead_colors)
+    discard = potentially_discardable(possible, board, dead_colors)
 
     if play and pointed:
         return Action.ActionType.PLAY
@@ -706,7 +737,14 @@ def whattodo(knowledge, pointed, board) -> Action.ActionType | None:
     return None
 
 
-def pretend(action, knowledge, intentions, hand, board):
+def pretend(action, knowledge, intentions, hand, board, trash, ignore_dead=False):
+    """
+    Pretend to give a hint and evaluates its effect on hand knowledge,
+    and the score of the game.
+    - if no cards match the hint, the hint is invalid
+    - tracks how much this hint would improve the player's future moves
+    - predict what each player would likely do with their cards after receiving the hint
+    """
     (action_type, value) = action
     positive = []
     haspositive = False
@@ -734,12 +772,17 @@ def pretend(action, knowledge, intentions, hand, board):
         return False, 0, ["Invalid hint"]
     if not change:
         return False, 0, ["No new information"]
+    
+    if ignore_dead:
+        dead_colors = highest_playable_cards(board, trash)
+    else:
+        dead_colors = None
+
     score = 0
     predictions: list[Intent | None] = []
     pos = False
     for i, c, k, p in zip(intentions, hand, newknowledge, positive):
-        predicted_action = whattodo(k, p, board)
-
+        predicted_action = whattodo(k, p, board, dead_colors)
         if predicted_action == Action.ActionType.PLAY and i != Intent.PLAY:
             # print("would cause them to play", f(c))
             return False, 0, predictions + [Intent.PLAY]
@@ -775,7 +818,7 @@ def pretend(action, knowledge, intentions, hand, board):
 HINT_VALUE = 0.5
 
 
-def pretend_discard(act, knowledge, board, trash):
+def pretend_discard(act, knowledge, board, trash, ignore_dead=False):
     which = copy.deepcopy(knowledge[act.cnr])
     for col, num in trash:
         if which[col][num - 1]:
@@ -787,12 +830,16 @@ def pretend_discard(act, knowledge, board, trash):
     possibilities = sum(list(map(sum, which)))
     expected = 0
     terms = []
+    if ignore_dead:
+        dead_colors = highest_playable_cards(board, trash)
+    else:
+        dead_colors = {color: 5 for color in Color}
     for col in Color:
         for i, cnt in enumerate(which[col]):
             rank = i + 1
             if cnt > 0:
                 prob = cnt * 1.0 / possibilities
-                if board[col][1] >= rank:
+                if board[col][1] >= rank or rank > dead_colors[col]:
                     expected += prob * HINT_VALUE
                     terms.append((col, rank, cnt, prob, prob * HINT_VALUE))
                 else:
@@ -840,14 +887,16 @@ class IntentionalPlayer(Player):
     ):
         handsize = len(knowledge[0])
         possible = []
-        result = None
+        result = None  # the action the player will choose
         self.explanation = []
         self.explanation.append(["Your Hand:"] + list(map(f, hands[1 - nr])))
 
+        # Get all possible identities for each card
         self.gothint = None
         for k in knowledge[nr]:
             possible.append(get_possible(k))
 
+        # Identify discards and playable cards
         discards = []
         for i, p in enumerate(possible):
             if playable(p, board):
@@ -855,9 +904,11 @@ class IntentionalPlayer(Player):
             if discardable(p, board):
                 discards.append(i)
 
+        # If no play is possible, discard
         if discards and hints < 8 and not result:
             result = Action(Action.ActionType.DISCARD, cnr=random.choice(discards))
 
+        # Track the goal for the other player's hand
         playables = []
         useless = []
         discardables = []
@@ -882,14 +933,15 @@ class IntentionalPlayer(Player):
         self.explanation.append(
             ["Intentions"] + list(map(format_intention, intentions))
         )
-
+        
+        # Choose a hint if possible
         if hints > 0:
             valid = []
             for c in Color:
                 action = (Action.ActionType.HINT_COLOR, c)
                 # print("HINT", COLORNAMES[c],)
                 (isvalid, score, expl) = pretend(
-                    action, knowledge[1 - nr], intentions, hands[1 - nr], board
+                    action, knowledge[1 - nr], intentions, hands[1 - nr], board, trash
                 )
                 self.explanation.append(
                     ["Prediction for: Hint Color " + c.display_name]
@@ -905,7 +957,7 @@ class IntentionalPlayer(Player):
                 # print("HINT", r,)
 
                 (isvalid, score, expl) = pretend(
-                    action, knowledge[1 - nr], intentions, hands[1 - nr], board
+                    action, knowledge[1 - nr], intentions, hands[1 - nr], board, trash
                 )
                 self.explanation.append(
                     ["Prediction for: Hint Rank " + str(r)]
@@ -974,6 +1026,27 @@ class IntentionalPlayer(Player):
             self.last_board = game.board[:]
             self.last_trash = game.trash[:]
             self.played = game.played[:]
+
+
+def highest_playable_cards(board, trash):
+    """
+    Identifies "dead" colors. A dead color is defined as a color whose pile cannot
+    be completed because all copies of a necessary card have been used (discarded).
+    
+    Returns a mapping of colors to the highest card that can still be played,
+    given the current discard pile.
+    """
+    dead_colors = {}
+    for col in Color:
+        dead_colors[col] = 5  # Initialize all colors as possible to complete
+        # For each color, find the highest rank that is still achievable
+        for nr in range(board[col][1] + 1, 5 + 1):
+            available = COUNTS[nr - 1]
+            used = trash.count((col, nr))
+            if available == used:
+                dead_colors[col] = nr - 1
+                break
+    return dead_colors
 
 
 class SelfIntentionalPlayer(Player):
@@ -1066,7 +1139,7 @@ class SelfIntentionalPlayer(Player):
                 action = (Action.ActionType.HINT_COLOR, c)
                 # print("HINT", COLORNAMES[c],)
                 (isvalid, score, expl) = pretend(
-                    action, knowledge[1 - nr], intentions, hands[1 - nr], board
+                    action, knowledge[1 - nr], intentions, hands[1 - nr], board, trash
                 )
                 self.explanation.append(
                     ["Prediction for: Hint Color " + c.display_name]
@@ -1082,7 +1155,7 @@ class SelfIntentionalPlayer(Player):
                 # print("HINT", r,)
 
                 (isvalid, score, expl) = pretend(
-                    action, knowledge[1 - nr], intentions, hands[1 - nr], board
+                    action, knowledge[1 - nr], intentions, hands[1 - nr], board, trash
                 )
                 self.explanation.append(
                     ["Prediction for: Hint Rank " + str(r)]
@@ -1141,6 +1214,175 @@ class SelfIntentionalPlayer(Player):
             Action.ActionType.HINT_NUMBER,
         }:
             self.gothint = (action, player)
+
+
+class ImprovedSelfIntentionalPlayer(Player):
+    def __init__(self, name, pnr):
+        super().__init__(name, pnr)
+        self.hints = {}
+        self.pnr = pnr
+        self.gothint = None
+        self.last_knowledge = []
+        self.last_played = []
+        self.last_board = []
+
+    def get_action(
+        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
+    ):
+        handsize = len(knowledge[0])
+        possible = []
+        result = None
+        self.explanation = []
+        self.explanation.append(["Your Hand:"] + list(map(f, hands[1 - nr])))
+        action = []
+        dead_colors = highest_playable_cards(board, trash)
+
+        if self.gothint:
+            (act, plr) = self.gothint
+            if act.type == Action.ActionType.HINT_COLOR:
+                for k in knowledge[nr]:
+                    action.append(whattodo(k, sum(k[act.col]) > 0, board, dead_colors))
+            elif act.type == Action.ActionType.HINT_NUMBER:
+                for k in knowledge[nr]:
+                    cnt = 0
+                    for c in Color:
+                        cnt += k[c][act.num - 1]
+                    action.append(whattodo(k, cnt > 0, board, dead_colors))
+
+        if action:
+            self.explanation.append(
+                ["What you want me to do"] + list(map(format_intention, action))
+            )
+            for i, a in enumerate(action):
+                if a == Action.ActionType.PLAY and (not result or result.type == Action.ActionType.DISCARD):
+                    result = Action(Action.ActionType.PLAY, cnr=i)
+                elif a == Action.ActionType.DISCARD and not result:
+                    result = Action(Action.ActionType.DISCARD, cnr=i)
+
+        self.gothint = None
+        for k in knowledge[nr]:
+            possible.append(get_possible(k))
+
+        discards = []
+        duplicates = []
+        for i, p in enumerate(possible):
+            if playable(p, board, dead_colors) and not result:
+                result = Action(Action.ActionType.PLAY, cnr=i)
+            if discardable(p, board, dead_colors):
+                discards.append(i)
+
+        if discards and hints < 8 and not result:
+            result = Action(Action.ActionType.DISCARD, cnr=random.choice(discards))
+
+        playables = []
+        useless = []
+        discardables = []
+        othercards = trash + board
+        intentions = list[Intent | None] = [None for _ in list(range(handsize))]
+        for i, h in enumerate(hands):
+            if i != nr:
+                for j, (col, n) in enumerate(h):
+                    if board[col][1] + 1 == n and n <= dead_colors[col]:
+                        playables.append((i, j))
+                        intentions[j] = Intent.PLAY
+                    if board[col][1] >= n or n > dead_colors[col]:
+                        useless.append((i, j))
+                        if not intentions[j]:
+                            intentions[j] = Intent.DISCARD
+                    if n < 5 and (col, n) not in othercards and n <= dead_colors[col]:
+                        discardables.append((i, j))
+                        if not intentions[j]:
+                            intentions[j] = Intent.CAN_DISCARD
+
+        self.explanation.append(
+            ["Intentions"] + list(map(format_intention, intentions))
+        )
+
+        if hints > 0:
+            valid = []
+            for c in Color:
+                action = (Action.ActionType.HINT_COLOR, c)
+                (isvalid, score, expl) = pretend(
+                    action, knowledge[1 - nr], intentions, hands[1 - nr], board, trash, ignore_dead=True
+                )
+                self.explanation.append(
+                    ["Prediction for: Hint Color " + c.display_name]
+                    + list(map(format_intention, expl))
+                )
+                if isvalid:
+                    valid.append((action, score))
+
+            for r in range(5):
+                r += 1
+                action = (Action.ActionType.HINT_NUMBER, r)
+
+                (isvalid, score, expl) = pretend(
+                    action, knowledge[1 - nr], intentions, hands[1 - nr], board, trash, ignore_dead=True
+                )
+                self.explanation.append(
+                    ["Prediction for: Hint Rank " + str(r)]
+                    + list(map(format_intention, expl))
+                )
+                if isvalid:
+                    valid.append((action, score))
+
+            if valid and not result:
+                valid.sort(key=lambda x: -x[1])
+                (a, s) = valid[0]
+                if a[0] == Action.ActionType.HINT_COLOR:
+                    result = Action(Action.ActionType.HINT_COLOR, pnr=1 - nr, col=a[1])
+                else:
+                    result = Action(Action.ActionType.HINT_NUMBER, pnr=1 - nr, num=a[1])
+
+        self.explanation.append(
+            ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
+        )
+        possible = [Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))]
+
+        scores = list(
+            map(lambda p: pretend_discard(p, knowledge[nr], board, trash, ignore_dead=True), possible)
+        )
+
+        def format_term(x):
+            (col, rank, _, prob, val) = x
+            return (
+                col.display_name
+                + " "
+                + str(rank)
+                + " (%.2f%%): %.2f" % (prob * 100, val)
+            )
+
+        self.explanation.append(
+            ["Discard Scores"]
+            + list(
+                map(
+                    lambda x: "\n".join(map(format_term, x[2])) + "\n%.2f" % (x[1]),
+                    scores,
+                )
+            )
+        )
+        scores.sort(key=lambda x: -x[1])
+        if result:
+            return result
+        return scores[0][0]
+
+    def inform(self, action, player, game):
+        if action.type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
+            x = str(action)
+            if (action.cnr, player) in self.hints:
+                self.hints[(action.cnr, player)] = []
+            for i in range(10):
+                if (action.cnr + i + 1, player) in self.hints:
+                    self.hints[(action.cnr + i, player)] = self.hints[
+                        (action.cnr + i + 1, player)
+                    ]
+                    self.hints[(action.cnr + i + 1, player)] = []
+        elif action.pnr == self.pnr:
+            self.gothint = (action, player)
+            self.last_knowledge = game.knowledge[:]
+            self.last_board = game.board[:]
+            self.last_trash = game.trash[:]
+            self.played = game.played[:]
 
 
 def do_sample(knowledge):
@@ -1363,20 +1605,22 @@ class FullyIntentionalPlayer(Player):
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
     ):
         handsize = len(knowledge[0])
-        possible = []
+        possible = []  # list[list[(color, rank)]] for each card in the hand
 
         self.gothint = None
         for k in knowledge[nr]:
             possible.append(get_possible(k))
 
-        discards = []
-        plays = []
+        # for the current player, get the cards that are certainly playable and certainly discardable
+        discards = []  # index of certainly discardable cards in the hand
+        plays = []  # index of certainly playable cards in the hand
         for i, p in enumerate(possible):
             if playable(p, board):
                 plays.append(i)
             if discardable(p, board):
                 discards.append(i)
 
+        # for all other players, determine the ideal goal for each of their cards
         playables = []
         useless = []
         discardables = []
@@ -1397,13 +1641,15 @@ class FullyIntentionalPlayer(Player):
                         if not intentions[j]:
                             intentions[j] = Intent.CAN_DISCARD
 
+        # determine a score for each of the hints you can possibly give,
+        # and give the color or rank hint with the highest calculated score
         if hints > 0:
             valid = []
             for c in Color:
                 action = (Action.ActionType.HINT_COLOR, c)
                 # print("HINT", COLORNAMES[c],)
                 (isvalid, score) = pretend(
-                    action, knowledge[1 - nr], intentions, hands[1 - nr], board
+                    action, knowledge[1 - nr], intentions, hands[1 - nr], board, trash
                 )
                 # print(isvalid, score)
                 if isvalid:
@@ -1414,7 +1660,7 @@ class FullyIntentionalPlayer(Player):
                 action = (Action.ActionType.HINT_NUMBER, r)
                 # print("HINT", r,)
                 (isvalid, score) = pretend(
-                    action, knowledge[1 - nr], intentions, hands[1 - nr], board
+                    action, knowledge[1 - nr], intentions, hands[1 - nr], board, trash
                 )
                 # print(isvalid, score)
                 if isvalid:
