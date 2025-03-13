@@ -85,45 +85,7 @@ class SelfIntentionalPlayer(Player):
         )
 
         if hints > 0:
-            valid = []
-            for c in ALL_COLORS:
-                action = (HINT_COLOR, c)
-                # print("HINT", COLORNAMES[c],)
-                (isvalid, score, expl) = pretend(
-                    action, knowledge[1 - nr], intentions, hands[1 - nr], board
-                )
-                self.explanation.append(
-                    ["Prediction for: Hint Color " + COLORNAMES[c]]
-                    + list(map(format_intention, expl))
-                )
-                # print(isvalid, score)
-                if isvalid:
-                    valid.append((action, score))
-
-            for r in range(5):
-                r += 1
-                action = (HINT_NUMBER, r)
-                # print("HINT", r,)
-
-                (isvalid, score, expl) = pretend(
-                    action, knowledge[1 - nr], intentions, hands[1 - nr], board
-                )
-                self.explanation.append(
-                    ["Prediction for: Hint Rank " + str(r)]
-                    + list(map(format_intention, expl))
-                )
-                # print(isvalid, score)
-                if isvalid:
-                    valid.append((action, score))
-
-            if valid and not result:
-                valid.sort(key=lambda x: -x[1])
-                # print(valid)
-                (a, s) = valid[0]
-                if a[0] == HINT_COLOR:
-                    result = Action(HINT_COLOR, pnr=1 - nr, col=a[1])
-                else:
-                    result = Action(HINT_NUMBER, pnr=1 - nr, num=a[1])
+            result = self.give_hint(board, hands, intentions, knowledge, nr, result)
 
         self.explanation.append(
             ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
@@ -156,6 +118,46 @@ class SelfIntentionalPlayer(Player):
         if result:
             return result
         return scores[0][0]
+
+    def give_hint(self, board, hands, intentions, knowledge, nr, result):
+        valid = []
+        for c in ALL_COLORS:
+            action = (HINT_COLOR, c)
+            # print("HINT", COLORNAMES[c],)
+            (isvalid, score, expl) = pretend(
+                action, knowledge[1 - nr], intentions, hands[1 - nr], board
+            )
+            self.explanation.append(
+                ["Prediction for: Hint Color " + COLORNAMES[c]]
+                + list(map(format_intention, expl))
+            )
+            # print(isvalid, score)
+            if isvalid:
+                valid.append((action, score))
+        for r in range(5):
+            r += 1
+            action = (HINT_NUMBER, r)
+            # print("HINT", r,)
+
+            (isvalid, score, expl) = pretend(
+                action, knowledge[1 - nr], intentions, hands[1 - nr], board
+            )
+            self.explanation.append(
+                ["Prediction for: Hint Rank " + str(r)]
+                + list(map(format_intention, expl))
+            )
+            # print(isvalid, score)
+            if isvalid:
+                valid.append((action, score))
+        if valid and not result:
+            valid.sort(key=lambda x: -x[1])
+            # print(valid)
+            (a, s) = valid[0]
+            if a[0] == HINT_COLOR:
+                result = Action(HINT_COLOR, pnr=1 - nr, col=a[1])
+            else:
+                result = Action(HINT_NUMBER, pnr=1 - nr, num=a[1])
+        return result
 
     def inform(self, action, player, game):
         if action.type in [PLAY, DISCARD]:
