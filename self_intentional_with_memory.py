@@ -4,7 +4,7 @@ from hanabi import Player, HINT_COLOR, whattodo, HINT_NUMBER, ALL_COLORS, format
     get_possible, playable, discardable, CANDISCARD, pretend, COLORNAMES, format_knowledge, pretend_discard, f
 
 
-class SelfIntentionalPlayer(Player):
+class SelfIntentionalPlayerWithMemory(Player):
     def __init__(self, name, pnr):
         super().__init__(name)
         self.hints = {}
