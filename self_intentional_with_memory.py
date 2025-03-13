@@ -1,7 +1,25 @@
 import random
 
-from hanabi import Player, HINT_COLOR, whattodo, HINT_NUMBER, ALL_COLORS, format_intention, DISCARD, PLAY, Action, \
-    get_possible, playable, discardable, CANDISCARD, pretend, COLORNAMES, format_knowledge, pretend_discard, f
+from hanabi import (
+    Player,
+    HINT_COLOR,
+    whattodo,
+    HINT_NUMBER,
+    ALL_COLORS,
+    format_intention,
+    DISCARD,
+    PLAY,
+    Action,
+    get_possible,
+    playable,
+    discardable,
+    pretend,
+    COLORNAMES,
+    format_knowledge,
+    pretend_discard,
+    f,
+    Intent,
+)
 
 
 class SelfIntentionalPlayerWithMemory(Player):
@@ -13,6 +31,9 @@ class SelfIntentionalPlayerWithMemory(Player):
         self.last_knowledge = []
         self.last_played = []
         self.last_board = []
+        self._intents_conveyed: list[Intent | None] = [
+            None for _ in range(self._hand_size)
+        ]
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -60,25 +81,7 @@ class SelfIntentionalPlayerWithMemory(Player):
         if discards and hints < 8 and not result:
             result = Action(DISCARD, cnr=random.choice(discards))
 
-        playables = []
-        useless = []
-        discardables = []
-        othercards = trash + board
-        intentions = [None for i in list(range(handsize))]
-        for i, h in enumerate(hands):
-            if i != nr:
-                for j, (col, n) in enumerate(h):
-                    if board[col][1] + 1 == n:
-                        playables.append((i, j))
-                        intentions[j] = PLAY
-                    if board[col][1] >= n:
-                        useless.append((i, j))
-                        if not intentions[j]:
-                            intentions[j] = DISCARD
-                    if n < 5 and (col, n) not in othercards:
-                        discardables.append((i, j))
-                        if not intentions[j]:
-                            intentions[j] = CANDISCARD
+        intentions: list[Intent] = self.generate_intents(board, hands, nr, trash)
 
         self.explanation.append(
             ["Intentions"] + list(map(format_intention, intentions))
@@ -118,6 +121,28 @@ class SelfIntentionalPlayerWithMemory(Player):
         if result:
             return result
         return scores[0][0]
+
+    def generate_intents(self, board, hands, nr, trash) -> list[Intent]:
+        playables = []
+        useless = []
+        discardables = []
+        othercards = trash + board
+        intentions = [Intent.KEEP for _ in range(self._hand_size)]
+
+        for i, h in enumerate(hands):
+            if i != nr:
+                for j, (col, n) in enumerate(h):
+                    if board[col][1] + 1 == n:
+                        playables.append((i, j))
+                        intentions[j] = Intent.PLAY
+                    elif board[col][1] >= n:
+                        useless.append((i, j))
+                        intentions[j] = Intent.DISCARD
+                    elif n < 5 and (col, n) not in othercards:
+                        discardables.append((i, j))
+                        intentions[j] = Intent.CAN_DISCARD
+
+        return intentions
 
     def give_hint(self, board, hands, intentions, knowledge, nr, result):
         valid = []

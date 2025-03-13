@@ -4,6 +4,7 @@ import random
 import sys
 import copy
 import time
+from enum import IntEnum
 from typing import Final
 
 GREEN = 0
@@ -15,6 +16,13 @@ ALL_COLORS = [GREEN, YELLOW, WHITE, BLUE, RED]
 COLORNAMES = ["green", "yellow", "white", "blue", "red"]
 
 COUNTS = [3, 2, 2, 2, 1]
+
+
+class Intent(IntEnum):
+    KEEP = 0
+    PLAY = 2
+    DISCARD = 3
+    CAN_DISCARD = 128
 
 
 # semi-intelligently format cards in any format
@@ -650,7 +658,7 @@ class TimedPlayer(object):
 CANDISCARD = 128
 
 
-def format_intention(i):
+def format_intention(i: int | str | Intent) -> str:
     if isinstance(i, str):
         return i
     if i == PLAY:
@@ -712,7 +720,7 @@ def pretend(action, knowledge, intentions, hand, board):
             # print("would cause them to play", f(c))
             return False, 0, predictions + [PLAY]
 
-        if action == DISCARD and i not in [DISCARD, CANDISCARD]:
+        if action == DISCARD and i not in {Intent.DISCARD, Intent.CAN_DISCARD}:
             # print("would cause them to discard", f(c))
             return False, 0, predictions + [DISCARD]
 
@@ -720,7 +728,7 @@ def pretend(action, knowledge, intentions, hand, board):
             pos = True
             predictions.append(PLAY)
             score += 3
-        elif action == DISCARD and i in [DISCARD, CANDISCARD]:
+        elif action == DISCARD and i in {Intent.DISCARD, Intent.CAN_DISCARD}:
             pos = True
             predictions.append(DISCARD)
             if i == DISCARD:
