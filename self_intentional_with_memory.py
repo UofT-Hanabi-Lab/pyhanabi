@@ -6,7 +6,7 @@ from hanabi import Player, HINT_COLOR, whattodo, HINT_NUMBER, ALL_COLORS, format
 
 class SelfIntentionalPlayer(Player):
     def __init__(self, name, pnr):
-        super().__init__(name, pnr)
+        super().__init__(name)
         self.hints = {}
         self.pnr = pnr
         self.gothint = None

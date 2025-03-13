@@ -451,7 +451,7 @@ participantstarts = {}
 
 class HTTPPlayer(hanabi.Player):
     def __init__(self, name, pnr):
-        super().__init__(name, pnr)
+        super().__init__(name)
         self.pnr = pnr
         self.actions = []
         self.knows = [set() for i in range(5)]
@@ -543,7 +543,7 @@ class ReplayHTTPPlayer(HTTPPlayer):
 
 class ReplayPlayer(hanabi.Player):
     def __init__(self, name, pnr):
-        super(ReplayPlayer, self).__init__(name, pnr)
+        super(ReplayPlayer, self).__init__(name)
         self.actions = []
         self.realplayer = None
 

@@ -4,6 +4,7 @@ import random
 import sys
 import copy
 import time
+from typing import Final
 
 GREEN = 0
 YELLOW = 1
@@ -121,9 +122,11 @@ class Action(object):
         )
 
 
-class Player(object):
-    def __init__(self, name, pnr):
+class Player:
+    def __init__(self, name, hand_size=5):
         self.name = name
+        self._hand_size: Final[int] = hand_size
+
         self.explanation = []
 
     def get_action(
@@ -185,7 +188,7 @@ def update_knowledge(knowledge, used):
 
 class InnerStatePlayer(Player):
     def __init__(self, name, pnr):
-        super().__init__(name, pnr)
+        super().__init__(name)
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -246,7 +249,7 @@ class InnerStatePlayer(Player):
 
 class OuterStatePlayer(Player):
     def __init__(self, name, pnr):
-        super().__init__(name, pnr)
+        super().__init__(name)
         self.hints = {}
         self.pnr = pnr
 
@@ -379,7 +382,7 @@ a = 1
 
 class SelfRecognitionPlayer(Player):
     def __init__(self, name, pnr, other=OuterStatePlayer):
-        super().__init__(name, pnr)
+        super().__init__(name)
         self.hints = {}
         self.pnr = pnr
         self.gothint = None
@@ -779,7 +782,7 @@ def format_knowledge(k):
 
 class IntentionalPlayer(Player):
     def __init__(self, name, pnr):
-        super().__init__(name, pnr)
+        super().__init__(name)
         self.hints = {}
         self.pnr = pnr
         self.gothint = None
@@ -932,7 +935,7 @@ class IntentionalPlayer(Player):
 
 class SelfIntentionalPlayer(Player):
     def __init__(self, name, pnr):
-        super().__init__(name, pnr)
+        super().__init__(name)
         self.hints = {}
         self.pnr = pnr
         self.gothint = None
@@ -1139,7 +1142,7 @@ for c in ALL_COLORS:
 
 class SamplingRecognitionPlayer(Player):
     def __init__(self, name, pnr, other=IntentionalPlayer, maxtime=5000):
-        super().__init__(name, pnr)
+        super().__init__(name)
         self.hints = {}
         self.pnr = pnr
         self.gothint = None
@@ -1321,7 +1324,7 @@ class SamplingRecognitionPlayer(Player):
 
 class FullyIntentionalPlayer(Player):
     def __init__(self, name, pnr):
-        super().__init__(name, pnr)
+        super().__init__(name)
         self.hints = {}
         self.pnr = pnr
         self.gothint = None
