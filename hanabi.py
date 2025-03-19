@@ -1504,7 +1504,7 @@ class Game(object):
     def perform(self, action):
         for p in self.players:
             p.inform(action, self.current_player, self)
-        if format:
+        if self.format:
             print(
                 "MOVE:",
                 self.current_player,
