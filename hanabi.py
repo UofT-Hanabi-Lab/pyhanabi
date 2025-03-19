@@ -96,7 +96,7 @@ PLAY = 2
 DISCARD = 3
 
 
-class Action(object):
+class Action:
     def __init__(self, type, pnr=None, col=None, num=None, cnr=None):
         self.type = type
         self.pnr = pnr

@@ -71,7 +71,6 @@ class SelfIntentionalPlayerWithMemory(Player):
             possible.append(get_possible(k))
 
         discards = []
-        duplicates = []
         for i, p in enumerate(possible):
             if playable(p, board) and not result:
                 result = Action(PLAY, cnr=i)
@@ -144,8 +143,8 @@ class SelfIntentionalPlayerWithMemory(Player):
 
         return intentions
 
-    def give_hint(self, board, hands, intentions, knowledge, nr, result):
-        valid = []
+    def give_hint(self, board, hands, intentions, knowledge, nr, result) -> Action:
+        valid: list[tuple[tuple[int, int], int, list[int | None]]] = []
         for c in ALL_COLORS:
             action = (HINT_COLOR, c)
             # print("HINT", COLORNAMES[c],)
@@ -158,7 +157,8 @@ class SelfIntentionalPlayerWithMemory(Player):
             )
             # print(isvalid, score)
             if isvalid:
-                valid.append((action, score))
+                assert all(isinstance(x, int) or x is None for x in expl)
+                valid.append((action, score, expl))
         for r in range(5):
             r += 1
             action = (HINT_NUMBER, r)
@@ -173,15 +173,20 @@ class SelfIntentionalPlayerWithMemory(Player):
             )
             # print(isvalid, score)
             if isvalid:
-                valid.append((action, score))
+                assert all(isinstance(x, int) or x is None for x in expl)
+                valid.append((action, score, expl))
         if valid and not result:
-            valid.sort(key=lambda x: -x[1])
+            valid.sort(key=lambda x: x[1], reverse=True)
             # print(valid)
-            (a, s) = valid[0]
+            (a, s, expl) = valid[0]
+
+            # I assume that result will not be mutated after this block and in the calling code
             if a[0] == HINT_COLOR:
                 result = Action(HINT_COLOR, pnr=1 - nr, col=a[1])
+                self._intents_conveyed = expl
             else:
                 result = Action(HINT_NUMBER, pnr=1 - nr, num=a[1])
+                self._intents_conveyed = expl
         return result
 
     def inform(self, action, player, game):
