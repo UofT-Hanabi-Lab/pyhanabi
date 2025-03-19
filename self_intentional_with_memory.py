@@ -25,7 +25,6 @@ from hanabi import (
 class SelfIntentionalPlayerWithMemory(Player):
     def __init__(self, name, pnr):
         super().__init__(name)
-        self.hints = {}
         self.pnr = pnr
         self.gothint = None
         self.last_knowledge = []
@@ -183,23 +182,18 @@ class SelfIntentionalPlayerWithMemory(Player):
             # I assume that result will not be mutated after this block and in the calling code
             if a[0] == HINT_COLOR:
                 result = Action(HINT_COLOR, pnr=1 - nr, col=a[1])
-                self._intents_conveyed = expl
             else:
                 result = Action(HINT_NUMBER, pnr=1 - nr, num=a[1])
-                self._intents_conveyed = expl
+
+            print(f"Old intents: {self._intents_conveyed}")
+            print(f"New intents: {expl}")
+            self._intents_conveyed = expl
         return result
 
     def inform(self, action, player, game):
         if action.type in [PLAY, DISCARD]:
-            x = str(action)
-            if (action.cnr, player) in self.hints:
-                self.hints[(action.cnr, player)] = []
-            for i in range(10):
-                if (action.cnr + i + 1, player) in self.hints:
-                    self.hints[(action.cnr + i, player)] = self.hints[
-                        (action.cnr + i + 1, player)
-                    ]
-                    self.hints[(action.cnr + i + 1, player)] = []
+            ...
+
         elif action.pnr == self.pnr:
             self.gothint = (action, player)
             self.last_knowledge = game.knowledge[:]
