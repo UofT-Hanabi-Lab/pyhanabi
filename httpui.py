@@ -1079,7 +1079,9 @@ class MyHandler(BaseHTTPRequestHandler):
             def match(filters, ai, deck, score):
                 if "ai" in filters and ai != filters["ai"]:
                     return False
-                if "score" in filters and (score is None or score // 5 != int(filters["score"])):
+                if "score" in filters and (
+                    score is None or score // 5 != int(filters["score"])
+                ):
                     return False
                 if "deck" in filters and (
                     (str(deck) != filters["deck"] and filters["deck"] != "other")

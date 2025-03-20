@@ -22,6 +22,10 @@ from hanabi import (
 )
 
 
+def _intent_unchanged(old: Intent | None, new: Intent | None) -> bool:
+    return old == new or (old == Intent.PLAY and new is None)
+
+
 class SelfIntentionalPlayerWithMemory(Player):
     def __init__(self, name, pnr):
         super().__init__(name)
@@ -150,6 +154,15 @@ class SelfIntentionalPlayerWithMemory(Player):
             (isvalid, score, expl) = pretend(
                 action, knowledge[1 - nr], intentions, hands[1 - nr], board
             )
+
+            if isvalid and all(
+                _intent_unchanged(self._intents_conveyed[i], expl[i])
+                for i in range(len(self._intents_conveyed))
+            ):
+                isvalid = False
+                score = 0
+                expl = ["No new intentions"]
+
             self.explanation.append(
                 ["Prediction for: Hint Color " + COLORNAMES[c]]
                 + list(map(format_intention, expl))
@@ -166,6 +179,15 @@ class SelfIntentionalPlayerWithMemory(Player):
             (isvalid, score, expl) = pretend(
                 action, knowledge[1 - nr], intentions, hands[1 - nr], board
             )
+
+            if isvalid and all(
+                _intent_unchanged(self._intents_conveyed[i], expl[i])
+                for i in range(len(self._intents_conveyed))
+            ):
+                isvalid = False
+                score = 0
+                expl = ["No new intentions"]
+
             self.explanation.append(
                 ["Prediction for: Hint Rank " + str(r)]
                 + list(map(format_intention, expl))
@@ -185,14 +207,22 @@ class SelfIntentionalPlayerWithMemory(Player):
             else:
                 result = Action(HINT_NUMBER, pnr=1 - nr, num=a[1])
 
-            print(f"Old intents: {self._intents_conveyed}")
-            print(f"New intents: {expl}")
-            self._intents_conveyed = expl
+            self._intents_conveyed = [
+                self._intents_conveyed[i]
+                if expl[i] is None and self._intents_conveyed[i] == PLAY
+                else expl[i]
+                for i in range(len(expl))
+            ]
         return result
 
+    def _rotate_intents(self, removed_cnr: int) -> None:
+        for i in range(removed_cnr, len(self._intents_conveyed) - 1):
+            self._intents_conveyed[i] = self._intents_conveyed[i + 1]
+        self._intents_conveyed[-1] = None
+
     def inform(self, action, player, game):
-        if action.type in [PLAY, DISCARD]:
-            ...
+        if action.type in [PLAY, DISCARD] and action.pnr != self.pnr:
+            self._rotate_intents(action.cnr)
 
         elif action.pnr == self.pnr:
             self.gothint = (action, player)
