@@ -218,7 +218,7 @@ class SelfIntentionalPlayerWithMemory(Player):
             self._intents_conveyed = [
                 self._intents_conveyed[i]
                 if expl[i] is None
-                and self._intents_conveyed[i] == Action.ActionType.PLAY
+                and self._intents_conveyed[i] == Intent.PLAY
                 else expl[i]
                 for i in range(len(expl))
             ]
