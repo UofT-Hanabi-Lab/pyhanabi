@@ -3,13 +3,9 @@ from typing import Sequence
 
 from hanabi import (
     Player,
-    HINT_COLOR,
     whattodo,
-    HINT_NUMBER,
     ALL_COLORS,
     format_intention,
-    DISCARD,
-    PLAY,
     Action,
     get_possible,
     playable,
@@ -32,7 +28,6 @@ class SelfIntentionalPlayerWithMemory(Player):
     pnr: int
     got_hint: tuple[Action, int] | None
 
-
     def __init__(self, name: str, pnr: int):
         super().__init__(name)
         self.pnr = pnr
@@ -51,10 +46,10 @@ class SelfIntentionalPlayerWithMemory(Player):
         action = []
         if self.got_hint:
             (act, plr) = self.got_hint
-            if act.type == HINT_COLOR:
+            if act.action_type == Action.ActionType.HINT_COLOR:
                 for k in knowledge[pnr]:
                     action.append(whattodo(k, sum(k[act.col]) > 0, board))
-            elif act.type == HINT_NUMBER:
+            elif act.action_type == Action.ActionType.HINT_NUMBER:
                 for k in knowledge[pnr]:
                     cnt = 0
                     for c in ALL_COLORS:
@@ -63,13 +58,24 @@ class SelfIntentionalPlayerWithMemory(Player):
 
         if action:
             self.explanation.append(
-                ["What you want me to do"] + list(map(format_intention, action))
+                ["What you want me to do"]
+                + list(
+                    map(
+                        format_intention,
+                        (
+                            x.value if isinstance(x, Action.ActionType) else None
+                            for x in action
+                        ),
+                    )
+                )
             )
             for i, a in enumerate(action):
-                if a == PLAY and (not result or result.type == DISCARD):
-                    result = Action(PLAY, cnr=i)
-                elif a == DISCARD and not result:
-                    result = Action(DISCARD, cnr=i)
+                if a == Action.ActionType.PLAY and (
+                    not result or result.action_type == Action.ActionType.DISCARD
+                ):
+                    result = Action(Action.ActionType.PLAY, cnr=i)
+                elif a == Action.ActionType.DISCARD and not result:
+                    result = Action(Action.ActionType.DISCARD, cnr=i)
 
         self.got_hint = None
         for k in knowledge[pnr]:
@@ -78,12 +84,12 @@ class SelfIntentionalPlayerWithMemory(Player):
         discards = []
         for i, p in enumerate(possible):
             if playable(p, board) and not result:
-                result = Action(PLAY, cnr=i)
+                result = Action(Action.ActionType.PLAY, cnr=i)
             if discardable(p, board):
                 discards.append(i)
 
         if discards and hints < 8 and not result:
-            result = Action(DISCARD, cnr=random.choice(discards))
+            result = Action(Action.ActionType.DISCARD, cnr=random.choice(discards))
 
         intentions = self.generate_intents(board, hands, pnr, trash)
 
@@ -97,7 +103,10 @@ class SelfIntentionalPlayerWithMemory(Player):
         self.explanation.append(
             ["My Knowledge"] + list(map(format_knowledge, knowledge[pnr]))
         )
-        possible = [Action(DISCARD, cnr=i) for i in list(range(self._hand_size))]
+        possible = [
+            Action(Action.ActionType.DISCARD, cnr=i)
+            for i in list(range(self._hand_size))
+        ]
 
         scores = list(
             map(lambda p: pretend_discard(p, knowledge[pnr], board, trash), possible)
@@ -149,9 +158,9 @@ class SelfIntentionalPlayerWithMemory(Player):
         return intentions
 
     def give_hint(self, board, hands, intentions, knowledge, nr, result) -> Action:
-        valid: list[tuple[tuple[int, int], int, list[int | None]]] = []
+        valid: list[tuple[tuple[Action.ActionType, int], int, list[int | None]]] = []
         for c in ALL_COLORS:
-            action = (HINT_COLOR, c)
+            action = (Action.ActionType.HINT_COLOR, c)
             (isvalid, score, expl) = pretend(
                 action, knowledge[1 - nr], intentions, hands[1 - nr], board
             )
@@ -172,9 +181,9 @@ class SelfIntentionalPlayerWithMemory(Player):
             if isvalid:
                 assert all(isinstance(x, int) or x is None for x in expl)
                 valid.append((action, score, expl))
-        for r in range(5):
-            r += 1
-            action = (HINT_NUMBER, r)
+        for rank in range(5):
+            rank += 1
+            action = (Action.ActionType.HINT_NUMBER, rank)
 
             (isvalid, score, expl) = pretend(
                 action, knowledge[1 - nr], intentions, hands[1 - nr], board
@@ -189,7 +198,7 @@ class SelfIntentionalPlayerWithMemory(Player):
                 expl = ["No new intentions"]
 
             self.explanation.append(
-                ["Prediction for: Hint Rank " + str(r)]
+                ["Prediction for: Hint Rank " + str(rank)]
                 + list(map(format_intention, expl))
             )
 
@@ -201,14 +210,15 @@ class SelfIntentionalPlayerWithMemory(Player):
             (a, s, expl) = valid[0]
 
             # I assume that result will not be mutated after this block and in the calling code
-            if a[0] == HINT_COLOR:
-                result = Action(HINT_COLOR, pnr=1 - nr, col=a[1])
+            if a[0] == Action.ActionType.HINT_COLOR:
+                result = Action(Action.ActionType.HINT_COLOR, pnr=1 - nr, col=a[1])
             else:
-                result = Action(HINT_NUMBER, pnr=1 - nr, num=a[1])
+                result = Action(Action.ActionType.HINT_NUMBER, pnr=1 - nr, num=a[1])
 
             self._intents_conveyed = [
                 self._intents_conveyed[i]
-                if expl[i] is None and self._intents_conveyed[i] == PLAY
+                if expl[i] is None
+                and self._intents_conveyed[i] == Action.ActionType.PLAY
                 else expl[i]
                 for i in range(len(expl))
             ]
@@ -220,7 +230,10 @@ class SelfIntentionalPlayerWithMemory(Player):
         self._intents_conveyed[-1] = None
 
     def inform(self, action: Action, player: int, game: Game) -> None:
-        if action.type in {PLAY, DISCARD} and action.pnr != self.pnr:
+        if (
+            action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}
+            and action.pnr != self.pnr
+        ):
             self._rotate_intents(action.cnr)
 
         elif action.pnr == self.pnr:

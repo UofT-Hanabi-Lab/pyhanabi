@@ -4,7 +4,7 @@ import random
 import sys
 import copy
 import time
-from enum import IntEnum
+from enum import IntEnum, Enum, unique
 from typing import Final
 
 GREEN = 0
@@ -89,22 +89,30 @@ def iscard(x):
     return knowledge
 
 
-HINT_COLOR = 0
-HINT_NUMBER = 1
-PLAY = 2
-DISCARD = 3
-
-
 class Action:
-    def __init__(self, type, pnr=None, col=None, num=None, cnr=None):
-        self.type = type
+    @unique
+    class ActionType(Enum):
+        HINT_COLOR = 0
+        HINT_NUMBER = 1
+        PLAY = 2
+        DISCARD = 3
+
+        def __str__(self) -> str:
+            return str(self.value)
+
+    action_type: ActionType
+
+    def __init__(
+        self, action_type: ActionType, pnr=None, col=None, num=None, cnr=None
+    ) -> None:
+        self.action_type = action_type
         self.pnr = pnr
         self.col = col
         self.num = num
         self.cnr = cnr
 
     def __str__(self):
-        if self.type == HINT_COLOR:
+        if self.action_type == Action.ActionType.HINT_COLOR:
             return (
                 "hints "
                 + str(self.pnr)
@@ -112,16 +120,16 @@ class Action:
                 + COLORNAMES[self.col]
                 + " cards"
             )
-        if self.type == HINT_NUMBER:
+        if self.action_type == Action.ActionType.HINT_NUMBER:
             return "hints " + str(self.pnr) + " about all their " + str(self.num)
-        if self.type == PLAY:
+        if self.action_type == Action.ActionType.PLAY:
             return "plays their " + str(self.cnr)
-        if self.type == DISCARD:
+        if self.action_type == Action.ActionType.DISCARD:
             return "discards their " + str(self.cnr)
 
     def __eq__(self, other):
-        return (self.type, self.pnr, self.col, self.num, self.cnr) == (
-            other.type,
+        return (self.action_type, self.pnr, self.col, self.num, self.cnr) == (
+            other.action_type,
             other.pnr,
             other.col,
             other.num,
@@ -207,12 +215,12 @@ class InnerStatePlayer(Player):
         discards = []
         for i, p in enumerate(possible):
             if playable(p, board):
-                return Action(PLAY, cnr=i)
+                return Action(Action.ActionType.PLAY, cnr=i)
             if discardable(p, board):
                 discards.append(i)
 
         if discards:
-            return Action(DISCARD, cnr=random.choice(discards))
+            return Action(Action.ActionType.DISCARD, cnr=random.choice(discards))
 
         playables = []
         for i, h in enumerate(hands):
@@ -224,8 +232,8 @@ class InnerStatePlayer(Player):
         if playables and hints > 0:
             i, j = playables[0]
             if random.random() < 0.5:
-                return Action(HINT_COLOR, pnr=i, col=hands[i][j][0])
-            return Action(HINT_NUMBER, pnr=i, num=hands[i][j][1])
+                return Action(Action.ActionType.HINT_COLOR, pnr=i, col=hands[i][j][0])
+            return Action(Action.ActionType.HINT_NUMBER, pnr=i, num=hands[i][j][1])
 
         for i, k in enumerate(knowledge):
             if i == nr:
@@ -234,21 +242,26 @@ class InnerStatePlayer(Player):
             random.shuffle(cards)
             c = cards[0]
             (col, num) = hands[i][c]
-            hinttype = [HINT_COLOR, HINT_NUMBER]
+            hinttype = [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]
             if hinttype and hints > 0:
-                if random.choice(hinttype) == HINT_COLOR:
-                    return Action(HINT_COLOR, pnr=i, col=col)
+                if random.choice(hinttype) == Action.ActionType.HINT_COLOR:
+                    return Action(Action.ActionType.HINT_COLOR, pnr=i, col=col)
                 else:
-                    return Action(HINT_NUMBER, pnr=i, num=num)
+                    return Action(Action.ActionType.HINT_NUMBER, pnr=i, num=num)
 
         prefer = []
         for v in valid_actions:
-            if v.type in [HINT_COLOR, HINT_NUMBER]:
+            if v.action_type in {
+                Action.ActionType.HINT_COLOR,
+                Action.ActionType.HINT_NUMBER,
+            }:
                 prefer.append(v)
         prefer = []
         if prefer and hints > 0:
             return random.choice(prefer)
-        return random.choice([Action(DISCARD, cnr=i) for i in range(len(knowledge[0]))])
+        return random.choice(
+            [Action(Action.ActionType.DISCARD, cnr=i) for i in range(len(knowledge[0]))]
+        )
 
     def inform(self, action, player, game):
         pass
@@ -272,12 +285,12 @@ class OuterStatePlayer(Player):
         duplicates = []
         for i, p in enumerate(possible):
             if playable(p, board):
-                return Action(PLAY, cnr=i)
+                return Action(Action.ActionType.PLAY, cnr=i)
             if discardable(p, board):
                 discards.append(i)
 
         if discards:
-            return Action(DISCARD, cnr=random.choice(discards))
+            return Action(Action.ActionType.DISCARD, cnr=random.choice(discards))
 
         playables = []
         for i, h in enumerate(hands):
@@ -293,7 +306,7 @@ class OuterStatePlayer(Player):
             real_rank = hands[i][j][0]
             k = knowledge[i][j]
 
-            hinttype = [HINT_COLOR, HINT_NUMBER]
+            hinttype = [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]
             if (j, i) not in self.hints:
                 self.hints[(j, i)] = []
 
@@ -304,12 +317,12 @@ class OuterStatePlayer(Player):
             if hinttype:
                 t = random.choice(hinttype)
 
-            if t == HINT_NUMBER:
-                self.hints[(j, i)].append(HINT_NUMBER)
-                return Action(HINT_NUMBER, pnr=i, num=hands[i][j][1])
-            if t == HINT_COLOR:
-                self.hints[(j, i)].append(HINT_COLOR)
-                return Action(HINT_COLOR, pnr=i, col=hands[i][j][0])
+            if t == Action.ActionType.HINT_NUMBER:
+                self.hints[(j, i)].append(Action.ActionType.HINT_NUMBER)
+                return Action(Action.ActionType.HINT_NUMBER, pnr=i, num=hands[i][j][1])
+            if t == Action.ActionType.HINT_COLOR:
+                self.hints[(j, i)].append(Action.ActionType.HINT_COLOR)
+                return Action(Action.ActionType.HINT_COLOR, pnr=i, col=hands[i][j][0])
 
             playables = playables[1:]
 
@@ -320,23 +333,25 @@ class OuterStatePlayer(Player):
             random.shuffle(cards)
             c = cards[0]
             (col, num) = hands[i][c]
-            hinttype = [HINT_COLOR, HINT_NUMBER]
+            hinttype = [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]
             if (c, i) not in self.hints:
                 self.hints[(c, i)] = []
             for h in self.hints[(c, i)]:
                 hinttype.remove(h)
             if hinttype and hints > 0:
-                if random.choice(hinttype) == HINT_COLOR:
-                    self.hints[(c, i)].append(HINT_COLOR)
-                    return Action(HINT_COLOR, pnr=i, col=col)
+                if random.choice(hinttype) == Action.ActionType.HINT_COLOR:
+                    self.hints[(c, i)].append(Action.ActionType.HINT_COLOR)
+                    return Action(Action.ActionType.HINT_COLOR, pnr=i, col=col)
                 else:
-                    self.hints[(c, i)].append(HINT_NUMBER)
-                    return Action(HINT_NUMBER, pnr=i, num=num)
+                    self.hints[(c, i)].append(Action.ActionType.HINT_NUMBER)
+                    return Action(Action.ActionType.HINT_NUMBER, pnr=i, num=num)
 
-        return random.choice([Action(DISCARD, cnr=i) for i in list(range(handsize))])
+        return random.choice(
+            [Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))]
+        )
 
     def inform(self, action, player, game):
-        if action.type in [PLAY, DISCARD]:
+        if action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}:
             x = str(action)
             if (action.cnr, player) in self.hints:
                 self.hints[(action.cnr, player)] = []
@@ -388,6 +403,8 @@ a = 1
 
 
 class SelfRecognitionPlayer(Player):
+    gothint: tuple[Action, int] | None
+
     def __init__(self, name, pnr, other=OuterStatePlayer):
         super().__init__(name)
         self.hints = {}
@@ -407,12 +424,12 @@ class SelfRecognitionPlayer(Player):
         if self.gothint:
             possiblehands = []
             wrong = 0
-            used = {}
+            used: dict[tuple[int, int], int] = {}
             for c in ALL_COLORS:
                 for i, cnt in enumerate(COUNTS):
                     used[(c, i + 1)] = 0
-            for c in trash + played:
-                used[c] += 1
+            for c_tup in trash + played:
+                used[c_tup] += 1
 
             for h in generate_hands_simple(knowledge[nr]):
                 newhands = hands[:]
@@ -431,27 +448,6 @@ class SelfRecognitionPlayer(Player):
                 lastact = self.gothint[0]
                 if act == lastact:
                     possiblehands.append(h)
-
-                    def do(c, i):
-                        newhands = hands[:]
-                        h1 = h[:]
-                        h1[i] = c
-                        newhands[nr] = h1
-                        print(
-                            other.get_action(
-                                self.gothint[1],
-                                newhands,
-                                self.last_knowledge,
-                                self.last_trash,
-                                self.last_played,
-                                self.last_board,
-                                valid_actions,
-                                hints + 1,
-                            )
-                        )
-
-                    # import pdb
-                    # pdb.set_trace()
                 else:
                     wrong += 1
             # print(len(possiblehands), "would have led to", self.gothint[0], "and not:", wrong)
@@ -485,12 +481,12 @@ class SelfRecognitionPlayer(Player):
         duplicates = []
         for i, p in enumerate(possible):
             if playable(p, board):
-                return Action(PLAY, cnr=i)
+                return Action(Action.ActionType.PLAY, cnr=i)
             if discardable(p, board):
                 discards.append(i)
 
         if discards:
-            return Action(DISCARD, cnr=random.choice(discards))
+            return Action(Action.ActionType.DISCARD, cnr=random.choice(discards))
 
         playables = []
         for i, h in enumerate(hands):
@@ -506,19 +502,19 @@ class SelfRecognitionPlayer(Player):
             real_rank = hands[i][j][0]
             k = knowledge[i][j]
 
-            hinttype = [HINT_COLOR, HINT_NUMBER]
+            hinttype = [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]
             if (j, i) not in self.hints:
                 self.hints[(j, i)] = []
 
             for h in self.hints[(j, i)]:
                 hinttype.remove(h)
 
-            if HINT_NUMBER in hinttype:
-                self.hints[(j, i)].append(HINT_NUMBER)
-                return Action(HINT_NUMBER, pnr=i, num=hands[i][j][1])
-            if HINT_COLOR in hinttype:
-                self.hints[(j, i)].append(HINT_COLOR)
-                return Action(HINT_COLOR, pnr=i, col=hands[i][j][0])
+            if Action.ActionType.HINT_NUMBER in hinttype:
+                self.hints[(j, i)].append(Action.ActionType.HINT_NUMBER)
+                return Action(Action.ActionType.HINT_NUMBER, pnr=i, num=hands[i][j][1])
+            if Action.ActionType.HINT_COLOR in hinttype:
+                self.hints[(j, i)].append(Action.ActionType.HINT_COLOR)
+                return Action(Action.ActionType.HINT_COLOR, pnr=i, col=hands[i][j][0])
 
             playables = playables[1:]
 
@@ -529,23 +525,25 @@ class SelfRecognitionPlayer(Player):
             random.shuffle(cards)
             c = cards[0]
             (col, num) = hands[i][c]
-            hinttype = [HINT_COLOR, HINT_NUMBER]
+            hinttype = [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]
             if (c, i) not in self.hints:
                 self.hints[(c, i)] = []
             for h in self.hints[(c, i)]:
                 hinttype.remove(h)
             if hinttype and hints > 0:
-                if random.choice(hinttype) == HINT_COLOR:
-                    self.hints[(c, i)].append(HINT_COLOR)
-                    return Action(HINT_COLOR, pnr=i, col=col)
+                if random.choice(hinttype) == Action.ActionType.HINT_COLOR:
+                    self.hints[(c, i)].append(Action.ActionType.HINT_COLOR)
+                    return Action(Action.ActionType.HINT_COLOR, pnr=i, col=col)
                 else:
-                    self.hints[(c, i)].append(HINT_NUMBER)
-                    return Action(HINT_NUMBER, pnr=i, num=num)
+                    self.hints[(c, i)].append(Action.ActionType.HINT_NUMBER)
+                    return Action(Action.ActionType.HINT_NUMBER, pnr=i, num=num)
 
-        return random.choice([Action(DISCARD, cnr=i) for i in list(range(handsize))])
+        return random.choice(
+            [Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))]
+        )
 
     def inform(self, action, player, game):
-        if action.type in [PLAY, DISCARD]:
+        if action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}:
             x = str(action)
             if (action.cnr, player) in self.hints:
                 self.hints[(action.cnr, player)] = []
@@ -579,7 +577,7 @@ def priorities(c, board):
     return 6 + (4 - val)
 
 
-SENT = 0
+SENT: float = 0
 ERRORS = 0
 COUNT = 0
 
@@ -629,11 +627,13 @@ class TimedPlayer:
 
         delta += hands[other].index(other_hand[0])
         if duration >= 5:
-            action = Action(DISCARD, cnr=fix(duration - 5))
+            action = Action(Action.ActionType.DISCARD, cnr=fix(duration - 5))
         else:
-            action = Action(PLAY, cnr=fix(duration))
+            action = Action(Action.ActionType.PLAY, cnr=fix(duration))
         if self.last_played and hints > 0 and CAREFUL:
-            action = Action(HINT_COLOR, pnr=other, col=other_hand[0][0])
+            action = Action(
+                Action.ActionType.HINT_COLOR, pnr=other, col=other_hand[0][0]
+            )
         t1 = time.time()
         SENT = delta
         # print(self.pnr, "convey", round(delta))
@@ -645,7 +645,7 @@ class TimedPlayer:
         return action
 
     def inform(self, action, player, game):
-        self.last_played = action.type == PLAY
+        self.last_played = action.action_type == Action.ActionType.PLAY
         self.last_tick = self.tt
         self.tt = time.time()
         # print(action, player)
@@ -660,33 +660,36 @@ CANDISCARD = 128
 def format_intention(i: int | str | Intent | None) -> str:
     if isinstance(i, str):
         return i
-    if i == PLAY:
+    if i == Intent.PLAY:
         return "Play"
-    elif i == DISCARD:
+    elif i == Intent.DISCARD:
         return "Discard"
-    elif i == CANDISCARD:
+    elif i == Intent.CAN_DISCARD:
         return "Can Discard"
-    return "Keep"
+    elif i is None:
+        return "Keep"
+    else:
+        raise ValueError("Unexpected intent value")
 
 
-def whattodo(knowledge, pointed, board):
+def whattodo(knowledge, pointed, board) -> Action.ActionType | None:
     possible = get_possible(knowledge)
     play = potentially_playable(possible, board)
     discard = potentially_discardable(possible, board)
 
     if play and pointed:
-        return PLAY
+        return Action.ActionType.PLAY
     if discard and pointed:
-        return DISCARD
+        return Action.ActionType.DISCARD
     return None
 
 
 def pretend(action, knowledge, intentions, hand, board):
-    (type, value) = action
+    (action_type, value) = action
     positive = []
     haspositive = False
     change = False
-    if type == HINT_COLOR:
+    if action_type == Action.ActionType.HINT_COLOR:
         newknowledge = []
         for i, (col, num) in enumerate(hand):
             positive.append(value == col)
@@ -710,26 +713,32 @@ def pretend(action, knowledge, intentions, hand, board):
     if not change:
         return False, 0, ["No new information"]
     score = 0
-    predictions = []
+    predictions: list[Intent | None] = []
     pos = False
     for i, c, k, p in zip(intentions, hand, newknowledge, positive):
-        action = whattodo(k, p, board)
+        predicted_action = whattodo(k, p, board)
 
-        if action == PLAY and i != PLAY:
+        if predicted_action == Action.ActionType.PLAY and i != Intent.PLAY:
             # print("would cause them to play", f(c))
-            return False, 0, predictions + [PLAY]
+            return False, 0, predictions + [Intent.PLAY]
 
-        if action == DISCARD and i not in {Intent.DISCARD, Intent.CAN_DISCARD}:
+        if predicted_action == Action.ActionType.DISCARD and i not in {
+            Intent.DISCARD,
+            Intent.CAN_DISCARD,
+        }:
             # print("would cause them to discard", f(c))
-            return False, 0, predictions + [DISCARD]
+            return False, 0, predictions + [Intent.DISCARD]
 
-        if action == PLAY and i == PLAY:
+        if predicted_action == Action.ActionType.PLAY and i == Intent.PLAY:
             pos = True
-            predictions.append(PLAY)
+            predictions.append(Intent.PLAY)
             score += 3
-        elif action == DISCARD and i in {Intent.DISCARD, Intent.CAN_DISCARD}:
+        elif predicted_action == Action.ActionType.DISCARD and i in {
+            Intent.DISCARD,
+            Intent.CAN_DISCARD,
+        }:
             pos = True
-            predictions.append(DISCARD)
+            predictions.append(Intent.DISCARD)
             if i == Intent.DISCARD:
                 score += 2
             else:
@@ -814,33 +823,33 @@ class IntentionalPlayer(Player):
         duplicates = []
         for i, p in enumerate(possible):
             if playable(p, board):
-                result = Action(PLAY, cnr=i)
+                result = Action(Action.ActionType.PLAY, cnr=i)
             if discardable(p, board):
                 discards.append(i)
 
         if discards and hints < 8 and not result:
-            result = Action(DISCARD, cnr=random.choice(discards))
+            result = Action(Action.ActionType.DISCARD, cnr=random.choice(discards))
 
         playables = []
         useless = []
         discardables = []
         othercards = trash + board
-        intentions = [None for _ in range(handsize)]
+        intentions: list[Intent | None] = [None for _ in range(handsize)]
         for i, h in enumerate(hands):
             if i != nr:
                 for j, x in enumerate(h):
                     (col, n) = x
                     if board[col][1] + 1 == n:
                         playables.append((i, j))
-                        intentions[j] = PLAY
+                        intentions[j] = Intent.PLAY
                     if board[col][1] >= n:
                         useless.append((i, j))
                         if not intentions[j]:
-                            intentions[j] = DISCARD
+                            intentions[j] = Intent.DISCARD
                     if n < 5 and (col, n) not in othercards:
                         discardables.append((i, j))
                         if not intentions[j]:
-                            intentions[j] = CANDISCARD
+                            intentions[j] = Intent.CAN_DISCARD
 
         self.explanation.append(
             ["Intentions"] + list(map(format_intention, intentions))
@@ -849,7 +858,7 @@ class IntentionalPlayer(Player):
         if hints > 0:
             valid = []
             for c in ALL_COLORS:
-                action = (HINT_COLOR, c)
+                action = (Action.ActionType.HINT_COLOR, c)
                 # print("HINT", COLORNAMES[c],)
                 (isvalid, score, expl) = pretend(
                     action, knowledge[1 - nr], intentions, hands[1 - nr], board
@@ -864,7 +873,7 @@ class IntentionalPlayer(Player):
 
             for r in range(5):
                 r += 1
-                action = (HINT_NUMBER, r)
+                action = (Action.ActionType.HINT_NUMBER, r)
                 # print("HINT", r,)
 
                 (isvalid, score, expl) = pretend(
@@ -882,15 +891,17 @@ class IntentionalPlayer(Player):
                 valid.sort(key=lambda x: -x[1])
                 # print(valid)
                 (a, s) = valid[0]
-                if a[0] == HINT_COLOR:
-                    result = Action(HINT_COLOR, pnr=1 - nr, col=a[1])
+                if a[0] == Action.ActionType.HINT_COLOR:
+                    result = Action(Action.ActionType.HINT_COLOR, pnr=1 - nr, col=a[1])
                 else:
-                    result = Action(HINT_NUMBER, pnr=1 - nr, num=a[1])
+                    result = Action(Action.ActionType.HINT_NUMBER, pnr=1 - nr, num=a[1])
 
         self.explanation.append(
             ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
         )
-        possible = [Action(DISCARD, cnr=i) for i in list(range(handsize))]
+        possible = [
+            Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))
+        ]
 
         scores = list(
             map(lambda p: pretend_discard(p, knowledge[nr], board, trash), possible)
@@ -919,10 +930,12 @@ class IntentionalPlayer(Player):
             return result
         return scores[0][0]
 
-        return random.choice([Action(DISCARD, cnr=i) for i in list(range(handsize))])
+        return random.choice(
+            [Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))]
+        )
 
     def inform(self, action, player, game):
-        if action.type in [PLAY, DISCARD]:
+        if action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}:
             x = str(action)
             if (action.cnr, player) in self.hints:
                 self.hints[(action.cnr, player)] = []
@@ -961,10 +974,10 @@ class SelfIntentionalPlayer(Player):
         action = []
         if self.gothint:
             (act, plr) = self.gothint
-            if act.type == HINT_COLOR:
+            if act.action_type == Action.ActionType.HINT_COLOR:
                 for k in knowledge[nr]:
                     action.append(whattodo(k, sum(k[act.col]) > 0, board))
-            elif act.type == HINT_NUMBER:
+            elif act.action_type == Action.ActionType.HINT_NUMBER:
                 for k in knowledge[nr]:
                     cnt = 0
                     for c in ALL_COLORS:
@@ -973,48 +986,58 @@ class SelfIntentionalPlayer(Player):
 
         if action:
             self.explanation.append(
-                ["What you want me to do"] + list(map(format_intention, action))
+                ["What you want me to do"]
+                + list(
+                    map(
+                        format_intention,
+                        (
+                            x.value if isinstance(x, Action.ActionType) else None
+                            for x in action
+                        ),
+                    )
+                )
             )
             for i, a in enumerate(action):
-                if a == PLAY and (not result or result.type == DISCARD):
-                    result = Action(PLAY, cnr=i)
-                elif a == DISCARD and not result:
-                    result = Action(DISCARD, cnr=i)
+                if a == Action.ActionType.PLAY and (
+                    not result or result.action_type == Action.ActionType.DISCARD
+                ):
+                    result = Action(Action.ActionType.PLAY, cnr=i)
+                elif a == Action.ActionType.DISCARD and not result:
+                    result = Action(Action.ActionType.DISCARD, cnr=i)
 
         self.gothint = None
         for k in knowledge[nr]:
             possible.append(get_possible(k))
 
         discards = []
-        duplicates = []
         for i, p in enumerate(possible):
             if playable(p, board) and not result:
-                result = Action(PLAY, cnr=i)
+                result = Action(Action.ActionType.PLAY, cnr=i)
             if discardable(p, board):
                 discards.append(i)
 
         if discards and hints < 8 and not result:
-            result = Action(DISCARD, cnr=random.choice(discards))
+            result = Action(Action.ActionType.DISCARD, cnr=random.choice(discards))
 
         playables = []
         useless = []
         discardables = []
         othercards = trash + board
-        intentions = [None for i in list(range(handsize))]
+        intentions: list[Intent | None] = [None for _ in list(range(handsize))]
         for i, h in enumerate(hands):
             if i != nr:
                 for j, (col, n) in enumerate(h):
                     if board[col][1] + 1 == n:
                         playables.append((i, j))
-                        intentions[j] = PLAY
+                        intentions[j] = Intent.PLAY
                     if board[col][1] >= n:
                         useless.append((i, j))
                         if not intentions[j]:
-                            intentions[j] = DISCARD
+                            intentions[j] = Intent.DISCARD
                     if n < 5 and (col, n) not in othercards:
                         discardables.append((i, j))
                         if not intentions[j]:
-                            intentions[j] = CANDISCARD
+                            intentions[j] = Intent.CAN_DISCARD
 
         self.explanation.append(
             ["Intentions"] + list(map(format_intention, intentions))
@@ -1023,7 +1046,7 @@ class SelfIntentionalPlayer(Player):
         if hints > 0:
             valid = []
             for c in ALL_COLORS:
-                action = (HINT_COLOR, c)
+                action = (Action.ActionType.HINT_COLOR, c)
                 # print("HINT", COLORNAMES[c],)
                 (isvalid, score, expl) = pretend(
                     action, knowledge[1 - nr], intentions, hands[1 - nr], board
@@ -1038,7 +1061,7 @@ class SelfIntentionalPlayer(Player):
 
             for r in range(5):
                 r += 1
-                action = (HINT_NUMBER, r)
+                action = (Action.ActionType.HINT_NUMBER, r)
                 # print("HINT", r,)
 
                 (isvalid, score, expl) = pretend(
@@ -1056,15 +1079,17 @@ class SelfIntentionalPlayer(Player):
                 valid.sort(key=lambda x: -x[1])
                 # print(valid)
                 (a, s) = valid[0]
-                if a[0] == HINT_COLOR:
-                    result = Action(HINT_COLOR, pnr=1 - nr, col=a[1])
+                if a[0] == Action.ActionType.HINT_COLOR:
+                    result = Action(Action.ActionType.HINT_COLOR, pnr=1 - nr, col=a[1])
                 else:
-                    result = Action(HINT_NUMBER, pnr=1 - nr, num=a[1])
+                    result = Action(Action.ActionType.HINT_NUMBER, pnr=1 - nr, num=a[1])
 
         self.explanation.append(
             ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
         )
-        possible = [Action(DISCARD, cnr=i) for i in list(range(handsize))]
+        possible = [
+            Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))
+        ]
 
         scores = list(
             map(lambda p: pretend_discard(p, knowledge[nr], board, trash), possible)
@@ -1093,10 +1118,12 @@ class SelfIntentionalPlayer(Player):
             return result
         return scores[0][0]
 
-        return random.choice([Action(DISCARD, cnr=i) for i in list(range(handsize))])
+        return random.choice(
+            [Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))]
+        )
 
     def inform(self, action, player, game):
-        if action.type in [PLAY, DISCARD]:
+        if action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}:
             x = str(action)
             if (action.cnr, player) in self.hints:
                 self.hints[(action.cnr, player)] = []
@@ -1251,12 +1278,12 @@ class SamplingRecognitionPlayer(Player):
         duplicates = []
         for i, p in enumerate(possible):
             if playable(p, board):
-                return Action(PLAY, cnr=i)
+                return Action(Action.ActionType.PLAY, cnr=i)
             if discardable(p, board):
                 discards.append(i)
 
         if discards:
-            return Action(DISCARD, cnr=random.choice(discards))
+            return Action(Action.ActionType.DISCARD, cnr=random.choice(discards))
 
         playables = []
         for i, h in enumerate(hands):
@@ -1272,19 +1299,19 @@ class SamplingRecognitionPlayer(Player):
             real_rank = hands[i][j][0]
             k = knowledge[i][j]
 
-            hinttype = [HINT_COLOR, HINT_NUMBER]
+            hinttype = [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]
             if (j, i) not in self.hints:
                 self.hints[(j, i)] = []
 
             for h in self.hints[(j, i)]:
                 hinttype.remove(h)
 
-            if HINT_NUMBER in hinttype:
-                self.hints[(j, i)].append(HINT_NUMBER)
-                return Action(HINT_NUMBER, pnr=i, num=hands[i][j][1])
-            if HINT_COLOR in hinttype:
-                self.hints[(j, i)].append(HINT_COLOR)
-                return Action(HINT_COLOR, pnr=i, col=hands[i][j][0])
+            if Action.ActionType.HINT_NUMBER in hinttype:
+                self.hints[(j, i)].append(Action.ActionType.HINT_NUMBER)
+                return Action(Action.ActionType.HINT_NUMBER, pnr=i, num=hands[i][j][1])
+            if Action.ActionType.HINT_COLOR in hinttype:
+                self.hints[(j, i)].append(Action.ActionType.HINT_COLOR)
+                return Action(Action.ActionType.HINT_COLOR, pnr=i, col=hands[i][j][0])
 
             playables = playables[1:]
 
@@ -1295,23 +1322,25 @@ class SamplingRecognitionPlayer(Player):
             random.shuffle(cards)
             c = cards[0]
             (col, num) = hands[i][c]
-            hinttype = [HINT_COLOR, HINT_NUMBER]
+            hinttype = [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]
             if (c, i) not in self.hints:
                 self.hints[(c, i)] = []
             for h in self.hints[(c, i)]:
                 hinttype.remove(h)
             if hinttype and hints > 0:
-                if random.choice(hinttype) == HINT_COLOR:
-                    self.hints[(c, i)].append(HINT_COLOR)
-                    return Action(HINT_COLOR, pnr=i, col=col)
+                if random.choice(hinttype) == Action.ActionType.HINT_COLOR:
+                    self.hints[(c, i)].append(Action.ActionType.HINT_COLOR)
+                    return Action(Action.ActionType.HINT_COLOR, pnr=i, col=col)
                 else:
-                    self.hints[(c, i)].append(HINT_NUMBER)
-                    return Action(HINT_NUMBER, pnr=i, num=num)
+                    self.hints[(c, i)].append(Action.ActionType.HINT_NUMBER)
+                    return Action(Action.ActionType.HINT_NUMBER, pnr=i, num=num)
 
-        return random.choice([Action(DISCARD, cnr=i) for i in list(range(handsize))])
+        return random.choice(
+            [Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))]
+        )
 
     def inform(self, action, player, game):
-        if action.type in [PLAY, DISCARD]:
+        if action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}:
             x = str(action)
             if (action.cnr, player) in self.hints:
                 self.hints[(action.cnr, player)] = []
@@ -1362,26 +1391,26 @@ class FullyIntentionalPlayer(Player):
         useless = []
         discardables = []
         othercards = trash + board
-        intentions = [None for i in list(range(handsize))]
+        intentions: list[Intent | None] = [None for _ in list(range(handsize))]
         for i, h in enumerate(hands):
             if i != nr:
                 for j, (col, n) in enumerate(h):
                     if board[col][1] + 1 == n:
                         playables.append((i, j))
-                        intentions[j] = PLAY
+                        intentions[j] = Intent.PLAY
                     if board[col][1] <= n:
                         useless.append((i, j))
                         if not intentions[j]:
-                            intentions[j] = DISCARD
+                            intentions[j] = Intent.DISCARD
                     if n < 5 and (col, n) not in othercards:
                         discardables.append((i, j))
                         if not intentions[j]:
-                            intentions[j] = CANDISCARD
+                            intentions[j] = Intent.CAN_DISCARD
 
         if hints > 0:
             valid = []
             for c in ALL_COLORS:
-                action = (HINT_COLOR, c)
+                action = (Action.ActionType.HINT_COLOR, c)
                 # print("HINT", COLORNAMES[c],)
                 (isvalid, score) = pretend(
                     action, knowledge[1 - nr], intentions, hands[1 - nr], board
@@ -1392,7 +1421,7 @@ class FullyIntentionalPlayer(Player):
 
             for r in range(5):
                 r += 1
-                action = (HINT_NUMBER, r)
+                action = (Action.ActionType.HINT_NUMBER, r)
                 # print("HINT", r,)
                 (isvalid, score) = pretend(
                     action, knowledge[1 - nr], intentions, hands[1 - nr], board
@@ -1404,10 +1433,10 @@ class FullyIntentionalPlayer(Player):
                 valid.sort(key=lambda x: -x[1])
                 # print(valid)
                 (a, s) = valid[0]
-                if a[0] == HINT_COLOR:
-                    return Action(HINT_COLOR, pnr=1 - nr, col=a[1])
+                if a[0] == Action.ActionType.HINT_COLOR:
+                    return Action(Action.ActionType.HINT_COLOR, pnr=1 - nr, col=a[1])
                 else:
-                    return Action(HINT_NUMBER, pnr=1 - nr, num=a[1])
+                    return Action(Action.ActionType.HINT_NUMBER, pnr=1 - nr, num=a[1])
 
         for i, k in enumerate(knowledge):
             if i == nr or True:
@@ -1416,23 +1445,25 @@ class FullyIntentionalPlayer(Player):
             random.shuffle(cards)
             c = cards[0]
             (col, num) = hands[i][c]
-            hinttype = [HINT_COLOR, HINT_NUMBER]
+            hinttype = [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]
             if (c, i) not in self.hints:
                 self.hints[(c, i)] = []
             for h in self.hints[(c, i)]:
                 hinttype.remove(h)
             if hinttype and hints > 0:
-                if random.choice(hinttype) == HINT_COLOR:
-                    self.hints[(c, i)].append(HINT_COLOR)
-                    return Action(HINT_COLOR, pnr=i, col=col)
+                if random.choice(hinttype) == Action.ActionType.HINT_COLOR:
+                    self.hints[(c, i)].append(Action.ActionType.HINT_COLOR)
+                    return Action(Action.ActionType.HINT_COLOR, pnr=i, col=col)
                 else:
-                    self.hints[(c, i)].append(HINT_NUMBER)
-                    return Action(HINT_NUMBER, pnr=i, num=num)
+                    self.hints[(c, i)].append(Action.ActionType.HINT_NUMBER)
+                    return Action(Action.ActionType.HINT_NUMBER, pnr=i, num=num)
 
-        return random.choice([Action(DISCARD, cnr=i) for i in list(range(handsize))])
+        return random.choice(
+            [Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))]
+        )
 
     def inform(self, action, player, game):
-        if action.type in [PLAY, DISCARD]:
+        if action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}:
             x = str(action)
             if (action.cnr, player) in self.hints:
                 self.hints[(action.cnr, player)] = []
@@ -1507,14 +1538,14 @@ class Game:
             print(
                 "MOVE:",
                 self.current_player,
-                action.type,
+                action.action_type,
                 action.cnr,
                 action.pnr,
                 action.col,
                 action.num,
                 file=self.log,
             )
-        if action.type == HINT_COLOR:
+        if action.action_type == Action.ActionType.HINT_COLOR:
             self.hints -= 1
             print(
                 self.players[self.current_player].name,
@@ -1544,7 +1575,7 @@ class Game:
                 else:
                     for i in range(len(knowledge[action.col])):
                         knowledge[action.col][i] = 0
-        elif action.type == HINT_NUMBER:
+        elif action.action_type == Action.ActionType.HINT_NUMBER:
             self.hints -= 1
             print(
                 self.players[self.current_player].name,
@@ -1573,7 +1604,7 @@ class Game:
                 else:
                     for k in knowledge:
                         k[action.num - 1] = 0
-        elif action.type == PLAY:
+        elif action.action_type == Action.ActionType.PLAY:
             (col, num) = self.hands[self.current_player][action.cnr]
             print(
                 self.players[self.current_player].name,
@@ -1627,15 +1658,19 @@ class Game:
     def valid_actions(self):
         valid = []
         for i in range(len(self.hands[self.current_player])):
-            valid.append(Action(PLAY, cnr=i))
-            valid.append(Action(DISCARD, cnr=i))
+            valid.append(Action(Action.ActionType.PLAY, cnr=i))
+            valid.append(Action(Action.ActionType.DISCARD, cnr=i))
         if self.hints > 0:
             for i, p in enumerate(self.players):
                 if i != self.current_player:
                     for col in set(list(map(lambda x: x[0], self.hands[i]))):
-                        valid.append(Action(HINT_COLOR, pnr=i, col=col))
+                        valid.append(
+                            Action(Action.ActionType.HINT_COLOR, pnr=i, col=col)
+                        )
                     for num in set(list(map(lambda x: x[1], self.hands[i]))):
-                        valid.append(Action(HINT_NUMBER, pnr=i, num=num))
+                        valid.append(
+                            Action(Action.ActionType.HINT_NUMBER, pnr=i, num=num)
+                        )
         return valid
 
     def run(self, turns=-1):

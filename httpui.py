@@ -137,13 +137,13 @@ def format_action(x, gid, replay=None):
     if i <= 1:
         result += " just "
 
-    if action.type == hanabi.PLAY:
+    if action.action_type == hanabi.Action.ActionType.PLAY:
         result += " played <b>" + hanabi.format_card(card) + "</b>"
-    elif action.type == hanabi.DISCARD:
+    elif action.action_type == hanabi.Action.ActionType.DISCARD:
         result += " discarded <b>" + hanabi.format_card(card) + "</b>"
     else:
         result += " hinted %s about all %s " % (other, otherp)
-        if action.type == hanabi.HINT_COLOR:
+        if action.action_type == hanabi.Action.ActionType.HINT_COLOR:
             result += hanabi.COLORNAMES[action.col] + " cards"
         else:
             result += str(action.num) + "s"
@@ -462,33 +462,40 @@ class HTTPPlayer(hanabi.Player):
         if player == 1:
             self.show = []
         card = None
-        if action.type in [hanabi.PLAY, hanabi.DISCARD]:
+        if action.action_type in [
+            hanabi.Action.ActionType.PLAY,
+            hanabi.Action.ActionType.DISCARD,
+        ]:
             card = game.hands[player][action.cnr]
         self.actions.append((action, player, card))
         if player != self.pnr:
-            if action.type == hanabi.HINT_COLOR:
+            if action.action_type == hanabi.Action.ActionType.HINT_COLOR:
                 for i, (col, num) in enumerate(game.hands[self.pnr]):
                     if col == action.col:
                         self.knows[i].add(hanabi.COLORNAMES[col])
                         self.show.append((HAND, self.pnr, i))
-            elif action.type == hanabi.HINT_NUMBER:
+            elif action.action_type == hanabi.Action.ActionType.HINT_NUMBER:
                 for i, (col, num) in enumerate(game.hands[self.pnr]):
                     if num == action.num:
                         self.knows[i].add(str(num))
                         self.show.append((HAND, self.pnr, i))
         else:
-            if action.type == hanabi.HINT_COLOR:
+            if action.action_type == hanabi.Action.ActionType.HINT_COLOR:
                 for i, (col, num) in enumerate(game.hands[action.pnr]):
                     if col == action.col:
                         self.aiknows[i].add(hanabi.COLORNAMES[col])
                         self.show.append((HAND, action.pnr, i))
-            elif action.type == hanabi.HINT_NUMBER:
+            elif action.action_type == hanabi.Action.ActionType.HINT_NUMBER:
                 for i, (col, num) in enumerate(game.hands[action.pnr]):
                     if num == action.num:
                         self.aiknows[i].add(str(num))
                         self.show.append((HAND, action.pnr, i))
 
-        if action.type in [hanabi.PLAY, hanabi.DISCARD] and player == 0:
+        if (
+            action.action_type
+            in [hanabi.Action.ActionType.PLAY, hanabi.Action.ActionType.DISCARD]
+            and player == 0
+        ):
             newshow = []
             for where, who, what in self.show:
                 if who == 0 and where == HAND:
@@ -499,7 +506,7 @@ class HTTPPlayer(hanabi.Player):
                 else:
                     newshow.append((where, who, what))
             self.show = newshow
-        if action.type == hanabi.DISCARD:
+        if action.action_type == hanabi.Action.ActionType.DISCARD:
             newshow = []
             for t, w1, w2 in self.show:
                 if t == TRASH:
@@ -509,7 +516,7 @@ class HTTPPlayer(hanabi.Player):
             self.show = newshow
             self.show.append((TRASH, 0, -1))
 
-        elif action.type == hanabi.PLAY:
+        elif action.action_type == hanabi.Action.ActionType.PLAY:
             (col, num) = game.hands[player][action.cnr]
             if game.board[col][1] + 1 == num:
                 self.show.append((BOARD, 0, col))
@@ -522,10 +529,16 @@ class HTTPPlayer(hanabi.Player):
                         newshow.append((t, w1, w2))
                 self.show = newshow
                 self.show.append((TRASH, 0, -1))
-        if player == self.pnr and action.type in [hanabi.PLAY, hanabi.DISCARD]:
+        if player == self.pnr and action.action_type in [
+            hanabi.Action.ActionType.PLAY,
+            hanabi.Action.ActionType.DISCARD,
+        ]:
             del self.knows[action.cnr]
             self.knows.append(set())
-        if player != self.pnr and action.type in [hanabi.PLAY, hanabi.DISCARD]:
+        if player != self.pnr and action.action_type in [
+            hanabi.Action.ActionType.PLAY,
+            hanabi.Action.ActionType.DISCARD,
+        ]:
             del self.aiknows[action.cnr]
             self.aiknows.append(set())
 
@@ -1197,14 +1210,20 @@ class MyHandler(BaseHTTPRequestHandler):
             action = None
             if actionname == "hintcolor" and game.hints > 0:
                 col = game.hands[0][index][0]
-                action = hanabi.Action(hanabi.HINT_COLOR, pnr=0, col=col)
+                action = hanabi.Action(
+                    hanabi.Action.ActionType.HINT_COLOR, pnr=0, col=col
+                )
             elif actionname == "hintrank" and game.hints > 0:
                 nr = game.hands[0][index][1]
-                action = hanabi.Action(hanabi.HINT_NUMBER, pnr=0, num=nr)
+                action = hanabi.Action(
+                    hanabi.Action.ActionType.HINT_NUMBER, pnr=0, num=nr
+                )
             elif actionname == "play":
-                action = hanabi.Action(hanabi.PLAY, pnr=1, cnr=index)
+                action = hanabi.Action(hanabi.Action.ActionType.PLAY, pnr=1, cnr=index)
             elif actionname == "discard":
-                action = hanabi.Action(hanabi.DISCARD, pnr=1, cnr=index)
+                action = hanabi.Action(
+                    hanabi.Action.ActionType.DISCARD, pnr=1, cnr=index
+                )
 
             if action:
                 turn += 1
