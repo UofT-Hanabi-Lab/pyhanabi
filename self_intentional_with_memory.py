@@ -19,6 +19,7 @@ from hanabi import (
     pretend_discard,
     f,
     Intent,
+    Game,
 )
 
 
@@ -30,10 +31,7 @@ class SelfIntentionalPlayerWithMemory(Player):
     def __init__(self, name, pnr):
         super().__init__(name)
         self.pnr = pnr
-        self.gothint = None
-        self.last_knowledge = []
-        self.last_played = []
-        self.last_board = []
+        self.got_hint = None
         self._intents_conveyed: list[Intent | None] = [
             None for _ in range(self._hand_size)
         ]
@@ -41,14 +39,13 @@ class SelfIntentionalPlayerWithMemory(Player):
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
     ):
-        handsize = len(knowledge[0])
         possible = []
         result = None
         self.explanation = []
         self.explanation.append(["Your Hand:"] + list(map(f, hands[1 - nr])))
         action = []
-        if self.gothint:
-            (act, plr) = self.gothint
+        if self.got_hint:
+            (act, plr) = self.got_hint
             if act.type == HINT_COLOR:
                 for k in knowledge[nr]:
                     action.append(whattodo(k, sum(k[act.col]) > 0, board))
@@ -69,7 +66,7 @@ class SelfIntentionalPlayerWithMemory(Player):
                 elif a == DISCARD and not result:
                     result = Action(DISCARD, cnr=i)
 
-        self.gothint = None
+        self.got_hint = None
         for k in knowledge[nr]:
             possible.append(get_possible(k))
 
@@ -95,7 +92,7 @@ class SelfIntentionalPlayerWithMemory(Player):
         self.explanation.append(
             ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
         )
-        possible = [Action(DISCARD, cnr=i) for i in list(range(handsize))]
+        possible = [Action(DISCARD, cnr=i) for i in list(range(self._hand_size))]
 
         scores = list(
             map(lambda p: pretend_discard(p, knowledge[nr], board, trash), possible)
@@ -150,7 +147,6 @@ class SelfIntentionalPlayerWithMemory(Player):
         valid: list[tuple[tuple[int, int], int, list[int | None]]] = []
         for c in ALL_COLORS:
             action = (HINT_COLOR, c)
-            # print("HINT", COLORNAMES[c],)
             (isvalid, score, expl) = pretend(
                 action, knowledge[1 - nr], intentions, hands[1 - nr], board
             )
@@ -167,14 +163,13 @@ class SelfIntentionalPlayerWithMemory(Player):
                 ["Prediction for: Hint Color " + COLORNAMES[c]]
                 + list(map(format_intention, expl))
             )
-            # print(isvalid, score)
+
             if isvalid:
                 assert all(isinstance(x, int) or x is None for x in expl)
                 valid.append((action, score, expl))
         for r in range(5):
             r += 1
             action = (HINT_NUMBER, r)
-            # print("HINT", r,)
 
             (isvalid, score, expl) = pretend(
                 action, knowledge[1 - nr], intentions, hands[1 - nr], board
@@ -192,13 +187,12 @@ class SelfIntentionalPlayerWithMemory(Player):
                 ["Prediction for: Hint Rank " + str(r)]
                 + list(map(format_intention, expl))
             )
-            # print(isvalid, score)
+
             if isvalid:
                 assert all(isinstance(x, int) or x is None for x in expl)
                 valid.append((action, score, expl))
         if valid and not result:
             valid.sort(key=lambda x: x[1], reverse=True)
-            # print(valid)
             (a, s, expl) = valid[0]
 
             # I assume that result will not be mutated after this block and in the calling code
@@ -220,13 +214,9 @@ class SelfIntentionalPlayerWithMemory(Player):
             self._intents_conveyed[i] = self._intents_conveyed[i + 1]
         self._intents_conveyed[-1] = None
 
-    def inform(self, action, player, game):
-        if action.type in [PLAY, DISCARD] and action.pnr != self.pnr:
+    def inform(self, action: Action, player: int, game: Game) -> None:
+        if action.type in {PLAY, DISCARD} and action.pnr != self.pnr:
             self._rotate_intents(action.cnr)
 
         elif action.pnr == self.pnr:
-            self.gothint = (action, player)
-            self.last_knowledge = game.knowledge[:]
-            self.last_board = game.board[:]
-            self.last_trash = game.trash[:]
-            self.played = game.played[:]
+            self.got_hint = (action, player)

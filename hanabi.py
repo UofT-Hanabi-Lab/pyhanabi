@@ -587,7 +587,7 @@ COUNT = 0
 CAREFUL = True
 
 
-class TimedPlayer(object):
+class TimedPlayer:
     def __init__(self, name, pnr):
         self.name = name
         self.explanation = []
@@ -1460,7 +1460,7 @@ def format_hand(hand):
     return ", ".join(list(map(format_card, hand)))
 
 
-class Game(object):
+class Game:
     def __init__(self, players, log=sys.stdout, format=0):
         self.players = players
         self.hits = 3
@@ -1718,7 +1718,7 @@ class Game(object):
             self.log.close()
 
 
-class NullStream(object):
+class NullStream:
     def write(self, *args):
         pass
 
