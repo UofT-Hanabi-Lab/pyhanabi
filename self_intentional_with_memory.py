@@ -178,7 +178,7 @@ class SelfIntentionalPlayerWithMemory(Player):
             )
 
             if isvalid:
-                assert all(isinstance(x, int) or x is None for x in expl)
+                assert all(isinstance(x, Intent) or x is None for x in expl)
                 valid.append((action, score, expl))
         for rank in range(5):
             rank += 1
@@ -202,7 +202,7 @@ class SelfIntentionalPlayerWithMemory(Player):
             )
 
             if isvalid:
-                assert all(isinstance(x, int) or x is None for x in expl)
+                assert all(isinstance(x, Intent) or x is None for x in expl)
                 valid.append((action, score, expl))
         if valid and not result:
             valid.sort(key=lambda x: x[1], reverse=True)

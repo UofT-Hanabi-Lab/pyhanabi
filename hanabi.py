@@ -4,7 +4,7 @@ import random
 import sys
 import copy
 import time
-from enum import IntEnum, Enum, unique
+from enum import Enum, unique
 from typing import Final
 
 GREEN = 0
@@ -18,7 +18,7 @@ COLORNAMES = ["green", "yellow", "white", "blue", "red"]
 COUNTS = [3, 2, 2, 2, 1]
 
 
-class Intent(IntEnum):
+class Intent(Enum):
     PLAY = 2
     DISCARD = 3
     CAN_DISCARD = 128

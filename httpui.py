@@ -880,7 +880,7 @@ class MyHandler(BaseHTTPRequestHandler):
                     items = map(lambda s: s.strip(), line.strip().split())
                     const, pnum, type, cnr, pnr, col, num = items
                     a = hanabi.Action(
-                        convert(type),
+                        hanabi.Action.ActionType(convert(type)),
                         convert(pnr),
                         convert(col),
                         convert(num),
@@ -948,7 +948,7 @@ class MyHandler(BaseHTTPRequestHandler):
                     items = map(lambda s: s.strip(), line.strip().split())
                     const, pnum, type, cnr, pnr, col, num = items
                     a = hanabi.Action(
-                        convert(type),
+                        hanabi.Action.ActionType(convert(type)),
                         convert(pnr),
                         convert(col),
                         convert(num),
