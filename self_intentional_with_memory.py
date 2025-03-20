@@ -232,7 +232,7 @@ class SelfIntentionalPlayerWithMemory(Player):
     def inform(self, action: Action, player: int, game: Game) -> None:
         if (
             action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}
-            and action.pnr != self.pnr
+            and player != self.pnr
         ):
             self._rotate_intents(action.cnr)
 
