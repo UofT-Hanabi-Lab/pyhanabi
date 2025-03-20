@@ -27,14 +27,13 @@ def _intent_unchanged(old: Intent | None, new: Intent | None) -> bool:
 class SelfIntentionalPlayerWithMemory(Player):
     pnr: int
     got_hint: tuple[Action, int] | None
+    _intents_conveyed: list[Intent | None]
 
     def __init__(self, name: str, pnr: int):
         super().__init__(name)
         self.pnr = pnr
         self.got_hint = None
-        self._intents_conveyed: list[Intent | None] = [
-            None for _ in range(self._hand_size)
-        ]
+        self._intents_conveyed = [None for _ in range(self._hand_size)]
 
     def get_action(
         self, pnr: int, hands, knowledge, trash, played, board, valid_actions, hints
@@ -217,8 +216,7 @@ class SelfIntentionalPlayerWithMemory(Player):
 
             self._intents_conveyed = [
                 self._intents_conveyed[i]
-                if expl[i] is None
-                and self._intents_conveyed[i] == Intent.PLAY
+                if expl[i] is None and self._intents_conveyed[i] == Intent.PLAY
                 else expl[i]
                 for i in range(len(expl))
             ]
