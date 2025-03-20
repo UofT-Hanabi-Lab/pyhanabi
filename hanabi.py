@@ -19,7 +19,6 @@ COUNTS = [3, 2, 2, 2, 1]
 
 
 class Intent(IntEnum):
-    KEEP = 0
     PLAY = 2
     DISCARD = 3
     CAN_DISCARD = 128
@@ -658,7 +657,7 @@ class TimedPlayer:
 CANDISCARD = 128
 
 
-def format_intention(i: int | str | Intent) -> str:
+def format_intention(i: int | str | Intent | None) -> str:
     if isinstance(i, str):
         return i
     if i == PLAY:
@@ -731,7 +730,7 @@ def pretend(action, knowledge, intentions, hand, board):
         elif action == DISCARD and i in {Intent.DISCARD, Intent.CAN_DISCARD}:
             pos = True
             predictions.append(DISCARD)
-            if i == DISCARD:
+            if i == Intent.DISCARD:
                 score += 2
             else:
                 score += 1

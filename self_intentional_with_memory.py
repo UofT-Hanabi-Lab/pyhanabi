@@ -1,4 +1,5 @@
 import random
+from typing import Sequence
 
 from hanabi import (
     Player,
@@ -28,7 +29,11 @@ def _intent_unchanged(old: Intent | None, new: Intent | None) -> bool:
 
 
 class SelfIntentionalPlayerWithMemory(Player):
-    def __init__(self, name, pnr):
+    pnr: int
+    got_hint: tuple[Action, int] | None
+
+
+    def __init__(self, name: str, pnr: int):
         super().__init__(name)
         self.pnr = pnr
         self.got_hint = None
@@ -37,20 +42,20 @@ class SelfIntentionalPlayerWithMemory(Player):
         ]
 
     def get_action(
-        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
-    ):
+        self, pnr: int, hands, knowledge, trash, played, board, valid_actions, hints
+    ) -> Action:
         possible = []
         result = None
         self.explanation = []
-        self.explanation.append(["Your Hand:"] + list(map(f, hands[1 - nr])))
+        self.explanation.append(["Your Hand:"] + list(map(f, hands[1 - pnr])))
         action = []
         if self.got_hint:
             (act, plr) = self.got_hint
             if act.type == HINT_COLOR:
-                for k in knowledge[nr]:
+                for k in knowledge[pnr]:
                     action.append(whattodo(k, sum(k[act.col]) > 0, board))
             elif act.type == HINT_NUMBER:
-                for k in knowledge[nr]:
+                for k in knowledge[pnr]:
                     cnt = 0
                     for c in ALL_COLORS:
                         cnt += k[c][act.num - 1]
@@ -67,7 +72,7 @@ class SelfIntentionalPlayerWithMemory(Player):
                     result = Action(DISCARD, cnr=i)
 
         self.got_hint = None
-        for k in knowledge[nr]:
+        for k in knowledge[pnr]:
             possible.append(get_possible(k))
 
         discards = []
@@ -80,22 +85,22 @@ class SelfIntentionalPlayerWithMemory(Player):
         if discards and hints < 8 and not result:
             result = Action(DISCARD, cnr=random.choice(discards))
 
-        intentions: list[Intent] = self.generate_intents(board, hands, nr, trash)
+        intentions = self.generate_intents(board, hands, pnr, trash)
 
         self.explanation.append(
             ["Intentions"] + list(map(format_intention, intentions))
         )
 
         if hints > 0:
-            result = self.give_hint(board, hands, intentions, knowledge, nr, result)
+            result = self.give_hint(board, hands, intentions, knowledge, pnr, result)
 
         self.explanation.append(
-            ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
+            ["My Knowledge"] + list(map(format_knowledge, knowledge[pnr]))
         )
         possible = [Action(DISCARD, cnr=i) for i in list(range(self._hand_size))]
 
         scores = list(
-            map(lambda p: pretend_discard(p, knowledge[nr], board, trash), possible)
+            map(lambda p: pretend_discard(p, knowledge[pnr], board, trash), possible)
         )
 
         def format_term(x):
@@ -121,12 +126,12 @@ class SelfIntentionalPlayerWithMemory(Player):
             return result
         return scores[0][0]
 
-    def generate_intents(self, board, hands, nr, trash) -> list[Intent]:
+    def generate_intents(self, board, hands, nr, trash) -> Sequence[Intent | None]:
         playables = []
         useless = []
         discardables = []
         othercards = trash + board
-        intentions = [Intent.KEEP for _ in range(self._hand_size)]
+        intentions: list[Intent | None] = [None for _ in range(self._hand_size)]
 
         for i, h in enumerate(hands):
             if i != nr:
