@@ -97,6 +97,10 @@ class Action:
         PLAY = 2
         DISCARD = 3
 
+        @property
+        def display_name(self) -> str:
+            return self.name.replace("_", " ").title()
+
         def __str__(self) -> str:
             return str(self.value)
 
@@ -654,10 +658,7 @@ class TimedPlayer:
         return self.explanation
 
 
-CANDISCARD = 128
-
-
-def format_intention(i: int | str | Intent | None) -> str:
+def format_intention(i: str | Intent | None) -> str:
     if isinstance(i, str):
         return i
     if i == Intent.PLAY:
@@ -987,15 +988,10 @@ class SelfIntentionalPlayer(Player):
         if action:
             self.explanation.append(
                 ["What you want me to do"]
-                + list(
-                    map(
-                        format_intention,
-                        (
-                            x.value if isinstance(x, Action.ActionType) else None
-                            for x in action
-                        ),
-                    )
-                )
+                + [
+                    x.display_name if isinstance(x, Action.ActionType) else "Keep"
+                    for x in action
+                ]
             )
             for i, a in enumerate(action):
                 if a == Action.ActionType.PLAY and (

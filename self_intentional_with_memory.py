@@ -58,15 +58,10 @@ class SelfIntentionalPlayerWithMemory(Player):
         if action:
             self.explanation.append(
                 ["What you want me to do"]
-                + list(
-                    map(
-                        format_intention,
-                        (
-                            x.value if isinstance(x, Action.ActionType) else None
-                            for x in action
-                        ),
-                    )
-                )
+                + [
+                    x.display_name if isinstance(x, Action.ActionType) else "Keep"
+                    for x in action
+                ]
             )
             for i, a in enumerate(action):
                 if a == Action.ActionType.PLAY and (
