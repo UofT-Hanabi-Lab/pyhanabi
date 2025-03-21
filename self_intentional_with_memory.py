@@ -30,8 +30,7 @@ class SelfIntentionalPlayerWithMemory(Player):
     _intents_conveyed: list[Intent | None]
 
     def __init__(self, name: str, pnr: int):
-        super().__init__(name)
-        self.pnr = pnr
+        super().__init__(name, pnr)
         self.got_hint = None
         self._intents_conveyed = [None for _ in range(self._hand_size)]
 

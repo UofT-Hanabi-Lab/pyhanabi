@@ -142,8 +142,9 @@ class Action:
 
 
 class Player:
-    def __init__(self, name, hand_size=5):
+    def __init__(self, name, pnr, hand_size=5):
         self.name = name
+        self.pnr = pnr
         self._hand_size: Final[int] = hand_size
 
         self.explanation = []
@@ -207,7 +208,7 @@ def update_knowledge(knowledge, used):
 
 class InnerStatePlayer(Player):
     def __init__(self, name, pnr):
-        super().__init__(name)
+        super().__init__(name, pnr)
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -273,9 +274,8 @@ class InnerStatePlayer(Player):
 
 class OuterStatePlayer(Player):
     def __init__(self, name, pnr):
-        super().__init__(name)
+        super().__init__(name, pnr)
         self.hints = {}
-        self.pnr = pnr
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -410,9 +410,8 @@ class SelfRecognitionPlayer(Player):
     gothint: tuple[Action, int] | None
 
     def __init__(self, name, pnr, other=OuterStatePlayer):
-        super().__init__(name)
+        super().__init__(name, pnr)
         self.hints = {}
-        self.pnr = pnr
         self.gothint = None
         self.last_knowledge = []
         self.last_played = []
@@ -799,9 +798,8 @@ def format_knowledge(k):
 
 class IntentionalPlayer(Player):
     def __init__(self, name, pnr):
-        super().__init__(name)
+        super().__init__(name, pnr)
         self.hints = {}
-        self.pnr = pnr
         self.gothint = None
         self.last_knowledge = []
         self.last_played = []
@@ -956,9 +954,8 @@ class IntentionalPlayer(Player):
 
 class SelfIntentionalPlayer(Player):
     def __init__(self, name, pnr):
-        super().__init__(name)
+        super().__init__(name, pnr)
         self.hints = {}
-        self.pnr = pnr
         self.gothint = None
         self.last_knowledge = []
         self.last_played = []
@@ -1172,9 +1169,8 @@ for c in ALL_COLORS:
 
 class SamplingRecognitionPlayer(Player):
     def __init__(self, name, pnr, other=IntentionalPlayer, maxtime=5000):
-        super().__init__(name)
+        super().__init__(name, pnr)
         self.hints = {}
-        self.pnr = pnr
         self.gothint = None
         self.last_knowledge = []
         self.last_played = []
@@ -1356,9 +1352,8 @@ class SamplingRecognitionPlayer(Player):
 
 class FullyIntentionalPlayer(Player):
     def __init__(self, name, pnr):
-        super().__init__(name)
+        super().__init__(name, pnr)
         self.hints = {}
-        self.pnr = pnr
         self.gothint = None
         self.last_knowledge = []
         self.last_played = []
