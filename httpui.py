@@ -13,6 +13,8 @@ import consent
 import threading
 from cgi import parse_header, parse_multipart
 from urllib.parse import parse_qs
+
+from self_intentional_with_memory import SelfIntentionalPlayerWithMemory
 from serverconf import HOST_NAME, PORT_NUMBER
 
 
@@ -630,6 +632,7 @@ ais = {
     "self": hanabi.SelfRecognitionPlayer,
     "intentional": hanabi.IntentionalPlayer,
     "full": hanabi.SelfIntentionalPlayer,
+    "full-with-mem": SelfIntentionalPlayerWithMemory,
 }
 
 
@@ -1186,6 +1189,9 @@ class MyHandler(BaseHTTPRequestHandler):
             )
             s.wfile.write(
                 b'<li><a href="/new/full">Fully Intentional Player</a></li>\n'
+            )
+            s.wfile.write(
+                b'<li><a href="/new/full-with-mem">Fully Intentional Player with Memory</a></li>\n'
             )
             s.wfile.write(b"</ul><br/>")
             s.wfile.write(
