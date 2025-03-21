@@ -18,6 +18,7 @@ COLORNAMES = ["green", "yellow", "white", "blue", "red"]
 COUNTS = [3, 2, 2, 2, 1]
 
 
+@unique
 class Intent(Enum):
     PLAY = 2
     DISCARD = 3
