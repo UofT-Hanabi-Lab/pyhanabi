@@ -7,8 +7,6 @@ import time
 from enum import Enum, unique, IntEnum
 from typing import Final
 
-COLORNAMES = ["green", "yellow", "white", "blue", "red"]
-
 COUNTS = [3, 2, 2, 2, 1]
 
 
@@ -42,7 +40,8 @@ def f(something):
     elif isinstance(something, dict):
         return {k: something[v] for (k, v) in something.items()}
     elif isinstance(something, tuple) and len(something) == 2:
-        return COLORNAMES[something[0]], something[1]
+        assert isinstance(something[0], Color)
+        return something[0].display_name, something[1]
     return something
 
 
@@ -118,7 +117,12 @@ class Action:
     action_type: ActionType
 
     def __init__(
-        self, action_type: ActionType, pnr=None, col=None, num=None, cnr=None
+        self,
+        action_type: ActionType,
+        pnr: int | None = None,
+        col: Color | None = None,
+        num: int | None = None,
+        cnr: int | None = None,
     ) -> None:
         self.action_type = action_type
         self.pnr = pnr
@@ -128,11 +132,12 @@ class Action:
 
     def __str__(self):
         if self.action_type == Action.ActionType.HINT_COLOR:
+            assert self.col is not None
             return (
                 "hints "
                 + str(self.pnr)
                 + " about all their "
-                + COLORNAMES[self.col]
+                + self.col.display_name
                 + " cards"
             )
         if self.action_type == Action.ActionType.HINT_NUMBER:
@@ -803,7 +808,7 @@ def format_knowledge(k):
     for col in Color:
         for i, cnt in enumerate(k[col]):
             if cnt > 0:
-                result += COLORNAMES[col] + " " + str(i + 1) + ": " + str(cnt) + "\n"
+                result += col.display_name + " " + str(i + 1) + ": " + str(cnt) + "\n"
     return result
 
 
@@ -874,7 +879,7 @@ class IntentionalPlayer(Player):
                     action, knowledge[1 - nr], intentions, hands[1 - nr], board
                 )
                 self.explanation.append(
-                    ["Prediction for: Hint Color " + COLORNAMES[c]]
+                    ["Prediction for: Hint Color " + c.display_name]
                     + list(map(format_intention, expl))
                 )
                 # print(isvalid, score)
@@ -920,7 +925,7 @@ class IntentionalPlayer(Player):
         def format_term(x):
             (col, rank, n, prob, val) = x
             return (
-                COLORNAMES[col]
+                col.display_name
                 + " "
                 + str(rank)
                 + " (%.2f%%): %.2f" % (prob * 100, val)
@@ -1056,7 +1061,7 @@ class SelfIntentionalPlayer(Player):
                     action, knowledge[1 - nr], intentions, hands[1 - nr], board
                 )
                 self.explanation.append(
-                    ["Prediction for: Hint Color " + COLORNAMES[c]]
+                    ["Prediction for: Hint Color " + c.display_name]
                     + list(map(format_intention, expl))
                 )
                 # print(isvalid, score)
@@ -1102,7 +1107,7 @@ class SelfIntentionalPlayer(Player):
         def format_term(x):
             (col, rank, _, prob, val) = x
             return (
-                COLORNAMES[col]
+                col.display_name
                 + " "
                 + str(rank)
                 + " (%.2f%%): %.2f" % (prob * 100, val)
@@ -1485,7 +1490,7 @@ class FullyIntentionalPlayer(Player):
 
 def format_card(x):
     (col, num) = x
-    return COLORNAMES[col] + " " + str(num)
+    return col.display_name + " " + str(num)
 
 
 def format_hand(hand):
@@ -1533,7 +1538,7 @@ class Game:
         self.knowledge[pnr].append(initial_knowledge())
         del self.deck[0]
 
-    def perform(self, action):
+    def perform(self, action: Action):
         for p in self.players:
             p.inform(action, self.current_player, self)
         if self.format:
@@ -1548,13 +1553,16 @@ class Game:
                 file=self.log,
             )
         if action.action_type == Action.ActionType.HINT_COLOR:
+            assert action.col is not None
+            assert action.pnr is not None
+
             self.hints -= 1
             print(
                 self.players[self.current_player].name,
                 "hints",
                 self.players[action.pnr].name,
                 "about all their",
-                COLORNAMES[action.col],
+                action.col.display_name,
                 "cards",
                 "hints remaining:",
                 self.hints,
@@ -1578,6 +1586,9 @@ class Game:
                     for i in range(len(knowledge[action.col])):
                         knowledge[action.col][i] = 0
         elif action.action_type == Action.ActionType.HINT_NUMBER:
+            assert action.num is not None
+            assert action.pnr is not None
+
             self.hints -= 1
             print(
                 self.players[self.current_player].name,
