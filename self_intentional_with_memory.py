@@ -152,7 +152,9 @@ class SelfIntentionalPlayerWithMemory(Player):
         return intentions
 
     def give_hint(self, board, hands, intentions, knowledge, nr, result) -> Action:
-        valid: list[tuple[tuple[Action.ActionType, int | Color], int, list[int | None]]] = []
+        valid: list[
+            tuple[tuple[Action.ActionType, int | Color], int, list[int | None]]
+        ] = []
         action: tuple[Action.ActionType, int | Color]
         for c in Color:
             action = (Action.ActionType.HINT_COLOR, c)
