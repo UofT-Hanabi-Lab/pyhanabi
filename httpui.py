@@ -226,7 +226,7 @@ def show_game_state(game, player, turn, gid, replay=False):
     localtrash.sort()
     discarded = {}
     trashhtml = '<table width="100%%" style="border-collapse: collapse"><tr>\n'
-    for i, c in enumerate(hanabi.ALL_COLORS):
+    for i, c in enumerate(hanabi.Color):
         style = "border-bottom: 1px solid #000"
         if i > 0:
             style += "; border-left: 1px solid #000"
@@ -255,7 +255,7 @@ def show_game_state(game, player, turn, gid, replay=False):
                     discarded[c].append("<div>%d</div>" % num)
         discarded[c].sort()
     trashhtml += '</tr><tr style="height: 150pt">\n'
-    for i, c in enumerate(hanabi.ALL_COLORS):
+    for i, c in enumerate(hanabi.Color):
         style = ' style="vertical-align:top"'
         if i > 0:
             style = ' style="border-left: 1px solid #000; vertical-align:top"'

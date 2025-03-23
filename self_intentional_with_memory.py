@@ -4,7 +4,7 @@ from typing import Sequence
 from hanabi import (
     Player,
     whattodo,
-    ALL_COLORS,
+    Color,
     format_intention,
     Action,
     get_possible,
@@ -50,7 +50,7 @@ class SelfIntentionalPlayerWithMemory(Player):
             elif act.action_type == Action.ActionType.HINT_NUMBER:
                 for k in knowledge[pnr]:
                     cnt = 0
-                    for c in ALL_COLORS:
+                    for c in Color:
                         cnt += k[c][act.num - 1]
                     action.append(whattodo(k, cnt > 0, board))
 
@@ -152,7 +152,7 @@ class SelfIntentionalPlayerWithMemory(Player):
 
     def give_hint(self, board, hands, intentions, knowledge, nr, result) -> Action:
         valid: list[tuple[tuple[Action.ActionType, int], int, list[int | None]]] = []
-        for c in ALL_COLORS:
+        for c in Color:
             action = (Action.ActionType.HINT_COLOR, c)
             (isvalid, score, expl) = pretend(
                 action, knowledge[1 - nr], intentions, hands[1 - nr], board
