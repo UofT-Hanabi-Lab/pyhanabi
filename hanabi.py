@@ -1,5 +1,3 @@
-# ruff: noqa: F841
-
 import random
 import sys
 import copy
