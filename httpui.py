@@ -146,7 +146,7 @@ def format_action(x, gid, replay=None):
     else:
         result += " hinted %s about all %s " % (other, otherp)
         if action.action_type == hanabi.Action.ActionType.HINT_COLOR:
-            result += hanabi.COLORNAMES[action.col] + " cards"
+            result += action.col.display_name + " cards"
         else:
             result += str(action.num) + "s"
     if i == 0:
@@ -226,13 +226,13 @@ def show_game_state(game, player, turn, gid, replay=False):
     localtrash.sort()
     discarded = {}
     trashhtml = '<table width="100%%" style="border-collapse: collapse"><tr>\n'
-    for i, c in enumerate(hanabi.ALL_COLORS):
+    for i, c in enumerate(hanabi.Color):
         style = "border-bottom: 1px solid #000"
         if i > 0:
             style += "; border-left: 1px solid #000"
         trashhtml += (
             '<td valign="top" align="center" style="%s" width="20%%">%s</td>\n'
-            % (style, hanabi.COLORNAMES[c])
+            % (style, c.display_name)
         )
         discarded[c] = []
         for col, num in game.trash:
@@ -255,7 +255,7 @@ def show_game_state(game, player, turn, gid, replay=False):
                     discarded[c].append("<div>%d</div>" % num)
         discarded[c].sort()
     trashhtml += '</tr><tr style="height: 150pt">\n'
-    for i, c in enumerate(hanabi.ALL_COLORS):
+    for i, c in enumerate(hanabi.Color):
         style = ' style="vertical-align:top"'
         if i > 0:
             style = ' style="border-left: 1px solid #000; vertical-align:top"'
@@ -402,20 +402,20 @@ def make_card_image(x, links=None, highlight=False):
         ],
     }
     circ = "\n".join(
-        map(lambda x: make_circle(x[0], x[1], hanabi.COLORNAMES[col]), circles[num])
+        map(lambda x: make_circle(x[0], x[1], col.display_name), circles[num])
     )
     highlighttext = ""
     if highlight:
         highlighttext = ' stroke="red" stroke-width="4"'
     return image % (
         highlighttext,
-        hanabi.COLORNAMES[col],
+        col.display_name,
         str(num),
-        hanabi.COLORNAMES[col],
-        hanabi.COLORNAMES[col],
+        col.display_name,
+        col.display_name,
         circ,
         linktext,
-        hanabi.COLORNAMES[col],
+        col.display_name,
         str(num),
     )
 
@@ -473,7 +473,7 @@ class HTTPPlayer(hanabi.Player):
             if action.action_type == hanabi.Action.ActionType.HINT_COLOR:
                 for i, (col, num) in enumerate(game.hands[self.pnr]):
                     if col == action.col:
-                        self.knows[i].add(hanabi.COLORNAMES[col])
+                        self.knows[i].add(col.display_name)
                         self.show.append((HAND, self.pnr, i))
             elif action.action_type == hanabi.Action.ActionType.HINT_NUMBER:
                 for i, (col, num) in enumerate(game.hands[self.pnr]):
@@ -484,7 +484,7 @@ class HTTPPlayer(hanabi.Player):
             if action.action_type == hanabi.Action.ActionType.HINT_COLOR:
                 for i, (col, num) in enumerate(game.hands[action.pnr]):
                     if col == action.col:
-                        self.aiknows[i].add(hanabi.COLORNAMES[col])
+                        self.aiknows[i].add(col.display_name)
                         self.show.append((HAND, action.pnr, i))
             elif action.action_type == hanabi.Action.ActionType.HINT_NUMBER:
                 for i, (col, num) in enumerate(game.hands[action.pnr]):

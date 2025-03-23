@@ -4,14 +4,13 @@ from typing import Sequence
 from hanabi import (
     Player,
     whattodo,
-    ALL_COLORS,
+    Color,
     format_intention,
     Action,
     get_possible,
     playable,
     discardable,
     pretend,
-    COLORNAMES,
     format_knowledge,
     pretend_discard,
     f,
@@ -45,12 +44,14 @@ class SelfIntentionalPlayerWithMemory(Player):
         if self.got_hint:
             (act, plr) = self.got_hint
             if act.action_type == Action.ActionType.HINT_COLOR:
+                assert act.col is not None
                 for k in knowledge[pnr]:
                     action.append(whattodo(k, sum(k[act.col]) > 0, board))
             elif act.action_type == Action.ActionType.HINT_NUMBER:
+                assert act.num is not None
                 for k in knowledge[pnr]:
                     cnt = 0
-                    for c in ALL_COLORS:
+                    for c in Color:
                         cnt += k[c][act.num - 1]
                     action.append(whattodo(k, cnt > 0, board))
 
@@ -108,7 +109,7 @@ class SelfIntentionalPlayerWithMemory(Player):
         def format_term(x):
             (col, rank, _, prob, val) = x
             return (
-                COLORNAMES[col]
+                col.display_name
                 + " "
                 + str(rank)
                 + " (%.2f%%): %.2f" % (prob * 100, val)
@@ -151,8 +152,9 @@ class SelfIntentionalPlayerWithMemory(Player):
         return intentions
 
     def give_hint(self, board, hands, intentions, knowledge, nr, result) -> Action:
-        valid: list[tuple[tuple[Action.ActionType, int], int, list[int | None]]] = []
-        for c in ALL_COLORS:
+        valid: list[tuple[tuple[Action.ActionType, int | Color], int, list[int | None]]] = []
+        action: tuple[Action.ActionType, int | Color]
+        for c in Color:
             action = (Action.ActionType.HINT_COLOR, c)
             (isvalid, score, expl) = pretend(
                 action, knowledge[1 - nr], intentions, hands[1 - nr], board
@@ -167,7 +169,7 @@ class SelfIntentionalPlayerWithMemory(Player):
                 expl = ["No new intentions"]
 
             self.explanation.append(
-                ["Prediction for: Hint Color " + COLORNAMES[c]]
+                ["Prediction for: Hint Color " + c.display_name]
                 + list(map(format_intention, expl))
             )
 
@@ -204,6 +206,7 @@ class SelfIntentionalPlayerWithMemory(Player):
 
             # I assume that result will not be mutated after this block and in the calling code
             if a[0] == Action.ActionType.HINT_COLOR:
+                assert isinstance(a[1], Color)
                 result = Action(Action.ActionType.HINT_COLOR, pnr=1 - nr, col=a[1])
             else:
                 result = Action(Action.ActionType.HINT_NUMBER, pnr=1 - nr, num=a[1])
@@ -226,6 +229,7 @@ class SelfIntentionalPlayerWithMemory(Player):
             action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}
             and player != self.pnr
         ):
+            assert action.cnr is not None
             self._rotate_intents(action.cnr)
 
         elif action.pnr == self.pnr:
