@@ -2030,7 +2030,7 @@ playertypes = {
     "sample": SamplingRecognitionPlayer,
     "full": SelfIntentionalPlayer,
     "timed": TimedPlayer,
-    "new": SelfIntentionalPlayerDetectDeadColors,
+    "full-detect-dead": SelfIntentionalPlayerDetectDeadColors,
 }
 names = ["Shangdi", "Yu Di", "Tian", "Nu Wa", "Pangu"]
 
