@@ -642,7 +642,6 @@ def format_score(sc):
     return "%d points" % sc
 
 
-# TODO: insert here
 # AIClasses
 ais = {
     "random": hanabi.Player,
