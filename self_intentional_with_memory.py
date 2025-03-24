@@ -97,7 +97,7 @@ class SelfIntentionalPlayerWithMemory(Player):
         )
 
         if hints > 0:
-            result = self.give_hint(board, hands, intentions, knowledge, pnr, result)
+            result = self.give_hint(board, hands, intentions, knowledge, pnr, result, trash)
 
         self.explanation.append(
             ["My Knowledge"] + list(map(format_knowledge, knowledge[pnr]))
@@ -156,7 +156,7 @@ class SelfIntentionalPlayerWithMemory(Player):
 
         return intentions
 
-    def give_hint(self, board, hands, intentions, knowledge, nr, result) -> Action:
+    def give_hint(self, board, hands, intentions, knowledge, nr, result, trash) -> Action:
         valid: list[
             tuple[tuple[Action.ActionType, int | Color], int, list[int | None]]
         ] = []
@@ -164,7 +164,7 @@ class SelfIntentionalPlayerWithMemory(Player):
         for c in Color:
             action = (Action.ActionType.HINT_COLOR, c)
             (isvalid, score, expl) = pretend(
-                action, knowledge[1 - nr], intentions, hands[1 - nr], board
+                action, knowledge[1 - nr], intentions, hands[1 - nr], board, trash
             )
 
             if isvalid and all(
@@ -188,7 +188,7 @@ class SelfIntentionalPlayerWithMemory(Player):
             action = (Action.ActionType.HINT_NUMBER, rank)
 
             (isvalid, score, expl) = pretend(
-                action, knowledge[1 - nr], intentions, hands[1 - nr], board
+                action, knowledge[1 - nr], intentions, hands[1 - nr], board, trash
             )
 
             if isvalid and all(

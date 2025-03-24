@@ -651,6 +651,7 @@ ais = {
     "intentional": hanabi.IntentionalPlayer,
     "full": hanabi.SelfIntentionalPlayer,
     "full-with-mem": SelfIntentionalPlayerWithMemory,
+    "full-detect-dead": hanabi.SelfIntentionalPlayerDetectDeadColors
 }
 
 
@@ -1210,6 +1211,9 @@ class MyHandler(BaseHTTPRequestHandler):
             )
             s.wfile.write(
                 b'<li><a href="/new/full-with-mem">Fully Intentional Player with Memory</a></li>\n'
+            )
+            s.wfile.write(
+                b'<li><a href="/new/full-detect-dead">Fully Intentional Player with Dead Color Detection</a></li>\n'
             )
             s.wfile.write(b"</ul><br/>")
             s.wfile.write(
