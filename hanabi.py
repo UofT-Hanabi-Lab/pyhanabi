@@ -50,6 +50,20 @@ def make_deck():
             for i in list(range(cnt)):
                 deck.append((col, num + 1))
     random.shuffle(deck)
+
+    # Artificial deck for testing
+    # deck = []
+    # deck.extend([(Color.BLUE, 1), (Color.YELLOW, 1), (Color.GREEN, 1), (Color.WHITE, 1), (Color.RED, 3)])  # AI hand
+    # deck.extend([(Color.RED, 2), (Color.RED, 2), (Color.RED, 1), (Color.RED, 1), (Color.RED, 1)])  # Human hand
+    # # Now construct the rest of the deck
+    # deck.extend([(col, 5) for col in Color]) # missing 5's
+    # deck.extend([(col, 4) for col in Color] * 2) # missing 4's
+    # deck.append((Color.RED, 3)) # only one missing red 3
+    # deck.extend([(col, 3) for col in Color if col != Color.RED] * 2) # other missing 3's
+    # deck.extend([(col, 2) for col in Color if col != Color.RED] * 2) # missing 2's
+    # deck.extend([(col, 1) for col in Color if col != Color.RED] * 2) # other missing 1's
+    # assert len(deck) == 50
+
     return deck
 
 
@@ -1216,7 +1230,7 @@ class SelfIntentionalPlayer(Player):
             self.gothint = (action, player)
 
 
-class ImprovedSelfIntentionalPlayer(Player):
+class SelfIntentionalPlayerDetectDeadColors(Player):
     def __init__(self, name, pnr):
         super().__init__(name, pnr)
         self.hints = {}
@@ -1239,10 +1253,10 @@ class ImprovedSelfIntentionalPlayer(Player):
 
         if self.gothint:
             (act, plr) = self.gothint
-            if act.type == Action.ActionType.HINT_COLOR:
+            if act.action_type == Action.ActionType.HINT_COLOR:
                 for k in knowledge[nr]:
                     action.append(whattodo(k, sum(k[act.col]) > 0, board, dead_colors))
-            elif act.type == Action.ActionType.HINT_NUMBER:
+            elif act.action_type == Action.ActionType.HINT_NUMBER:
                 for k in knowledge[nr]:
                     cnt = 0
                     for c in Color:
@@ -1251,10 +1265,13 @@ class ImprovedSelfIntentionalPlayer(Player):
 
         if action:
             self.explanation.append(
-                ["What you want me to do"] + list(map(format_intention, action))
+                ["What you want me to do"] + [
+                    x.display_name if isinstance(x, Action.ActionType) else "Keep"
+                    for x in action
+                ]
             )
             for i, a in enumerate(action):
-                if a == Action.ActionType.PLAY and (not result or result.type == Action.ActionType.DISCARD):
+                if a == Action.ActionType.PLAY and (not result or result.action_type == Action.ActionType.DISCARD):
                     result = Action(Action.ActionType.PLAY, cnr=i)
                 elif a == Action.ActionType.DISCARD and not result:
                     result = Action(Action.ActionType.DISCARD, cnr=i)
@@ -1278,7 +1295,7 @@ class ImprovedSelfIntentionalPlayer(Player):
         useless = []
         discardables = []
         othercards = trash + board
-        intentions = list[Intent | None] = [None for _ in list(range(handsize))]
+        intentions: list[Intent | None] = [None for _ in list(range(handsize))]
         for i, h in enumerate(hands):
             if i != nr:
                 for j, (col, n) in enumerate(h):
@@ -1367,7 +1384,7 @@ class ImprovedSelfIntentionalPlayer(Player):
         return scores[0][0]
 
     def inform(self, action, player, game):
-        if action.type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
+        if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
             x = str(action)
             if (action.cnr, player) in self.hints:
                 self.hints[(action.cnr, player)] = []
@@ -2013,6 +2030,7 @@ playertypes = {
     "sample": SamplingRecognitionPlayer,
     "full": SelfIntentionalPlayer,
     "timed": TimedPlayer,
+    "new": SelfIntentionalPlayerDetectDeadColors,
 }
 names = ["Shangdi", "Yu Di", "Tian", "Nu Wa", "Pangu"]
 
