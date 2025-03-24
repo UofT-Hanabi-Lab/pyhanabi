@@ -169,7 +169,7 @@ class SelfIntentionalPlayerWithMemory(Player):
 
             if isvalid and all(
                 _intent_unchanged(self._intents_conveyed[i], expl[i])
-                for i in range(len(self._intents_conveyed))
+                for i in range(len(expl))
             ):
                 isvalid = False
                 score = 0
@@ -193,7 +193,7 @@ class SelfIntentionalPlayerWithMemory(Player):
 
             if isvalid and all(
                 _intent_unchanged(self._intents_conveyed[i], expl[i])
-                for i in range(len(self._intents_conveyed))
+                for i in range(len(expl))
             ):
                 isvalid = False
                 score = 0
