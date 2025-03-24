@@ -1,5 +1,5 @@
 import random
-from typing import Sequence
+from typing import Sequence, override
 
 from hanabi import (
     Player,
@@ -30,6 +30,11 @@ class SelfIntentionalPlayerWithMemory(Player):
 
     def __init__(self, name: str, pnr: int):
         super().__init__(name, pnr)
+        self.got_hint = None
+        self._intents_conveyed = [None for _ in range(self._hand_size)]
+
+    @override
+    def reset(self) -> None:
         self.got_hint = None
         self._intents_conveyed = [None for _ in range(self._hand_size)]
 

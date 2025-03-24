@@ -3,7 +3,7 @@ import sys
 import copy
 import time
 from enum import Enum, unique, IntEnum
-from typing import Final
+from typing import Final, Sequence, override
 
 COUNTS = [3, 2, 2, 2, 1]
 
@@ -163,6 +163,13 @@ class Player:
 
         self.explanation = []
 
+    def reset(self) -> None:
+        """
+        Sets the player's state back to the initial state, as though it has never played
+        a game.
+        """
+        pass
+
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
     ):
@@ -291,6 +298,10 @@ class OuterStatePlayer(Player):
         super().__init__(name, pnr)
         self.hints = {}
 
+    @override
+    def reset(self) -> None:
+        self.hints = {}
+
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
     ):
@@ -416,6 +427,7 @@ a = 1
 
 class SelfRecognitionPlayer(Player):
     gothint: tuple[Action, int] | None
+    other: Final[type[Player]]
 
     def __init__(self, name, pnr, other=OuterStatePlayer):
         super().__init__(name, pnr)
@@ -425,6 +437,14 @@ class SelfRecognitionPlayer(Player):
         self.last_played = []
         self.last_board = []
         self.other = other
+
+    @override
+    def reset(self) -> None:
+        self.hints = {}
+        self.gothint = None
+        self.last_knowledge = []
+        self.last_played = []
+        self.last_board = []
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -807,6 +827,14 @@ class IntentionalPlayer(Player):
         self.last_played = []
         self.last_board = []
 
+    @override
+    def reset(self) -> None:
+        self.hints = {}
+        self.gothint = None
+        self.last_knowledge = []
+        self.last_played = []
+        self.last_board = []
+
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
     ):
@@ -951,11 +979,11 @@ class IntentionalPlayer(Player):
 class SelfIntentionalPlayer(Player):
     def __init__(self, name, pnr):
         super().__init__(name, pnr)
-        self.hints = {}
         self.gothint = None
-        self.last_knowledge = []
-        self.last_played = []
-        self.last_board = []
+
+    @override
+    def reset(self) -> None:
+        self.gothint = None
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -1108,21 +1136,11 @@ class SelfIntentionalPlayer(Player):
         return scores[0][0]
 
     def inform(self, action, player, game):
-        if action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}:
-            if (action.cnr, player) in self.hints:
-                self.hints[(action.cnr, player)] = []
-            for i in range(10):
-                if (action.cnr + i + 1, player) in self.hints:
-                    self.hints[(action.cnr + i, player)] = self.hints[
-                        (action.cnr + i + 1, player)
-                    ]
-                    self.hints[(action.cnr + i + 1, player)] = []
-        elif action.pnr == self.pnr:
+        if action.pnr == self.pnr and action.action_type in {
+            Action.ActionType.HINT_COLOR,
+            Action.ActionType.HINT_NUMBER,
+        }:
             self.gothint = (action, player)
-            self.last_knowledge = game.knowledge[:]
-            self.last_board = game.board[:]
-            self.last_trash = game.trash[:]
-            self.played = game.played[:]
 
 
 def do_sample(knowledge):
@@ -1159,6 +1177,9 @@ for c in Color:
 
 
 class SamplingRecognitionPlayer(Player):
+    other: Final[type[Player]]
+    maxtime: Final[int]
+
     def __init__(self, name, pnr, other=IntentionalPlayer, maxtime=5000):
         super().__init__(name, pnr)
         self.hints = {}
@@ -1168,6 +1189,14 @@ class SamplingRecognitionPlayer(Player):
         self.last_board = []
         self.other = other
         self.maxtime = maxtime
+
+    @override
+    def reset(self) -> None:
+        self.hints = {}
+        self.gothint = None
+        self.last_knowledge = []
+        self.last_played = []
+        self.last_board = []
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -1322,6 +1351,14 @@ class FullyIntentionalPlayer(Player):
         self.last_played = []
         self.last_board = []
 
+    @override
+    def reset(self) -> None:
+        self.hints = {}
+        self.gothint = None
+        self.last_knowledge = []
+        self.last_played = []
+        self.last_board = []
+
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
     ):
@@ -1443,6 +1480,8 @@ def format_hand(hand):
 
 
 class Game:
+    players: Sequence[Player]
+
     def __init__(self, players, log=sys.stdout, format=0):
         self.players = players
         self.hits = 3
@@ -1632,6 +1671,8 @@ class Game:
         return valid
 
     def run(self, turns=-1):
+        for p in self.players:
+            p.reset()
         self.turn = 1
         while not self.done() and (turns < 0 or self.turn < turns):
             self.turn += 1

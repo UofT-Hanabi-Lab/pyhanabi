@@ -3,6 +3,9 @@ import socketserver
 import time
 import shutil
 import os
+
+from typing import override
+
 import hanabi
 import random
 import hashlib
@@ -455,8 +458,15 @@ class HTTPPlayer(hanabi.Player):
     def __init__(self, name, pnr):
         super().__init__(name, pnr)
         self.actions = []
-        self.knows = [set() for i in range(5)]
-        self.aiknows = [set() for i in range(5)]
+        self.knows = [set() for _ in range(5)]
+        self.aiknows = [set() for _ in range(5)]
+        self.show = []
+
+    @override
+    def reset(self) -> None:
+        self.actions = []
+        self.knows = [set() for _ in range(5)]
+        self.aiknows = [set() for _ in range(5)]
         self.show = []
 
     def inform(self, action, player, game):
@@ -549,6 +559,10 @@ class ReplayHTTPPlayer(HTTPPlayer):
         super().__init__(name, pnr)
         self.actions = []
 
+    @override
+    def reset(self) -> None:
+        self.actions = []
+
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
     ):
@@ -560,6 +574,10 @@ class ReplayPlayer(hanabi.Player):
         super().__init__(name, pnr)
         self.actions = []
         self.realplayer = None
+
+    @override
+    def reset(self) -> None:
+        self.actions = []
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
