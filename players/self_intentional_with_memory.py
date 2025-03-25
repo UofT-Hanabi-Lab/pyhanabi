@@ -3,7 +3,8 @@ from typing import Sequence, override
 
 from players.base import Player
 from game import Game
-from utils import *
+from utils import get_possible, playable, Action, discardable, Intent, Color, pretend, f, format_intention, \
+    format_knowledge, pretend_discard, whattodo
 
 
 def _intent_unchanged(old: Intent | None, new: Intent | None) -> bool:

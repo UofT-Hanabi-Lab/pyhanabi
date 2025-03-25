@@ -2,7 +2,7 @@ import random
 from typing import override
 
 from players.base import Player
-from utils import *
+from utils import get_possible, playable, Action, discardable, Intent, Color, pretend
 
 
 class FullyIntentionalPlayer(Player):

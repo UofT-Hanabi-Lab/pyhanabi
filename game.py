@@ -2,8 +2,8 @@ import sys
 
 from typing import Sequence
 from players.base import Player
-from utils import *
-    
+from utils import Action, Color, make_deck, initial_knowledge, format_hand, COUNTS, format_card
+
 
 class Game:
     players: Sequence[Player]
