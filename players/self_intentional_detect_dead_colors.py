@@ -72,7 +72,6 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
             possible.append(get_possible(k))
 
         discards = []
-        duplicates = []
         for i, p in enumerate(possible):
             if playable(p, board, dead_colors) and not result:
                 result = Action(Action.ActionType.PLAY, cnr=i)
