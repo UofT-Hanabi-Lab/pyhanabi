@@ -159,7 +159,7 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
 
     def inform(self, action: Action, player: int, game):
         if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
-            x = str(action)
+            assert action.cnr is not None
             if (action.cnr, player) in self.hints:
                 self.hints[(action.cnr, player)] = []
             for i in range(10):
