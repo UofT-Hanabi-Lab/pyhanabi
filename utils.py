@@ -106,20 +106,6 @@ def make_deck():
             for i in list(range(cnt)):
                 deck.append((col, num + 1))
     random.shuffle(deck)
-
-    # Artificial deck for testing
-    # deck = []
-    # deck.extend([(Color.BLUE, 1), (Color.YELLOW, 1), (Color.GREEN, 1), (Color.WHITE, 1), (Color.RED, 3)])  # AI hand
-    # deck.extend([(Color.RED, 2), (Color.RED, 2), (Color.RED, 1), (Color.RED, 1), (Color.RED, 1)])  # Human hand
-    # # Now construct the rest of the deck
-    # deck.extend([(col, 5) for col in Color]) # missing 5's
-    # deck.extend([(col, 4) for col in Color] * 2) # missing 4's
-    # deck.append((Color.RED, 3)) # only one missing red 3
-    # deck.extend([(col, 3) for col in Color if col != Color.RED] * 2) # other missing 3's
-    # deck.extend([(col, 2) for col in Color if col != Color.RED] * 2) # missing 2's
-    # deck.extend([(col, 1) for col in Color if col != Color.RED] * 2) # other missing 1's
-    # assert len(deck) == 50
-
     return deck
 
 
