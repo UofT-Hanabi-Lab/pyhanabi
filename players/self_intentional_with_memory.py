@@ -1,22 +1,9 @@
 import random
 from typing import Sequence, override
 
-from hanabi import (
-    Player,
-    whattodo,
-    Color,
-    format_intention,
-    Action,
-    get_possible,
-    playable,
-    discardable,
-    pretend,
-    format_knowledge,
-    pretend_discard,
-    f,
-    Intent,
-    Game,
-)
+from players.base import Player
+from game import Game
+from utils import *
 
 
 def _intent_unchanged(old: Intent | None, new: Intent | None) -> bool:
