@@ -26,7 +26,9 @@ from players.outer_state import OuterStatePlayer
 from players.self_recognition import SelfRecognitionPlayer
 from players.intentional import IntentionalPlayer
 from players.self_intentional import SelfIntentionalPlayer
-from players.self_intentional_detect_dead_colors import SelfIntentionalPlayerDetectDeadColors
+from players.self_intentional_detect_dead_colors import (
+    SelfIntentionalPlayerDetectDeadColors,
+)
 
 from serverconf import HOST_NAME, PORT_NUMBER
 
@@ -513,8 +515,7 @@ class HTTPPlayer(Player):
                         self.show.append((HAND, action.pnr, i))
 
         if (
-            action.action_type
-            in [Action.ActionType.PLAY, Action.ActionType.DISCARD]
+            action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]
             and player == 0
         ):
             newshow = []
@@ -661,7 +662,7 @@ ais = {
     "intentional": IntentionalPlayer,
     "full": SelfIntentionalPlayer,
     "full-with-mem": SelfIntentionalPlayerWithMemory,
-    "full-detect-dead": SelfIntentionalPlayerDetectDeadColors
+    "full-detect-dead": SelfIntentionalPlayerDetectDeadColors,
 }
 
 
@@ -1247,20 +1248,14 @@ class MyHandler(BaseHTTPRequestHandler):
             action = None
             if actionname == "hintcolor" and game.hints > 0:
                 col = game.hands[0][index][0]
-                action = Action(
-                    Action.ActionType.HINT_COLOR, pnr=0, col=col
-                )
+                action = Action(Action.ActionType.HINT_COLOR, pnr=0, col=col)
             elif actionname == "hintrank" and game.hints > 0:
                 nr = game.hands[0][index][1]
-                action = Action(
-                    Action.ActionType.HINT_NUMBER, pnr=0, num=nr
-                )
+                action = Action(Action.ActionType.HINT_NUMBER, pnr=0, num=nr)
             elif actionname == "play":
                 action = Action(Action.ActionType.PLAY, pnr=1, cnr=index)
             elif actionname == "discard":
-                action = Action(
-                    Action.ActionType.DISCARD, pnr=1, cnr=index
-                )
+                action = Action(Action.ActionType.DISCARD, pnr=1, cnr=index)
 
             if action:
                 turn += 1

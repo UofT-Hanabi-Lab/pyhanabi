@@ -184,7 +184,7 @@ def playable(possible, board, dead_colors=None):
     """
     if dead_colors is None:
         dead_colors = {color: 5 for color in Color}
-    
+
     for col, nr in possible:
         if board[col][1] + 1 != nr or nr > dead_colors[col]:
             return False
@@ -292,7 +292,7 @@ def pretend(action, knowledge, intentions, hand, board, trash, ignore_dead=False
         return False, 0, ["Invalid hint"]
     if not change:
         return False, 0, ["No new information"]
-    
+
     if ignore_dead:
         dead_colors = highest_playable_cards(board, trash)
     else:
@@ -386,7 +386,7 @@ def highest_playable_cards(board, trash):
     """
     Identifies "dead" colors. A dead color is defined as a color whose pile cannot
     be completed because all copies of a necessary card have been used (discarded).
-    
+
     Returns a mapping of colors to the highest card that can still be played,
     given the current discard pile.
     """

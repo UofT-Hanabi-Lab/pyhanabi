@@ -9,6 +9,7 @@ from players.outer_state import OuterStatePlayer
 
 a = 1
 
+
 def generate_hands(knowledge, used=None):
     if used is None:
         used = {}

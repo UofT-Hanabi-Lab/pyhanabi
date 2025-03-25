@@ -3,8 +3,20 @@ from typing import Sequence, override
 
 from players.base import Player
 from game import Game
-from utils import get_possible, playable, Action, discardable, Intent, Color, pretend, f, format_intention, \
-    format_knowledge, pretend_discard, whattodo
+from utils import (
+    get_possible,
+    playable,
+    Action,
+    discardable,
+    Intent,
+    Color,
+    pretend,
+    f,
+    format_intention,
+    format_knowledge,
+    pretend_discard,
+    whattodo,
+)
 
 
 def _intent_unchanged(old: Intent | None, new: Intent | None) -> bool:
@@ -85,7 +97,9 @@ class SelfIntentionalPlayerWithMemory(Player):
         )
 
         if hints > 0:
-            result = self.give_hint(board, hands, intentions, knowledge, pnr, result, trash)
+            result = self.give_hint(
+                board, hands, intentions, knowledge, pnr, result, trash
+            )
 
         self.explanation.append(
             ["My Knowledge"] + list(map(format_knowledge, knowledge[pnr]))
@@ -144,7 +158,9 @@ class SelfIntentionalPlayerWithMemory(Player):
 
         return intentions
 
-    def give_hint(self, board, hands, intentions, knowledge, nr, result, trash) -> Action:
+    def give_hint(
+        self, board, hands, intentions, knowledge, nr, result, trash
+    ) -> Action:
         valid: list[
             tuple[tuple[Action.ActionType, int | Color], int, list[int | None]]
         ] = []

@@ -2,8 +2,19 @@ import random
 from typing import override
 
 from players.base import Player
-from utils import get_possible, playable, Action, discardable, Intent, Color, pretend, f, format_intention, \
-    format_knowledge, pretend_discard
+from utils import (
+    get_possible,
+    playable,
+    Action,
+    discardable,
+    Intent,
+    Color,
+    pretend,
+    f,
+    format_intention,
+    format_knowledge,
+    pretend_discard,
+)
 
 
 class IntentionalPlayer(Player):
@@ -74,7 +85,7 @@ class IntentionalPlayer(Player):
         self.explanation.append(
             ["Intentions"] + list(map(format_intention, intentions))
         )
-        
+
         # Choose a hint if possible
         if hints > 0:
             valid = []

@@ -1,8 +1,21 @@
 import random
 
 from players.base import Player
-from utils import get_possible, playable, Action, discardable, Intent, Color, pretend, f, format_intention, \
-    format_knowledge, pretend_discard, highest_playable_cards, whattodo
+from utils import (
+    get_possible,
+    playable,
+    Action,
+    discardable,
+    Intent,
+    Color,
+    pretend,
+    f,
+    format_intention,
+    format_knowledge,
+    pretend_discard,
+    highest_playable_cards,
+    whattodo,
+)
 
 
 class SelfIntentionalPlayerDetectDeadColors(Player):
@@ -40,13 +53,16 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
 
         if action:
             self.explanation.append(
-                ["What you want me to do"] + [
+                ["What you want me to do"]
+                + [
                     x.display_name if isinstance(x, Action.ActionType) else "Keep"
                     for x in action
                 ]
             )
             for i, a in enumerate(action):
-                if a == Action.ActionType.PLAY and (not result or result.action_type == Action.ActionType.DISCARD):
+                if a == Action.ActionType.PLAY and (
+                    not result or result.action_type == Action.ActionType.DISCARD
+                ):
                     result = Action(Action.ActionType.PLAY, cnr=i)
                 elif a == Action.ActionType.DISCARD and not result:
                     result = Action(Action.ActionType.DISCARD, cnr=i)
@@ -95,7 +111,13 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
             for c in Color:
                 action = (Action.ActionType.HINT_COLOR, c)
                 (isvalid, score, expl) = pretend(
-                    action, knowledge[1 - nr], intentions, hands[1 - nr], board, trash, ignore_dead=True
+                    action,
+                    knowledge[1 - nr],
+                    intentions,
+                    hands[1 - nr],
+                    board,
+                    trash,
+                    ignore_dead=True,
                 )
                 self.explanation.append(
                     ["Prediction for: Hint Color " + c.display_name]
@@ -109,7 +131,13 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
                 action = (Action.ActionType.HINT_NUMBER, r)
 
                 (isvalid, score, expl) = pretend(
-                    action, knowledge[1 - nr], intentions, hands[1 - nr], board, trash, ignore_dead=True
+                    action,
+                    knowledge[1 - nr],
+                    intentions,
+                    hands[1 - nr],
+                    board,
+                    trash,
+                    ignore_dead=True,
                 )
                 self.explanation.append(
                     ["Prediction for: Hint Rank " + str(r)]
@@ -129,10 +157,17 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
         self.explanation.append(
             ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
         )
-        possible = [Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))]
+        possible = [
+            Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))
+        ]
 
         scores = list(
-            map(lambda p: pretend_discard(p, knowledge[nr], board, trash, ignore_dead=True), possible)
+            map(
+                lambda p: pretend_discard(
+                    p, knowledge[nr], board, trash, ignore_dead=True
+                ),
+                possible,
+            )
         )
 
         def format_term(x):

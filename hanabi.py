@@ -11,7 +11,9 @@ from players.sampling_recognition import SamplingRecognitionPlayer
 from players.self_intentional import SelfIntentionalPlayer
 from players.timed import TimedPlayer
 from players.self_intentional_with_memory import SelfIntentionalPlayerWithMemory
-from players.self_intentional_detect_dead_colors import SelfIntentionalPlayerDetectDeadColors
+from players.self_intentional_detect_dead_colors import (
+    SelfIntentionalPlayerDetectDeadColors,
+)
 from game import Game
 
 

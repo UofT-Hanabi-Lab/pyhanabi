@@ -2,8 +2,20 @@ import random
 from typing import override
 
 from players.base import Player
-from utils import get_possible, playable, Action, discardable, Intent, Color, pretend, f, format_intention, \
-    format_knowledge, pretend_discard, whattodo
+from utils import (
+    get_possible,
+    playable,
+    Action,
+    discardable,
+    Intent,
+    Color,
+    pretend,
+    f,
+    format_intention,
+    format_knowledge,
+    pretend_discard,
+    whattodo,
+)
 
 
 class SelfIntentionalPlayer(Player):
