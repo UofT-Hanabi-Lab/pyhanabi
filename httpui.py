@@ -19,15 +19,15 @@ from hanabi import NullStream
 from utils import Action, Color, format_card
 from game import Game
 
-from players.base import Player
-from players.self_intentional_with_memory import SelfIntentionalPlayerWithMemory
-from players.inner_state import InnerStatePlayer
-from players.outer_state import OuterStatePlayer
-from players.self_recognition import SelfRecognitionPlayer
-from players.intentional import IntentionalPlayer
-from players.self_intentional import SelfIntentionalPlayer
-from players.self_intentional_detect_dead_colors import (
-    SelfIntentionalPlayerDetectDeadColors,
+from players import (
+    Player,
+    SelfIntentionalPlayerWithMemory,
+    InnerStatePlayer,
+    OuterStatePlayer,
+    SelfRecognitionPlayer,
+    IntentionalPlayer,
+    SelfIntentionalPlayer,
+    SelfIntentionalPlayerDetectDeadColors
 )
 
 from serverconf import HOST_NAME, PORT_NUMBER

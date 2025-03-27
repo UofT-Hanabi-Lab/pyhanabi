@@ -2,9 +2,9 @@ import random
 import copy
 from typing import override, Final
 
-from players.base import Player
-from players.intentional import IntentionalPlayer
+from players import Player, IntentionalPlayer
 from utils import get_possible, playable, Action, discardable, Color, COUNTS, iscard
+
 
 a = 1
 

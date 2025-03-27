@@ -2,18 +2,19 @@ import random
 import sys
 import time
 
-from players.base import Player
-from players.inner_state import InnerStatePlayer
-from players.outer_state import OuterStatePlayer
-from players.self_recognition import SelfRecognitionPlayer
-from players.intentional import IntentionalPlayer
-from players.sampling_recognition import SamplingRecognitionPlayer
-from players.self_intentional import SelfIntentionalPlayer
-from players.timed import TimedPlayer
-from players.self_intentional_with_memory import SelfIntentionalPlayerWithMemory
-from players.self_intentional_detect_dead_colors import (
+from players import (
+    Player,
+    SelfIntentionalPlayerWithMemory,
+    InnerStatePlayer,
+    OuterStatePlayer,
+    SelfRecognitionPlayer,
+    IntentionalPlayer,
+    SelfIntentionalPlayer,
     SelfIntentionalPlayerDetectDeadColors,
+    SamplingRecognitionPlayer,
+    TimedPlayer
 )
+
 from game import Game
 
 

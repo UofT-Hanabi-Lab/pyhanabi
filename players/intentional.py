@@ -1,7 +1,7 @@
 import random
 from typing import override
 
-from players.base import Player
+from players import Player
 from utils import (
     get_possible,
     playable,

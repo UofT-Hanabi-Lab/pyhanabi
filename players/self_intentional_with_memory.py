@@ -1,7 +1,7 @@
 import random
 from typing import Sequence, override
 
-from players.base import Player
+from players import Player
 from game import Game
 from utils import (
     get_possible,

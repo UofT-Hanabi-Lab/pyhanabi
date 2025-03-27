@@ -1,7 +1,7 @@
 import sys
 
 from typing import Sequence
-from players.base import Player
+from players import Player
 from utils import (
     Action,
     Color,

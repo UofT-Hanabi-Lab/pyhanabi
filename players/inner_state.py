@@ -1,8 +1,7 @@
 import random
 
-from players.base import Player
+from players import Player
 from utils import get_possible, playable, Action, discardable
-
 
 class InnerStatePlayer(Player):
     def __init__(self, name, pnr):

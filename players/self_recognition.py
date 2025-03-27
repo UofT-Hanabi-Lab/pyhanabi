@@ -2,7 +2,7 @@ import random
 from typing import override, Final
 import copy
 
-from players.base import Player
+from players import Player
 from utils import get_possible, playable, Action, discardable, Color, COUNTS, iscard
 
 from players.outer_state import OuterStatePlayer
