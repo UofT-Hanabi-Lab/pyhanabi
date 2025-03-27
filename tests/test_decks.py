@@ -12,6 +12,9 @@ def make_deck_dead_color_detection():
     To test the feature, the human player should make sure to play a R1,
     and discard all other initial cards, before hinting at the R3 in the AI hand.
     If dead color detection happens correctly, the AI is expected to discard the R3.
+
+    At the moment dead color detection requires manual testing.
+    This function can be used in place of make_deck() in game.py when testing for this feature.
     """
     # Artificial deck for testing
     deck = []
