@@ -4,9 +4,6 @@ import time
 import shutil
 import os
 
-from typing import override
-
-import hanabi
 import random
 import hashlib
 import tutorial
@@ -15,9 +12,24 @@ import traceback
 import consent
 import threading
 from cgi import parse_header, parse_multipart
+from typing import override
 from urllib.parse import parse_qs
 
-from self_intentional_with_memory import SelfIntentionalPlayerWithMemory
+from hanabi import NullStream
+from utils import Action, Color, format_card
+from game import Game
+
+from players import (
+    Player,
+    SelfIntentionalPlayerWithMemory,
+    InnerStatePlayer,
+    OuterStatePlayer,
+    SelfRecognitionPlayer,
+    IntentionalPlayer,
+    SelfIntentionalPlayer,
+    SelfIntentionalPlayerDetectDeadColors
+)
+
 from serverconf import HOST_NAME, PORT_NUMBER
 
 
@@ -142,13 +154,13 @@ def format_action(x, gid, replay=None):
     if i <= 1:
         result += " just "
 
-    if action.action_type == hanabi.Action.ActionType.PLAY:
-        result += " played <b>" + hanabi.format_card(card) + "</b>"
-    elif action.action_type == hanabi.Action.ActionType.DISCARD:
-        result += " discarded <b>" + hanabi.format_card(card) + "</b>"
+    if action.action_type == Action.ActionType.PLAY:
+        result += " played <b>" + format_card(card) + "</b>"
+    elif action.action_type == Action.ActionType.DISCARD:
+        result += " discarded <b>" + format_card(card) + "</b>"
     else:
         result += " hinted %s about all %s " % (other, otherp)
-        if action.action_type == hanabi.Action.ActionType.HINT_COLOR:
+        if action.action_type == Action.ActionType.HINT_COLOR:
             result += action.col.display_name + " cards"
         else:
             result += str(action.num) + "s"
@@ -229,7 +241,7 @@ def show_game_state(game, player, turn, gid, replay=False):
     localtrash.sort()
     discarded = {}
     trashhtml = '<table width="100%%" style="border-collapse: collapse"><tr>\n'
-    for i, c in enumerate(hanabi.Color):
+    for i, c in enumerate(Color):
         style = "border-bottom: 1px solid #000"
         if i > 0:
             style += "; border-left: 1px solid #000"
@@ -258,7 +270,7 @@ def show_game_state(game, player, turn, gid, replay=False):
                     discarded[c].append("<div>%d</div>" % num)
         discarded[c].sort()
     trashhtml += '</tr><tr style="height: 150pt">\n'
-    for i, c in enumerate(hanabi.Color):
+    for i, c in enumerate(Color):
         style = ' style="vertical-align:top"'
         if i > 0:
             style = ' style="border-left: 1px solid #000; vertical-align:top"'
@@ -454,7 +466,7 @@ participants = {}
 participantstarts = {}
 
 
-class HTTPPlayer(hanabi.Player):
+class HTTPPlayer(Player):
     def __init__(self, name, pnr):
         super().__init__(name, pnr)
         self.actions = []
@@ -474,37 +486,36 @@ class HTTPPlayer(hanabi.Player):
             self.show = []
         card = None
         if action.action_type in [
-            hanabi.Action.ActionType.PLAY,
-            hanabi.Action.ActionType.DISCARD,
+            Action.ActionType.PLAY,
+            Action.ActionType.DISCARD,
         ]:
             card = game.hands[player][action.cnr]
         self.actions.append((action, player, card))
         if player != self.pnr:
-            if action.action_type == hanabi.Action.ActionType.HINT_COLOR:
+            if action.action_type == Action.ActionType.HINT_COLOR:
                 for i, (col, num) in enumerate(game.hands[self.pnr]):
                     if col == action.col:
                         self.knows[i].add(col.display_name)
                         self.show.append((HAND, self.pnr, i))
-            elif action.action_type == hanabi.Action.ActionType.HINT_NUMBER:
+            elif action.action_type == Action.ActionType.HINT_NUMBER:
                 for i, (col, num) in enumerate(game.hands[self.pnr]):
                     if num == action.num:
                         self.knows[i].add(str(num))
                         self.show.append((HAND, self.pnr, i))
         else:
-            if action.action_type == hanabi.Action.ActionType.HINT_COLOR:
+            if action.action_type == Action.ActionType.HINT_COLOR:
                 for i, (col, num) in enumerate(game.hands[action.pnr]):
                     if col == action.col:
                         self.aiknows[i].add(col.display_name)
                         self.show.append((HAND, action.pnr, i))
-            elif action.action_type == hanabi.Action.ActionType.HINT_NUMBER:
+            elif action.action_type == Action.ActionType.HINT_NUMBER:
                 for i, (col, num) in enumerate(game.hands[action.pnr]):
                     if num == action.num:
                         self.aiknows[i].add(str(num))
                         self.show.append((HAND, action.pnr, i))
 
         if (
-            action.action_type
-            in [hanabi.Action.ActionType.PLAY, hanabi.Action.ActionType.DISCARD]
+            action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]
             and player == 0
         ):
             newshow = []
@@ -517,7 +528,7 @@ class HTTPPlayer(hanabi.Player):
                 else:
                     newshow.append((where, who, what))
             self.show = newshow
-        if action.action_type == hanabi.Action.ActionType.DISCARD:
+        if action.action_type == Action.ActionType.DISCARD:
             newshow = []
             for t, w1, w2 in self.show:
                 if t == TRASH:
@@ -527,7 +538,7 @@ class HTTPPlayer(hanabi.Player):
             self.show = newshow
             self.show.append((TRASH, 0, -1))
 
-        elif action.action_type == hanabi.Action.ActionType.PLAY:
+        elif action.action_type == Action.ActionType.PLAY:
             (col, num) = game.hands[player][action.cnr]
             if game.board[col][1] + 1 == num:
                 self.show.append((BOARD, 0, col))
@@ -541,14 +552,14 @@ class HTTPPlayer(hanabi.Player):
                 self.show = newshow
                 self.show.append((TRASH, 0, -1))
         if player == self.pnr and action.action_type in [
-            hanabi.Action.ActionType.PLAY,
-            hanabi.Action.ActionType.DISCARD,
+            Action.ActionType.PLAY,
+            Action.ActionType.DISCARD,
         ]:
             del self.knows[action.cnr]
             self.knows.append(set())
         if player != self.pnr and action.action_type in [
-            hanabi.Action.ActionType.PLAY,
-            hanabi.Action.ActionType.DISCARD,
+            Action.ActionType.PLAY,
+            Action.ActionType.DISCARD,
         ]:
             del self.aiknows[action.cnr]
             self.aiknows.append(set())
@@ -569,7 +580,7 @@ class ReplayHTTPPlayer(HTTPPlayer):
         return self.actions.pop(0)
 
 
-class ReplayPlayer(hanabi.Player):
+class ReplayPlayer(Player):
     def __init__(self, name, pnr):
         super().__init__(name, pnr)
         self.actions = []
@@ -644,14 +655,14 @@ def format_score(sc):
 
 # AIClasses
 ais = {
-    "random": hanabi.Player,
-    "inner": hanabi.InnerStatePlayer,
-    "outer": hanabi.OuterStatePlayer,
-    "self": hanabi.SelfRecognitionPlayer,
-    "intentional": hanabi.IntentionalPlayer,
-    "full": hanabi.SelfIntentionalPlayer,
+    "random": Player,
+    "inner": InnerStatePlayer,
+    "outer": OuterStatePlayer,
+    "self": SelfRecognitionPlayer,
+    "intentional": IntentionalPlayer,
+    "full": SelfIntentionalPlayer,
     "full-with-mem": SelfIntentionalPlayerWithMemory,
-    "full-detect-dead": hanabi.SelfIntentionalPlayerDetectDeadColors
+    "full-detect-dead": SelfIntentionalPlayerDetectDeadColors,
 }
 
 
@@ -812,7 +823,7 @@ class MyHandler(BaseHTTPRequestHandler):
             print("Old GID:", oldgid, file=log)
             print("Treatment:", t, file=log)
             random.seed(nr)
-            game = hanabi.Game([ai, player], log=log, format=1)
+            game = Game([ai, player], log=log, format=1)
             game.treatment = t
             game.ping = time.time()
             game.started = False
@@ -838,7 +849,7 @@ class MyHandler(BaseHTTPRequestHandler):
             gid = s.getgid()
             log = open("log/game%s.log" % gid, "w")
             print("Treatment:", t, file=log)
-            game = hanabi.Game([ai, player], log=log, format=1)
+            game = Game([ai, player], log=log, format=1)
             game.treatment = t
             game.ping = time.time()
             game.started = False
@@ -900,8 +911,8 @@ class MyHandler(BaseHTTPRequestHandler):
                 elif line.startswith("MOVE:"):
                     items = map(lambda s: s.strip(), line.strip().split())
                     const, pnum, type, cnr, pnr, col, num = items
-                    a = hanabi.Action(
-                        hanabi.Action.ActionType(convert(type)),
+                    a = Action(
+                        Action.ActionType(convert(type)),
                         convert(pnr),
                         convert(col),
                         convert(num),
@@ -918,7 +929,7 @@ class MyHandler(BaseHTTPRequestHandler):
                 return
             player = players[1]
             random.seed(deck)
-            game = hanabi.Game(players, log=hanabi.NullStream())
+            game = Game(players, log=NullStream())
             game.started = time.time()
             for i in range(round):
                 game.single_turn()
@@ -968,8 +979,8 @@ class MyHandler(BaseHTTPRequestHandler):
                 elif line.startswith("MOVE:"):
                     items = map(lambda s: s.strip(), line.strip().split())
                     const, pnum, type, cnr, pnr, col, num = items
-                    a = hanabi.Action(
-                        hanabi.Action.ActionType(convert(type)),
+                    a = Action(
+                        Action.ActionType(convert(type)),
                         convert(pnr),
                         convert(col),
                         convert(num),
@@ -991,7 +1002,7 @@ class MyHandler(BaseHTTPRequestHandler):
             log = open("log/game%s.log" % gid, "w")
             print("Original:", oldgid, file=log)
             print("Treatment:", t, file=log)
-            game = hanabi.Game(players, log=log, format=1)
+            game = Game(players, log=log, format=1)
             game.treatment = t
             game.ping = time.time()
             game.started = True
@@ -1237,20 +1248,14 @@ class MyHandler(BaseHTTPRequestHandler):
             action = None
             if actionname == "hintcolor" and game.hints > 0:
                 col = game.hands[0][index][0]
-                action = hanabi.Action(
-                    hanabi.Action.ActionType.HINT_COLOR, pnr=0, col=col
-                )
+                action = Action(Action.ActionType.HINT_COLOR, pnr=0, col=col)
             elif actionname == "hintrank" and game.hints > 0:
                 nr = game.hands[0][index][1]
-                action = hanabi.Action(
-                    hanabi.Action.ActionType.HINT_NUMBER, pnr=0, num=nr
-                )
+                action = Action(Action.ActionType.HINT_NUMBER, pnr=0, num=nr)
             elif actionname == "play":
-                action = hanabi.Action(hanabi.Action.ActionType.PLAY, pnr=1, cnr=index)
+                action = Action(Action.ActionType.PLAY, pnr=1, cnr=index)
             elif actionname == "discard":
-                action = hanabi.Action(
-                    hanabi.Action.ActionType.DISCARD, pnr=1, cnr=index
-                )
+                action = Action(Action.ActionType.DISCARD, pnr=1, cnr=index)
 
             if action:
                 turn += 1
@@ -1590,7 +1595,7 @@ class MyHandler(BaseHTTPRequestHandler):
             log = open("log/game%s.log" % gid, "w")
             print("Treatment:", t, file=log)
             random.seed(t[1])
-            game = hanabi.Game([ai, player], log=log, format=1)
+            game = Game([ai, player], log=log, format=1)
             game.treatment = t
             game.ping = time.time()
             game.dopostsurvey = True
