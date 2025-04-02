@@ -1,4 +1,7 @@
 import sys
+import random
+import hana_sim
+from abc import ABCMeta, abstractmethod
 
 from typing import Sequence
 from players import Player
@@ -13,11 +16,136 @@ from utils import (
 )
 
 
-class Game:
+class AbstractGame(metaclass=ABCMeta):
+    players: Sequence[Player]
+
+    @abstractmethod
+    def __init__(self, players):
+        self.players = players
+
+    @abstractmethod
+    def run(self, turns):
+        raise NotImplementedError
+
+    @abstractmethod
+    def single_turn(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def external_turn(self, action):
+        raise NotImplementedError
+
+
+class HanasimGame(AbstractGame):
+    players: Sequence[Player]
+    env: hana_sim.HanabiEnv
+    knowledge: list[list[list[list[int]]]]
+
+    def __init__(self, players):
+        AbstractGame.__init__(self, players)
+        self.env = hana_sim.HanabiEnv(num_players=2)
+        self.knowledge = []
+
+    # TODO: if something goes wrong, check 1- vs 0- based indexing
+    def run(self, turns):
+        # Reset all players and the environment
+        obs = self.env.reset()
+        for p in self.players:
+            p.reset()
+
+        self.turn = 1
+        while True:
+            self.turn += 1
+            num_legal_actions = len(obs.legal_actions)
+
+            # OLD - Get the action from the player
+            rand_action = obs.legal_actions[random.randint(0, num_legal_actions-1)]
+
+            # Random select legal actions.
+            action = self.players[obs.current_player_id].get_action(
+                obs.current_player_id,
+                self._convert_hands(obs.hands),
+                self.knowledge,  # TODO: maintain the knowledge attribute during execution
+                self._convert_trash(obs.discard),
+                self._convert_played(obs.fireworks),
+                self._convert_board(obs.fireworks),
+                self._convert_valid_actions(obs.legal_actions),
+                obs.hints,
+            )
+
+
+            if self.env.step(rand_action).done:
+                break
+
+
+
+        while not self.done() and (turns < 0 or self.turn < turns):
+            self.turn += 1
+            action = self.players[self.current_player].get_action(
+                self.current_player,
+                self.obs.hands,
+                self.knowledge,
+                self.trash,
+                self.played,
+                self.board,
+                self.valid_actions(),
+                self.hints,
+            )
+            self.perform(action)
+            self.current_player += 1
+            self.current_player %= len(self.players)
+        print("Game done, hits left:", self.hits, file=self.log)
+        points = self.score()
+        print("Points:", points, file=self.log)
+        return points
+
+    def _convert_hands(self, hands: list[list[tuple[str, int]]]) -> list[list[tuple[Color, int]]]:
+        """
+        Convert string color representation used in Hanasim hands to Color
+        enum used in pyhanabi hands
+        """
+        # TODO: implement this method
+
+    def _convert_trash(self, discard: list[tuple[str, int]]) -> list[tuple[Color, int]]:
+        """
+        Convert string color representation used in Hanasim discard to Color
+        enum used in pyhanabi trash
+        """
+        # TODO: implement this method
+
+    def _convert_played(self, fireworks: dict[tuple[str, int]]) -> list[tuple[Color, int]]:
+        """
+        Convert string color representation used in Hanasim fireworks to Color
+        enum used in pyhanabi played
+        """
+        # TODO: implement this method
+
+    def _convert_board(self, fireworks: dict[tuple[str, int]]) -> list[tuple[Color, int]]:
+        """
+        Convert string color representation used in Hanasim fireworks to Color
+        enum used in pyhanabi board
+        """
+        # TODO: implement this method
+
+    def _convert_valid_actions(self, legal_actions: list[tuple[int, int, int, int, list[int], int, int]]) -> list[Action]:
+        """
+        Convert legal actions representation used in Hanasim to Action type
+        used in pyahanabi
+        """
+        # TODO: implement this method
+
+    def single_turn(self):
+        pass
+
+    def external_turn(self, action):
+        pass
+
+
+class Game(AbstractGame):
     players: Sequence[Player]
 
     def __init__(self, players, log=sys.stdout, format=0):
-        self.players = players
+        AbstractGame.__init__(self, players)
         self.hits = 3
         self.hints = 8
         self.current_player = 0
