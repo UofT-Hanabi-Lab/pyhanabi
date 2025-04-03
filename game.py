@@ -466,7 +466,7 @@ class Game(AbstractGame):
             self.turn += 1
             if not self.deck:
                 self.extra_turns += 1
-            hands = []
+            hands: list[list[NATIVE_CARD]] = []
             for i, h in enumerate(self.hands):
                 if i == self.current_player:
                     hands.append([])
@@ -498,7 +498,7 @@ class Game(AbstractGame):
         if not self.done():
             if not self.deck:
                 self.extra_turns += 1
-            hands = []
+            hands: list[list[NATIVE_CARD]] = []
             for i, h in enumerate(self.hands):
                 if i == self.current_player:
                     hands.append([])
