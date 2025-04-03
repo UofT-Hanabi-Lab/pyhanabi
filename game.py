@@ -77,7 +77,7 @@ class HanasimGame(AbstractGame):
                 break
 
         print("Game done, hits left:", obs.lives_remaining, file=self.log)
-        points = self.score(self._convert_board(obs.fireworks))
+        points = self._score(self._convert_board(obs.fireworks))
         print("Points:", points, file=self.log)
         return points
 
