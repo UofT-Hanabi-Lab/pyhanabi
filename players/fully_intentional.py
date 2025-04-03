@@ -4,6 +4,7 @@ from typing import override
 from players import Player
 from utils import get_possible, playable, Action, discardable, Intent, Color, pretend
 
+
 class FullyIntentionalPlayer(Player):
     def __init__(self, name, pnr):
         super().__init__(name, pnr)

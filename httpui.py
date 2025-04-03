@@ -27,7 +27,7 @@ from players import (
     SelfRecognitionPlayer,
     IntentionalPlayer,
     SelfIntentionalPlayer,
-    SelfIntentionalPlayerDetectDeadColors
+    SelfIntentionalPlayerDetectDeadColors,
 )
 
 from serverconf import HOST_NAME, PORT_NUMBER
