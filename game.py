@@ -46,12 +46,14 @@ class HanasimGame(AbstractGame):
 
     env: hana_sim.HanabiEnv
     knowledge: list[list[list[list[int]]]]
+    obs: hana_sim.Observation
 
     @override
     def __init__(self, players):
         AbstractGame.__init__(self, players)
         self.env = hana_sim.HanabiEnv(num_players=2)
         self.knowledge = []
+        self.obs = self.env.reset()
 
     @override
     def run(self, turns):
@@ -77,12 +79,10 @@ class HanasimGame(AbstractGame):
 
         while True:
             # Get action from current player based on game state
-            action = self.players[
-                obs.current_player_id
-            ].get_action(
+            action = self.players[obs.current_player_id].get_action(
                 obs.current_player_id,
                 self._convert_hands(obs.hands),
-                self.knowledge,  # TODO: maintain the knowledge attribute during execution
+                self.knowledge,
                 self._convert_trash(obs.discard),
                 self._convert_played(obs.fireworks),
                 self._convert_board(obs.fireworks),
@@ -93,7 +93,9 @@ class HanasimGame(AbstractGame):
             acting_player_id: int = obs.current_player_id
             obs = self.env.step(self._convert_action(action))
             self._update_knowledge(
-                action, acting_player_id, self._convert_hands(obs.hands)
+                action,
+                acting_player_id,
+                self._convert_hands(obs.hands),
             )
             if obs.done:
                 break
@@ -149,56 +151,9 @@ class HanasimGame(AbstractGame):
                     for k in knowledge:
                         k[action.num - 1] = 0
 
-        elif action.action_type == Action.ActionType.PLAY:
-            (col, num) = self.hands[self.current_player][action.cnr]
-            print(
-                self.players[self.current_player].name,
-                "plays",
-                format_card((col, num)),
-                file=self.log,
-            )
-            if self.board[col][1] == num - 1:
-                self.board[col] = (col, num)
-                self.played.append((col, num))
-                if num == 5:
-                    self.hints += 1
-                    self.hints = min(self.hints, 8)
-                print(
-                    "successfully! Board is now", format_hand(self.board), file=self.log
-                )
-            else:
-                self.trash.append((col, num))
-                self.hits -= 1
-                print("and fails. Board was", format_hand(self.board), file=self.log)
-            del self.hands[self.current_player][action.cnr]
-            del self.knowledge[self.current_player][action.cnr]
-            self.draw_card()
-            print(
-                self.players[self.current_player].name,
-                "now has",
-                format_hand(self.hands[self.current_player]),
-                file=self.log,
-            )
-        else:
-            self.hints += 1
-            self.hints = min(self.hints, 8)
-            self.trash.append(self.hands[self.current_player][action.cnr])
-            print(
-                self.players[self.current_player].name,
-                "discards",
-                format_card(self.hands[self.current_player][action.cnr]),
-                file=self.log,
-            )
-            print("trash is now", format_hand(self.trash), file=self.log)
-            del self.hands[self.current_player][action.cnr]
-            del self.knowledge[self.current_player][action.cnr]
-            self.draw_card()
-            print(
-                self.players[self.current_player].name,
-                "now has",
-                format_hand(self.hands[self.current_player]),
-                file=self.log,
-            )
+        else:  # the action is either play or discard
+            del self.knowledge[acting_player][action.cnr]
+            self.knowledge[acting_player].append(initial_knowledge())  # draw a new card
 
     def _convert_hands(
         self, hands: list[list[tuple[str, int]]]
@@ -251,11 +206,41 @@ class HanasimGame(AbstractGame):
 
     @override
     def single_turn(self):
-        pass
+        """
+        Assume the player is a pyhanabi player or a hanasim agent.
+        """
+        if not self.obs.done():
+            action = self.players[self.obs.current_player_id].get_action(
+                self.obs.current_player_id,
+                self._convert_hands(self.obs.hands),
+                self.knowledge,
+                self._convert_trash(self.obs.discard),
+                self._convert_played(self.obs.fireworks),
+                self._convert_board(self.obs.fireworks),
+                self._convert_valid_actions(self.obs.legal_actions),
+                self.obs.hints,
+            )
+            acting_player_id: int = self.obs.current_player_id
+            self.obs = self.env.step(self._convert_action(action))
+            self._update_knowledge(
+                action,
+                acting_player_id,
+                self._convert_hands(self.obs.hands),
+            )
 
     @override
-    def external_turn(self, action):
-        pass
+    def external_turn(self, action: Action):
+        """
+        Assume the current player is a human player.
+        """
+        if not self.obs.done():
+            acting_player_id: int = self.obs.current_player_id
+            self.obs = self.env.step(self._convert_action(action))
+            self._update_knowledge(
+                action,
+                acting_player_id,
+                self._convert_hands(self.obs.hands),
+            )
 
 
 class Game(AbstractGame):

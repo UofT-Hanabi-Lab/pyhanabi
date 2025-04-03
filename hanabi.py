@@ -15,7 +15,7 @@ from players import (
     TimedPlayer,
 )
 
-from game import Game
+from game import Game, HanasimGame
 
 
 class NullStream:
@@ -80,7 +80,8 @@ def main(args):
                 players = []
                 for j, player in enumerate(t):
                     players.append(make_player(player, j))
-                g = Game(players, NullStream())
+                # g = Game(players, NullStream())  # TODO: change back or add flag
+                g = HanasimGame(players)
                 t0 = time.time()
                 result.append(g.run())
                 times.append(time.time() - t0)
