@@ -15,7 +15,7 @@ from players import (
     TimedPlayer,
 )
 
-from game import Game, HanasimGame
+from game import HanasimGame
 
 
 class NullStream:
@@ -80,12 +80,14 @@ def main(args):
                 players = []
                 for j, player in enumerate(t):
                     players.append(make_player(player, j))
-                # g = Game(players, NullStream())  # TODO: change back or add flag
+                # TODO: change back or add flag
+                # g = Game(players, NullStream())
                 g = HanasimGame(players)
                 t0 = time.time()
                 result.append(g.run())
                 times.append(time.time() - t0)
-                avgtimes.append(times[-1] * 1.0 / g.turn)
+                # TODO: change back or add flag
+                # avgtimes.append(times[-1] * 1.0 / g.turn)
                 print(
                     ".",
                 )
@@ -102,15 +104,18 @@ def main(args):
         players.append(make_player(a, i))
 
     n = 10000
-    out = NullStream()
-    if n < 3:
-        out = sys.stdout
+    # TODO: change back or add flag
+    # out = NullStream()
+    # if n < 3:
+    #     out = sys.stdout
     pts = []
     for i in list(range(n)):
         if (i + 1) % 100 == 0:
             print("Starting game", i + 1)
         random.seed(i + 1)
-        g = Game(players, out)
+        # TODO: change back or add flag
+        # g = Game(players, out)
+        g = HanasimGame(players)
         try:
             pts.append(g.run())
             if (i + 1) % 100 == 0:

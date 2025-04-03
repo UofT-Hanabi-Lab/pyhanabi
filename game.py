@@ -26,25 +26,24 @@ class AbstractGame(metaclass=ABCMeta):
     players: Sequence[Player]
 
     @abstractmethod
-    def __init__(self, players, log=sys.stdout):
+    def __init__(self, players: Sequence[Player], log=sys.stdout):
         self.players = players
         self.log = log
 
     @abstractmethod
-    def run(self, turns):
+    def run(self, turns: int) -> int:
         raise NotImplementedError
 
     @abstractmethod
-    def single_turn(self):
+    def single_turn(self) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def external_turn(self, action):
+    def external_turn(self, action: Action) -> None:
         raise NotImplementedError
 
 
 class HanasimGame(AbstractGame):
-    players: Sequence[Player]
     env: hana_sim.HanabiEnv
     knowledge: list[list[list[list[int]]]]
     obs: hana_sim.Observation
@@ -59,10 +58,9 @@ class HanasimGame(AbstractGame):
 
     @override
     def __init__(self, players):
-        AbstractGame.__init__(self, players)
+        super().__init__(players)
         self.env = hana_sim.HanabiEnv(num_players=2)
         self._reset()
-
 
     def _reset(self) -> None:
         self.obs = self.env.reset()
@@ -80,7 +78,7 @@ class HanasimGame(AbstractGame):
         ]
 
     @override
-    def run(self, turns):
+    def run(self, turns=-1):
         if not (MIN_PLAYERS <= len(self.players) <= MAX_PLAYERS):
             raise RuntimeError(
                 f"Number of players must be between {MIN_PLAYERS} and {MAX_PLAYERS}"
@@ -269,11 +267,9 @@ class HanasimGame(AbstractGame):
 
 
 class Game(AbstractGame):
-    players: Sequence[Player]
-
     @override
     def __init__(self, players, log=sys.stdout, format=0):
-        AbstractGame.__init__(self, players)
+        super().__init__(players)
         self.hits = 3
         self.hints = 8
         self.current_player = 0
