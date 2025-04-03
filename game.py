@@ -61,18 +61,11 @@ class HanasimGame(AbstractGame):
     def __init__(self, players):
         AbstractGame.__init__(self, players)
         self.env = hana_sim.HanabiEnv(num_players=2)
-        self.knowledge = []
+        self._reset()
+
+
+    def _reset(self) -> None:
         self.obs = self.env.reset()
-
-    @override
-    def run(self, turns):
-        if not (MIN_PLAYERS <= len(self.players) <= MAX_PLAYERS):
-            raise RuntimeError(
-                f"Number of players must be between {MIN_PLAYERS} and {MAX_PLAYERS}"
-            )
-
-        # Reset all players and the environment
-        obs = self.env.reset()
         for p in self.players:
             p.reset()
 
@@ -85,6 +78,16 @@ class HanasimGame(AbstractGame):
             for _ in range(len(self.players))
             for _ in range(hand_size)
         ]
+
+    @override
+    def run(self, turns):
+        if not (MIN_PLAYERS <= len(self.players) <= MAX_PLAYERS):
+            raise RuntimeError(
+                f"Number of players must be between {MIN_PLAYERS} and {MAX_PLAYERS}"
+            )
+
+        self._reset()
+        obs = self.obs
 
         while True:
             # Get action from current player based on game state
