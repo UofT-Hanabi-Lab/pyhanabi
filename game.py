@@ -14,6 +14,9 @@ from utils import (
     format_card,
 )
 
+MAX_PLAYERS = 5
+MIN_PLAYERS = 2
+
 HANASIM_ACTION_TYPE = tuple[int, int, int, int, list[int], int, int]
 
 
@@ -52,10 +55,25 @@ class HanasimGame(AbstractGame):
 
     @override
     def run(self, turns):
+        if MIN_PLAYERS <= len(self.players) <= MAX_PLAYERS:
+            raise RuntimeError(
+                f"Number of players must be between {MIN_PLAYERS} and {MAX_PLAYERS}"
+            )
+
         # Reset all players and the environment
         obs = self.env.reset()
         for p in self.players:
             p.reset()
+
+        hand_size = 4
+        if len(self.players) < 4:
+            hand_size = 5
+
+        self.knowledge = [
+            initial_knowledge()
+            for _ in range(len(self.players))
+            for _ in range(hand_size)
+        ]
 
         while True:
             # Get action from current player based on game state
@@ -72,7 +90,11 @@ class HanasimGame(AbstractGame):
                 obs.hints,
             )
 
+            acting_player_id: int = obs.current_player_id
             obs = self.env.step(self._convert_action(action))
+            self._update_knowledge(
+                action, acting_player_id, self._convert_hands(obs.hands)
+            )
             if obs.done:
                 break
 
@@ -80,6 +102,103 @@ class HanasimGame(AbstractGame):
         points = self._score(self._convert_board(obs.fireworks))
         print("Points:", points, file=self.log)
         return points
+
+    def _update_knowledge(
+        self, action: Action, acting_player: int, hands: list[list[tuple[Color, int]]]
+    ) -> None:
+        for p in self.players:
+            p.inform(action, acting_player, self)
+
+        if action.action_type == Action.ActionType.HINT_COLOR:
+            assert action.col is not None
+            assert action.pnr is not None
+
+            # Given a hint for colour X,
+            # for every card in the hinted player's hand:
+            #     - if the card is positively identified, set all non-X cells in the knowledge to 0
+            #     - if the card is negatively identified, set all X cells in the knowledge to 0
+            for (col, num), knowledge in zip(
+                hands[action.pnr], self.knowledge[action.pnr]
+            ):
+                if col == action.col:
+                    for i, k in enumerate(knowledge):
+                        if i != col:
+                            for i in range(len(k)):
+                                k[i] = 0
+                else:
+                    for i in range(len(knowledge[action.col])):
+                        knowledge[action.col][i] = 0
+
+        elif action.action_type == Action.ActionType.HINT_NUMBER:
+            assert action.num is not None
+            assert action.pnr is not None
+
+            # Given a hint for rank N,
+            # for every card in the hinted player's hand:
+            #     - if the card is positively identified, set all non-N cells in the knowledge to 0
+            #     - if the card is negatively identified, set all N cells in the knowledge to 0
+            for (col, num), knowledge in zip(
+                hands[action.pnr], self.knowledge[action.pnr]
+            ):
+                if num == action.num:
+                    for k in knowledge:
+                        for i in range(len(COUNTS)):
+                            if i + 1 != num:
+                                k[i] = 0
+                else:
+                    for k in knowledge:
+                        k[action.num - 1] = 0
+
+        elif action.action_type == Action.ActionType.PLAY:
+            (col, num) = self.hands[self.current_player][action.cnr]
+            print(
+                self.players[self.current_player].name,
+                "plays",
+                format_card((col, num)),
+                file=self.log,
+            )
+            if self.board[col][1] == num - 1:
+                self.board[col] = (col, num)
+                self.played.append((col, num))
+                if num == 5:
+                    self.hints += 1
+                    self.hints = min(self.hints, 8)
+                print(
+                    "successfully! Board is now", format_hand(self.board), file=self.log
+                )
+            else:
+                self.trash.append((col, num))
+                self.hits -= 1
+                print("and fails. Board was", format_hand(self.board), file=self.log)
+            del self.hands[self.current_player][action.cnr]
+            del self.knowledge[self.current_player][action.cnr]
+            self.draw_card()
+            print(
+                self.players[self.current_player].name,
+                "now has",
+                format_hand(self.hands[self.current_player]),
+                file=self.log,
+            )
+        else:
+            self.hints += 1
+            self.hints = min(self.hints, 8)
+            self.trash.append(self.hands[self.current_player][action.cnr])
+            print(
+                self.players[self.current_player].name,
+                "discards",
+                format_card(self.hands[self.current_player][action.cnr]),
+                file=self.log,
+            )
+            print("trash is now", format_hand(self.trash), file=self.log)
+            del self.hands[self.current_player][action.cnr]
+            del self.knowledge[self.current_player][action.cnr]
+            self.draw_card()
+            print(
+                self.players[self.current_player].name,
+                "now has",
+                format_hand(self.hands[self.current_player]),
+                file=self.log,
+            )
 
     def _convert_hands(
         self, hands: list[list[tuple[str, int]]]
