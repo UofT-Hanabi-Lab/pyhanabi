@@ -2,7 +2,7 @@ import sys
 import hana_sim
 from abc import ABCMeta, abstractmethod
 
-from typing import Sequence, override
+from typing import Sequence, override, Final
 from players import Player
 from utils import (
     Action,
@@ -17,7 +17,9 @@ from utils import (
 MAX_PLAYERS = 5
 MIN_PLAYERS = 2
 
-HANASIM_ACTION_TYPE = tuple[int, int, int, int, list[int], int, int]
+type HANASIM_ACTION = tuple[int, int, int, int, list[int], int, int]
+type HANASIM_CARD = tuple[str, int]
+type NATIVE_CARD = tuple[Color, int]
 
 
 class AbstractGame(metaclass=ABCMeta):
@@ -43,10 +45,17 @@ class AbstractGame(metaclass=ABCMeta):
 
 class HanasimGame(AbstractGame):
     players: Sequence[Player]
-
     env: hana_sim.HanabiEnv
     knowledge: list[list[list[list[int]]]]
     obs: hana_sim.Observation
+
+    hanasim_colour_map: Final[dict[str, Color]] = {
+        "red": Color.RED,
+        "white": Color.WHITE,
+        "yellow": Color.YELLOW,
+        "green": Color.GREEN,
+        "blue": Color.BLUE,
+    }
 
     @override
     def __init__(self, players):
@@ -57,7 +66,7 @@ class HanasimGame(AbstractGame):
 
     @override
     def run(self, turns):
-        if MIN_PLAYERS <= len(self.players) <= MAX_PLAYERS:
+        if not (MIN_PLAYERS <= len(self.players) <= MAX_PLAYERS):
             raise RuntimeError(
                 f"Number of players must be between {MIN_PLAYERS} and {MAX_PLAYERS}"
             )
@@ -81,7 +90,7 @@ class HanasimGame(AbstractGame):
             # Get action from current player based on game state
             action = self.players[obs.current_player_id].get_action(
                 obs.current_player_id,
-                self._convert_hands(obs.hands),
+                self._convert_hands(obs.hands, obs.current_player_id),
                 self.knowledge,
                 self._convert_trash(obs.discard),
                 self._convert_played(obs.fireworks),
@@ -95,7 +104,7 @@ class HanasimGame(AbstractGame):
             self._update_knowledge(
                 action,
                 acting_player_id,
-                self._convert_hands(obs.hands),
+                self._convert_hands(obs.hands, obs.current_player_id),
             )
             if obs.done:
                 break
@@ -106,7 +115,7 @@ class HanasimGame(AbstractGame):
         return points
 
     def _update_knowledge(
-        self, action: Action, acting_player: int, hands: list[list[tuple[Color, int]]]
+        self, action: Action, acting_player: int, hands: list[list[NATIVE_CARD]]
     ) -> None:
         for p in self.players:
             p.inform(action, acting_player, self)
@@ -152,51 +161,64 @@ class HanasimGame(AbstractGame):
                         k[action.num - 1] = 0
 
         else:  # the action is either play or discard
+            assert action.cnr is not None
             del self.knowledge[acting_player][action.cnr]
             self.knowledge[acting_player].append(initial_knowledge())  # draw a new card
 
     def _convert_hands(
-        self, hands: list[list[tuple[str, int]]]
-    ) -> list[list[tuple[Color, int]]]:
+        self, hands: list[list[HANASIM_CARD]], curr_player: int
+    ) -> list[list[NATIVE_CARD]]:
         """
-        Convert string color representation used in Hanasim hands to Color
-        enum used in pyhanabi hands
+        Convert the representation of the current player's hand info from HanaSim's
+        type to pyhanabi's type.
+
+        Precondition:
+          - len(self.players) == 2
+        """
+        partner_pnr: int = (curr_player + 1) % len(self.players)
+        visible_hand: list[NATIVE_CARD] = [
+            self._convert_card(card) for card in hands[partner_pnr]
+        ]
+
+        if curr_player == 0:
+            return [[], visible_hand]
+        else:
+            return [visible_hand, []]
+
+    def _convert_card(self, card: HANASIM_CARD) -> NATIVE_CARD:
+        return self.hanasim_colour_map[card[0]], card[1] - 1
+
+    def _convert_trash(self, discard: list[HANASIM_CARD]) -> list[NATIVE_CARD]:
+        """
+        Convert the representation of the discard pile from HanaSim's type to pyhanabi's type.
         """
         # TODO: implement this method
 
-    def _convert_trash(self, discard: list[tuple[str, int]]) -> list[tuple[Color, int]]:
+    def _convert_played(self, fireworks: dict[str, int]) -> list[NATIVE_CARD]:
         """
-        Convert string color representation used in Hanasim discard to Color
-        enum used in pyhanabi trash
-        """
-        # TODO: implement this method
-
-    def _convert_played(self, fireworks: dict[str, int]) -> list[tuple[Color, int]]:
-        """
-        Convert string color representation used in Hanasim fireworks to Color
-        enum used in pyhanabi played
+        Convert the representation of the played cards from HanaSim's type to pyhanabi's type.
         """
         # TODO: implement this method
 
-    def _convert_board(self, fireworks: dict[str, int]) -> list[tuple[Color, int]]:
+    def _convert_board(self, fireworks: dict[str, int]) -> list[NATIVE_CARD]:
         """
-        Convert string color representation used in Hanasim fireworks to Color
-        enum used in pyhanabi board
+        Convert the representation of the fireworks constructed on the board from
+        HanaSim's type to pyhanabi's type.
         """
         # TODO: implement this method
 
     def _convert_valid_actions(
-        self, legal_actions: list[HANASIM_ACTION_TYPE]
+        self, legal_actions: list[HANASIM_ACTION]
     ) -> list[Action]:
         """
-        Convert legal actions representation used in Hanasim to Action type
-        used in pyahanabi
+        Convert the representation of legal actions from HanaSim's type to the Action
+        type used in pyhanabi.
         """
         # TODO: implement this method
 
-    def _convert_action(self, native_action: Action) -> HANASIM_ACTION_TYPE:
+    def _convert_action(self, native_action: Action) -> HANASIM_ACTION:
         """
-        Convert a pyhanabi Action object to HanaSim's action type.
+        Convert a pyhanabi Action object to HanaSim's action representation.
         """
         # TODO: implement this method
 
@@ -212,7 +234,7 @@ class HanasimGame(AbstractGame):
         if not self.obs.done():
             action = self.players[self.obs.current_player_id].get_action(
                 self.obs.current_player_id,
-                self._convert_hands(self.obs.hands),
+                self._convert_hands(self.obs.hands, self.obs.current_player_id),
                 self.knowledge,
                 self._convert_trash(self.obs.discard),
                 self._convert_played(self.obs.fireworks),
@@ -225,7 +247,7 @@ class HanasimGame(AbstractGame):
             self._update_knowledge(
                 action,
                 acting_player_id,
-                self._convert_hands(self.obs.hands),
+                self._convert_hands(self.obs.hands, self.obs.current_player_id),
             )
 
     @override
@@ -239,7 +261,7 @@ class HanasimGame(AbstractGame):
             self._update_knowledge(
                 action,
                 acting_player_id,
-                self._convert_hands(self.obs.hands),
+                self._convert_hands(self.obs.hands, self.obs.current_player_id),
             )
 
 
