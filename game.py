@@ -44,9 +44,9 @@ class AbstractGame(metaclass=ABCMeta):
 
 
 class HanasimGame(AbstractGame):
-    env: hana_sim.HanabiEnv
+    _env: hana_sim.HanabiEnv
+    _obs: hana_sim.Observation
     knowledge: list[list[list[list[int]]]]
-    obs: hana_sim.Observation
 
     hanasim_colour_map: Final[dict[str, Color]] = {
         "red": Color.RED,
@@ -59,11 +59,11 @@ class HanasimGame(AbstractGame):
     @override
     def __init__(self, players):
         super().__init__(players)
-        self.env = hana_sim.HanabiEnv(num_players=2)
+        self._env = hana_sim.HanabiEnv(num_players=2)
         self._reset()
 
     def _reset(self) -> None:
-        self.obs = self.env.reset()
+        self._obs = self._env.reset()
         for p in self.players:
             p.reset()
 
@@ -85,7 +85,7 @@ class HanasimGame(AbstractGame):
             )
 
         self._reset()
-        obs = self.obs
+        obs = self._obs
 
         while True:
             # Get action from current player based on game state
@@ -101,7 +101,7 @@ class HanasimGame(AbstractGame):
             )
 
             acting_player_id: int = obs.current_player_id
-            obs = self.env.step(self._convert_action(action))
+            obs = self._env.step(self._convert_action(action))
             self._update_knowledge(
                 action,
                 acting_player_id,
@@ -232,23 +232,23 @@ class HanasimGame(AbstractGame):
         """
         Assume the player is a pyhanabi player or a hanasim agent.
         """
-        if not self.obs.done():
-            action = self.players[self.obs.current_player_id].get_action(
-                self.obs.current_player_id,
-                self._convert_hands(self.obs.hands, self.obs.current_player_id),
+        if not self._obs.done():
+            action = self.players[self._obs.current_player_id].get_action(
+                self._obs.current_player_id,
+                self._convert_hands(self._obs.hands, self._obs.current_player_id),
                 self.knowledge,
-                self._convert_trash(self.obs.discard),
-                self._convert_played(self.obs.fireworks),
-                self._convert_board(self.obs.fireworks),
-                self._convert_valid_actions(self.obs.legal_actions),
-                self.obs.hints,
+                self._convert_trash(self._obs.discard),
+                self._convert_played(self._obs.fireworks),
+                self._convert_board(self._obs.fireworks),
+                self._convert_valid_actions(self._obs.legal_actions),
+                self._obs.hints,
             )
-            acting_player_id: int = self.obs.current_player_id
-            self.obs = self.env.step(self._convert_action(action))
+            acting_player_id: int = self._obs.current_player_id
+            self._obs = self._env.step(self._convert_action(action))
             self._update_knowledge(
                 action,
                 acting_player_id,
-                self._convert_hands(self.obs.hands, self.obs.current_player_id),
+                self._convert_hands(self._obs.hands, self._obs.current_player_id),
             )
 
     @override
@@ -256,13 +256,13 @@ class HanasimGame(AbstractGame):
         """
         Assume the current player is a human player.
         """
-        if not self.obs.done():
-            acting_player_id: int = self.obs.current_player_id
-            self.obs = self.env.step(self._convert_action(action))
+        if not self._obs.done():
+            acting_player_id: int = self._obs.current_player_id
+            self._obs = self._env.step(self._convert_action(action))
             self._update_knowledge(
                 action,
                 acting_player_id,
-                self._convert_hands(self.obs.hands, self.obs.current_player_id),
+                self._convert_hands(self._obs.hands, self._obs.current_player_id),
             )
 
 
