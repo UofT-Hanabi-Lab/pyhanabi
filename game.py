@@ -22,6 +22,18 @@ type HANASIM_CARD = tuple[str, int]
 type NATIVE_CARD = tuple[Color, int]
 
 
+COLOR_INT_CONVERSION_DICT = {  # converts Hanasim numbering into pyhanabi numbering
+    1: Color.RED,
+    2: Color.WHITE,
+    3: Color.YELLOW,
+    4: Color.GREEN,
+    5: Color.BLUE,
+    6: None,
+}
+
+COLOR_REVERSE_CONVERSION_DICT = {v: k for k, v in COLOR_INT_CONVERSION_DICT.items()}
+
+
 class AbstractGame(metaclass=ABCMeta):
     players: Sequence[Player]
 
@@ -111,7 +123,7 @@ class HanasimGame(AbstractGame):
                 break
 
         print("Game done, hits left:", obs.lives_remaining, file=self.log)
-        points = self._score(self._convert_board(obs.fireworks))
+        points = self._score(HanasimGame._convert_board(obs.fireworks))
         print("Points:", points, file=self.log)
         return points
 
@@ -193,20 +205,24 @@ class HanasimGame(AbstractGame):
         """
         Convert the representation of the discard pile from HanaSim's type to pyhanabi's type.
         """
-        # TODO: implement this method
+        return [self._convert_card(card) for card in discard]
 
     def _convert_played(self, fireworks: dict[str, int]) -> list[NATIVE_CARD]:
         """
         Convert the representation of the played cards from HanaSim's type to pyhanabi's type.
         """
-        # TODO: implement this method
+        return [
+            self._convert_card((color, i))
+            for color in fireworks
+            for i in range(1, fireworks[color] + 1)
+        ]
 
     def _convert_board(self, fireworks: dict[str, int]) -> list[NATIVE_CARD]:
         """
         Convert the representation of the fireworks constructed on the board from
         HanaSim's type to pyhanabi's type.
         """
-        # TODO: implement this method
+        return [self._convert_card((color, fireworks[color])) for color in fireworks]
 
     def _convert_valid_actions(
         self, legal_actions: list[HANASIM_ACTION]
@@ -215,13 +231,79 @@ class HanasimGame(AbstractGame):
         Convert the representation of legal actions from HanaSim's type to the Action
         type used in pyhanabi.
         """
-        # TODO: implement this method
+        actions = []
+        for action in legal_actions:
+            if action[0] == 1:  # color hint
+                move_type = Action.ActionType.HINT_COLOR
+            elif action[0] == 2:  # rank hint
+                move_type = Action.ActionType.HINT_NUMBER
+            elif action[0] == 3:  # play
+                move_type = Action.ActionType.PLAY
+            elif action[0] == 4:  # discard
+                move_type = Action.ActionType.DISCARD
+            else:
+                continue
+
+            if move_type in {
+                Action.ActionType.HINT_COLOR,
+                Action.ActionType.HINT_NUMBER,
+            }:
+                for card in action[4]:
+                    action = Action(
+                        action_type=move_type,
+                        pnr=action[1],
+                        col=COLOR_INT_CONVERSION_DICT[action[5]],
+                        num=action[6],
+                        cnr=card,  # TODO: check this
+                    )
+                    actions.append(action)
+            else:
+                action = Action(
+                    action_type=move_type,
+                    pnr=action[1],
+                    col=COLOR_INT_CONVERSION_DICT[action[5]],
+                    num=action[6],
+                    cnr=None,  # TODO: check this
+                )
+                actions.append(action)
+            return actions
 
     def _convert_action(self, native_action: Action) -> HANASIM_ACTION:
         """
         Convert a pyhanabi Action object to HanaSim's action representation.
         """
-        # TODO: implement this method
+        a_type = native_action.action_type
+        if a_type == Action.ActionType.HINT_COLOR:
+            move_type = 1
+        elif a_type == Action.ActionType.HINT_NUMBER:
+            move_type = 2
+        elif a_type == Action.ActionType.PLAY:
+            move_type = 3
+        elif a_type is Action.ActionType.DISCARD:
+            move_type = 4
+        else:
+            move_type = 5  # INVALID_MOVE
+
+        # for hints we fill in `to_` & `card_indices`, for non‐hints it's -1 and empty
+        if move_type in (1, 2):
+            to_ = native_action.pnr
+            card_indices = [native_action.cnr] if native_action.cnr is not None else []
+            card_index = -1
+        else:
+            to_ = -1
+            card_indices = []
+            card_index = native_action.cnr if native_action.cnr is not None else -1
+
+        # `from_` is the active player issuing this action
+        from_ = ...  # TODO: we should get the current player in some way
+
+        # 4) map our Color enum back to the original int code, and rank is just `num`
+        color = COLOR_REVERSE_CONVERSION_DICT[native_action.col]
+        rank = native_action.num
+
+        return (move_type, to_, from_, card_index, card_indices, color, rank)
+
+        # TODO: conversion of card indices doesn't translate directly
 
     @staticmethod
     def _score(board) -> int:
