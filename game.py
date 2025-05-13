@@ -282,7 +282,7 @@ class HanasimGame(AbstractGame):
             assert native_action.pnr is not None
             to_ = native_action.pnr
             card_indices = []
-            for i, card in enumerate(self.obs.hands[self.obs.current_player_id]):
+            for i, card in enumerate(self._obs.hands[self._obs.current_player_id]):
                 card = self._convert_card(card)
                 if card[0] == native_action.col:
                     card_indices.append(i)
@@ -293,7 +293,7 @@ class HanasimGame(AbstractGame):
             assert native_action.pnr is not None
             to_ = native_action.pnr
             card_indices = []
-            for i, card in enumerate(self.obs.hands[self.obs.current_player_id]):
+            for i, card in enumerate(self._obs.hands[self._obs.current_player_id]):
                 card = self._convert_card(card)
                 if card[1] == native_action.num:
                     card_indices.append(i)
@@ -305,7 +305,7 @@ class HanasimGame(AbstractGame):
             card_index = native_action.cnr if native_action.cnr is not None else -1
 
         # `from_` is the active player issuing this action
-        from_ = self.obs.current_player_id
+        from_ = self._obs.current_player_id
 
         return move_type, to_, from_, card_index, card_indices, color, rank
 
@@ -323,11 +323,11 @@ class HanasimGame(AbstractGame):
                 self._obs.current_player_id,
                 self._convert_hands(self._obs.hands, self._obs.current_player_id),
                 self.knowledge,
-                self._convert_trash(self.obs.discard),
-                self._convert_played(self.obs.fireworks),
-                self._convert_board(self.obs.fireworks),
-                HanasimGame._convert_valid_actions(self.obs.legal_actions),
-                self.obs.hints,
+                self._convert_trash(self._obs.discard),
+                self._convert_played(self._obs.fireworks),
+                self._convert_board(self._obs.fireworks),
+                HanasimGame._convert_valid_actions(self._obs.legal_actions),
+                self._obs.hints,
             )
             acting_player_id: int = self._obs.current_player_id
             self._obs = self._env.step(self._convert_action(action))
