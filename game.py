@@ -105,11 +105,11 @@ class HanasimGame(AbstractGame):
                 obs.current_player_id,
                 self._convert_hands(obs.hands, obs.current_player_id),
                 self.knowledge,
-                self._convert_trash(obs.discard),
+                self._convert_trash(obs.discards),
                 self._convert_played(obs.fireworks),
                 self._convert_board(obs.fireworks),
                 HanasimGame._convert_valid_actions(obs.legal_actions),
-                obs.hints,
+                obs.hint_tokens,
             )
 
             acting_player_id: int = obs.current_player_id
@@ -327,7 +327,7 @@ class HanasimGame(AbstractGame):
                 self._convert_played(self._obs.fireworks),
                 self._convert_board(self._obs.fireworks),
                 HanasimGame._convert_valid_actions(self._obs.legal_actions),
-                self._obs.hints,
+                self._obs.hint_tokens,
             )
             acting_player_id: int = self._obs.current_player_id
             self._obs = self._env.step(self._convert_action(action))
