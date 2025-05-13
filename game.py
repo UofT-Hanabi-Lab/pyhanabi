@@ -14,12 +14,12 @@ from utils import (
     format_card,
 )
 
-MAX_PLAYERS = 5
-MIN_PLAYERS = 2
+MAX_PLAYERS: Final[int] = 5
+MIN_PLAYERS: Final[int] = 2
 
-type HANASIM_ACTION = tuple[int, int, int, int, list[int], int, int]
-type HANASIM_CARD = tuple[str, int]
-type NATIVE_CARD = tuple[Color, int]
+type HanaSimAction = tuple[int, int, int, int, list[int], int, int]
+type HanaSimCard = tuple[str, int]
+type NativeCard = tuple[Color, int]
 
 
 COLOR_INT_CONVERSION_DICT = {  # converts Hanasim numbering into pyhanabi numbering
@@ -56,9 +56,9 @@ class AbstractGame(metaclass=ABCMeta):
 
 
 class HanasimGame(AbstractGame):
-    env: hana_sim.HanabiEnv
+    _env: hana_sim.HanabiEnv
+    _obs: hana_sim.Observation
     knowledge: list[list[list[list[int]]]]
-    obs: hana_sim.Observation
 
     hanasim_colour_map: Final[dict[str, Color]] = {
         "red": Color.RED,
@@ -71,11 +71,11 @@ class HanasimGame(AbstractGame):
     @override
     def __init__(self, players):
         super().__init__(players)
-        self.env = hana_sim.HanabiEnv(num_players=2)
+        self._env = hana_sim.HanabiEnv(num_players=2)
         self._reset()
 
     def _reset(self) -> None:
-        self.obs = self.env.reset()
+        self._obs = self._env.reset()
         for p in self.players:
             p.reset()
 
@@ -97,7 +97,7 @@ class HanasimGame(AbstractGame):
             )
 
         self._reset()
-        obs = self.obs
+        obs = self._obs
 
         while True:
             # Get action from current player based on game state
@@ -113,7 +113,7 @@ class HanasimGame(AbstractGame):
             )
 
             acting_player_id: int = obs.current_player_id
-            obs = self.env.step(self._convert_action(action))
+            obs = self._env.step(self._convert_action(action))
             self._update_knowledge(
                 action,
                 acting_player_id,
@@ -128,7 +128,7 @@ class HanasimGame(AbstractGame):
         return points
 
     def _update_knowledge(
-        self, action: Action, acting_player: int, hands: list[list[NATIVE_CARD]]
+        self, action: Action, acting_player: int, hands: list[list[NativeCard]]
     ) -> None:
         for p in self.players:
             p.inform(action, acting_player, self)
@@ -179,8 +179,8 @@ class HanasimGame(AbstractGame):
             self.knowledge[acting_player].append(initial_knowledge())  # draw a new card
 
     def _convert_hands(
-        self, hands: list[list[HANASIM_CARD]], curr_player: int
-    ) -> list[list[NATIVE_CARD]]:
+        self, hands: list[list[HanaSimCard]], curr_player: int
+    ) -> list[list[NativeCard]]:
         """
         Convert the representation of the current player's hand info from HanaSim's
         type to pyhanabi's type.
@@ -189,7 +189,7 @@ class HanasimGame(AbstractGame):
           - len(self.players) == 2
         """
         partner_pnr: int = (curr_player + 1) % len(self.players)
-        visible_hand: list[NATIVE_CARD] = [
+        visible_hand: list[NativeCard] = [
             self._convert_card(card) for card in hands[partner_pnr]
         ]
 
@@ -198,16 +198,16 @@ class HanasimGame(AbstractGame):
         else:
             return [visible_hand, []]
 
-    def _convert_card(self, card: HANASIM_CARD) -> NATIVE_CARD:
+    def _convert_card(self, card: HanaSimCard) -> NativeCard:
         return self.hanasim_colour_map[card[0]], card[1] - 1
 
-    def _convert_trash(self, discard: list[HANASIM_CARD]) -> list[NATIVE_CARD]:
+    def _convert_trash(self, discard: list[HanaSimCard]) -> list[NativeCard]:
         """
         Convert the representation of the discard pile from HanaSim's type to pyhanabi's type.
         """
         return [self._convert_card(card) for card in discard]
 
-    def _convert_played(self, fireworks: dict[str, int]) -> list[NATIVE_CARD]:
+    def _convert_played(self, fireworks: dict[str, int]) -> list[NativeCard]:
         """
         Convert the representation of the played cards from HanaSim's type to pyhanabi's type.
         """
@@ -217,8 +217,7 @@ class HanasimGame(AbstractGame):
             for i in range(1, fireworks[color] + 1)
         ]
 
-    @staticmethod
-    def _convert_board(self, fireworks: dict[str, int]) -> list[NATIVE_CARD]:
+    def _convert_board(self, fireworks: dict[str, int]) -> list[NativeCard]:
         """
         Convert the representation of the fireworks constructed on the board from
         HanaSim's type to pyhanabi's type.
@@ -226,7 +225,7 @@ class HanasimGame(AbstractGame):
         return [self._convert_card((color, fireworks[color])) for color in fireworks]
 
     @staticmethod
-    def _convert_valid_actions(legal_actions: list[HANASIM_ACTION]) -> list[Action]:
+    def _convert_valid_actions(legal_actions: list[HanaSimAction]) -> list[Action]:
         """
         Convert the representation of legal actions from HanaSim's type to the Action
         type used in pyhanabi.
@@ -261,7 +260,7 @@ class HanasimGame(AbstractGame):
                 actions.append(Action(action_type=move_type, cnr=action[3]))
         return actions
 
-    def _convert_action(self, native_action: Action) -> HANASIM_ACTION:
+    def _convert_action(self, native_action: Action) -> HanaSimAction:
         """
         Convert a pyhanabi Action object to HanaSim's action representation.
         """
@@ -319,10 +318,10 @@ class HanasimGame(AbstractGame):
         """
         Assume the player is a pyhanabi player or a hanasim agent.
         """
-        if not self.obs.done():
-            action = self.players[self.obs.current_player_id].get_action(
-                self.obs.current_player_id,
-                self._convert_hands(self.obs.hands, self.obs.current_player_id),
+        if not self._obs.done():
+            action = self.players[self._obs.current_player_id].get_action(
+                self._obs.current_player_id,
+                self._convert_hands(self._obs.hands, self._obs.current_player_id),
                 self.knowledge,
                 self._convert_trash(self.obs.discard),
                 self._convert_played(self.obs.fireworks),
@@ -330,12 +329,12 @@ class HanasimGame(AbstractGame):
                 HanasimGame._convert_valid_actions(self.obs.legal_actions),
                 self.obs.hints,
             )
-            acting_player_id: int = self.obs.current_player_id
-            self.obs = self.env.step(self._convert_action(action))
+            acting_player_id: int = self._obs.current_player_id
+            self._obs = self._env.step(self._convert_action(action))
             self._update_knowledge(
                 action,
                 acting_player_id,
-                self._convert_hands(self.obs.hands, self.obs.current_player_id),
+                self._convert_hands(self._obs.hands, self._obs.current_player_id),
             )
 
     @override
@@ -343,13 +342,13 @@ class HanasimGame(AbstractGame):
         """
         Assume the current player is a human player.
         """
-        if not self.obs.done():
-            acting_player_id: int = self.obs.current_player_id
-            self.obs = self.env.step(self._convert_action(action))
+        if not self._obs.done():
+            acting_player_id: int = self._obs.current_player_id
+            self._obs = self._env.step(self._convert_action(action))
             self._update_knowledge(
                 action,
                 acting_player_id,
-                self._convert_hands(self.obs.hands, self.obs.current_player_id),
+                self._convert_hands(self._obs.hands, self._obs.current_player_id),
             )
 
 
@@ -552,7 +551,7 @@ class Game(AbstractGame):
             self.turn += 1
             if not self.deck:
                 self.extra_turns += 1
-            hands: list[list[NATIVE_CARD]] = []
+            hands: list[list[NativeCard]] = []
             for i, h in enumerate(self.hands):
                 if i == self.current_player:
                     hands.append([])
@@ -584,7 +583,7 @@ class Game(AbstractGame):
         if not self.done():
             if not self.deck:
                 self.extra_turns += 1
-            hands: list[list[NATIVE_CARD]] = []
+            hands: list[list[NativeCard]] = []
             for i, h in enumerate(self.hands):
                 if i == self.current_player:
                     hands.append([])
