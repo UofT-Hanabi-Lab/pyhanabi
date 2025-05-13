@@ -141,17 +141,16 @@ class HanasimGame(AbstractGame):
             # for every card in the hinted player's hand:
             #     - if the card is positively identified, set all non-X cells in the knowledge to 0
             #     - if the card is negatively identified, set all X cells in the knowledge to 0
-            for (col, num), knowledge in zip(
+            for (col, rank), card_knowledge in zip(
                 hands[action.pnr], self.knowledge[action.pnr]
             ):
                 if col == action.col:
-                    for i, k in enumerate(knowledge):
+                    for i in range(len(card_knowledge)):
                         if i != col:
-                            for i in range(len(k)):
-                                k[i] = 0
+                            card_knowledge[i] = [0 for _ in range(len(card_knowledge))]
                 else:
-                    for i in range(len(knowledge[action.col])):
-                        knowledge[action.col][i] = 0
+                    for i in range(len(card_knowledge[action.col])):
+                        card_knowledge[action.col][i] = 0
 
         elif action.action_type == Action.ActionType.HINT_NUMBER:
             assert action.num is not None
@@ -161,16 +160,16 @@ class HanasimGame(AbstractGame):
             # for every card in the hinted player's hand:
             #     - if the card is positively identified, set all non-N cells in the knowledge to 0
             #     - if the card is negatively identified, set all N cells in the knowledge to 0
-            for (col, num), knowledge in zip(
+            for (col, rank), card_knowledge in zip(
                 hands[action.pnr], self.knowledge[action.pnr]
             ):
-                if num == action.num:
-                    for k in knowledge:
+                if rank == action.num:
+                    for k in card_knowledge:
                         for i in range(len(COUNTS)):
-                            if i + 1 != num:
+                            if i + 1 != rank:
                                 k[i] = 0
                 else:
-                    for k in knowledge:
+                    for k in card_knowledge:
                         k[action.num - 1] = 0
 
         else:  # the action is either play or discard
