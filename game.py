@@ -84,9 +84,8 @@ class HanasimGame(AbstractGame):
             hand_size = 5
 
         self.knowledge = [
-            initial_knowledge()
+            [initial_knowledge() for __ in range(hand_size)]
             for _ in range(len(self.players))
-            for _ in range(hand_size)
         ]
 
     @override
@@ -294,12 +293,14 @@ class HanasimGame(AbstractGame):
             assert native_action.pnr is not None
             to_ = native_action.pnr
             card_indices = []
-            for i, card in enumerate(self._obs.hands[self._obs.current_player_id]):
+            for i, card in enumerate(self._obs.hands[to_]):
                 card = self._convert_card(card)
-                if card[1] == native_action.num:
+
+                # minus 1 because pyhanabi's rank hint action uses 1-based rank
+                if card[1] == native_action.num - 1:
                     card_indices.append(i)
             card_index = -1
-            rank = native_action.num + 1
+            rank = native_action.num
         else:  # play or discard
             to_ = -1
             card_indices = []
