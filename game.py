@@ -222,7 +222,8 @@ class HanasimGame(AbstractGame):
         Convert the representation of the fireworks constructed on the board from
         HanaSim's type to pyhanabi's type.
         """
-        return [self._convert_card((color, fireworks[color])) for color in fireworks]
+        # add 1 to cancel out the rank conversion in self._convert_card
+        return [self._convert_card((color, fireworks[color] + 1)) for color in fireworks]
 
     @staticmethod
     def _convert_valid_actions(legal_actions: list[HanaSimAction]) -> list[Action]:
