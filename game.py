@@ -113,13 +113,14 @@ class HanasimGame(AbstractGame):
             )
 
             acting_player_id: int = obs.current_player_id
-            obs = self._env.step(self._convert_action(action))
+            step_result = self._env.step(self._convert_action(action))
+            obs = step_result.observation
             self._update_knowledge(
                 action,
                 acting_player_id,
                 self._convert_hands(obs.hands, obs.current_player_id),
             )
-            if obs.done:
+            if step_result.done:
                 break
 
         print("Game done, hits left:", obs.lives_remaining, file=self.log)

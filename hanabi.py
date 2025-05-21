@@ -103,7 +103,8 @@ def main(args):
     for i, a in enumerate(args):
         players.append(make_player(a, i))
 
-    n = 10000
+    # TODO: change back to n = 10000
+    n = 10
     # TODO: change back or add flag
     # out = NullStream()
     # if n < 3:
