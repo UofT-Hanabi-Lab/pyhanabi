@@ -197,7 +197,7 @@ class HanasimGame(AbstractGame):
             return [visible_hand, []]
 
     def _convert_card(self, card: HanaSimCard) -> NativeCard:
-        return self.hanasim_colour_map[card[0]], card[1] - 1
+        return self.hanasim_colour_map[card[0]], card[1]
 
     def _convert_trash(self, discard: list[HanaSimCard]) -> list[NativeCard]:
         """
@@ -220,10 +220,9 @@ class HanasimGame(AbstractGame):
         Convert the representation of the fireworks constructed on the board from
         HanaSim's type to pyhanabi's type.
         """
-        # add 1 to cancel out the rank conversion in self._convert_card
-        return [
+        return sorted([
             self._convert_card((color, fireworks[color])) for color in fireworks
-        ]
+        ])
 
     @staticmethod
     def _convert_valid_actions(legal_actions: list[HanaSimAction]) -> list[Action]:
@@ -296,9 +295,7 @@ class HanasimGame(AbstractGame):
             card_indices = []
             for i, card in enumerate(self._obs.hands[to_]):
                 card = self._convert_card(card)
-
-                # minus 1 because pyhanabi's rank hint action uses 1-based rank
-                if card[1] == native_action.num - 1:
+                if card[1] == native_action.num:
                     card_indices.append(i)
             card_index = -1
             rank = native_action.num
