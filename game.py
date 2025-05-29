@@ -13,7 +13,6 @@ from utils import (
     format_hand,
     COUNTS,
     format_card,
-    NullStream,
 )
 
 MAX_PLAYERS: Final[int] = 5
@@ -71,8 +70,8 @@ class HanasimGame(AbstractGame):
     }
 
     @override
-    def __init__(self, players):
-        super().__init__(players)
+    def __init__(self, players, log=sys.stdout):
+        super().__init__(players, log)
         self._env = hana_sim.HanabiEnv(num_players=2)
         self._reset()
 

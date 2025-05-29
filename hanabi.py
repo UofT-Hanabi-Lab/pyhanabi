@@ -16,6 +16,7 @@ from players import (
 )
 
 from game import HanasimGame
+from utils import NullStream
 
 random.seed(123)
 
@@ -76,7 +77,7 @@ def main(args):
                     players.append(make_player(player, j))
                 # TODO: change back or add flag
                 # g = Game(players, NullStream())
-                g = HanasimGame(players)
+                g = HanasimGame(players, NullStream())
                 t0 = time.time()
                 result.append(g.run())
                 times.append(time.time() - t0)
@@ -97,12 +98,12 @@ def main(args):
     for i, a in enumerate(args):
         players.append(make_player(a, i))
 
-    # TODO: change back to n = 10000
-    n = 10
-    # TODO: change back or add flag
-    # out = NullStream()
-    # if n < 3:
-    #     out = sys.stdout
+    n = 10000
+
+    out = NullStream()
+    if n < 3:
+        out = sys.stdout
+
     pts = []
     for i in list(range(n)):
         if (i + 1) % 100 == 0:
@@ -110,7 +111,7 @@ def main(args):
         random.seed(i + 1)
         # TODO: change back or add flag
         # g = Game(players, out)
-        g = HanasimGame(players)
+        g = HanasimGame(players, out)
         try:
             pts.append(g.run())
             if (i + 1) % 100 == 0:
