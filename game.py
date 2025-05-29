@@ -116,7 +116,7 @@ class HanasimGame(AbstractGame):
             self._update_knowledge(
                 action,
                 acting_player_id,
-                self._convert_hands(self._obs.hands, self._obs.current_player_id),
+                self._convert_hands(self._obs.hands, acting_player_id),
             )
             if step_result.done:
                 break
