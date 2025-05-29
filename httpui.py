@@ -15,8 +15,7 @@ from cgi import parse_header, parse_multipart
 from typing import override
 from urllib.parse import parse_qs
 
-from hanabi import NullStream
-from utils import Action, Color, format_card
+from utils import Action, Color, format_card, NullStream
 from game import Game
 
 from players import (

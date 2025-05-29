@@ -17,12 +17,6 @@ from players import (
 
 from game import HanasimGame
 
-
-class NullStream:
-    def write(self, *args):
-        pass
-
-
 random.seed(123)
 
 playertypes = {

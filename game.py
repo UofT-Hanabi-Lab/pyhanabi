@@ -3,6 +3,7 @@ import hana_sim
 from abc import ABCMeta, abstractmethod
 
 from typing import Sequence, override, Final
+
 from players import Player
 from utils import (
     Action,
@@ -12,6 +13,7 @@ from utils import (
     format_hand,
     COUNTS,
     format_card,
+    NullStream,
 )
 
 MAX_PLAYERS: Final[int] = 5
@@ -220,9 +222,9 @@ class HanasimGame(AbstractGame):
         Convert the representation of the fireworks constructed on the board from
         HanaSim's type to pyhanabi's type.
         """
-        return sorted([
-            self._convert_card((color, fireworks[color])) for color in fireworks
-        ])
+        return sorted(
+            [self._convert_card((color, fireworks[color])) for color in fireworks]
+        )
 
     @staticmethod
     def _convert_valid_actions(legal_actions: list[HanaSimAction]) -> list[Action]:

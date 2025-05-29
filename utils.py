@@ -401,3 +401,14 @@ def highest_playable_cards(board, trash):
                 dead_colors[col] = nr - 1
                 break
     return dead_colors
+
+
+class NullStream:
+    def write(self, _):
+        pass
+
+    def flush(self):
+        pass
+
+    def writelines(self, _):
+        pass
