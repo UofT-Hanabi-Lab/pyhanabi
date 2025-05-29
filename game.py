@@ -283,7 +283,7 @@ class HanasimGame(AbstractGame):
             assert native_action.pnr is not None
             to_ = native_action.pnr
             card_indices = []
-            for i, card in enumerate(self._obs.hands[self._obs.current_player_id]):
+            for i, card in enumerate(self._obs.hands[to_]):
                 card = self._convert_card(card)
                 if card[0] == native_action.col:
                     card_indices.append(i)
