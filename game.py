@@ -96,34 +96,33 @@ class HanasimGame(AbstractGame):
             )
 
         self._reset()
-        obs = self._obs
 
         while True:
             # Get action from current player based on game state
-            action = self.players[obs.current_player_id].get_action(
-                obs.current_player_id,
-                self._convert_hands(obs.hands, obs.current_player_id),
+            action = self.players[self._obs.current_player_id].get_action(
+                self._obs.current_player_id,
+                self._convert_hands(self._obs.hands, self._obs.current_player_id),
                 self.knowledge,
-                self._convert_trash(obs.discards),
-                self._convert_played(obs.fireworks),
-                self._convert_board(obs.fireworks),
-                HanasimGame._convert_valid_actions(obs.legal_actions),
-                obs.hint_tokens,
+                self._convert_trash(self._obs.discards),
+                self._convert_played(self._obs.fireworks),
+                self._convert_board(self._obs.fireworks),
+                HanasimGame._convert_valid_actions(self._obs.legal_actions),
+                self._obs.hint_tokens,
             )
 
-            acting_player_id: int = obs.current_player_id
+            acting_player_id: int = self._obs.current_player_id
             step_result = self._env.step(self._convert_action(action))
-            obs = step_result.observation
+            self._obs = step_result.observation
             self._update_knowledge(
                 action,
                 acting_player_id,
-                self._convert_hands(obs.hands, obs.current_player_id),
+                self._convert_hands(self._obs.hands, self._obs.current_player_id),
             )
             if step_result.done:
                 break
 
-        print("Game done, hits left:", obs.lives_remaining, file=self.log)
-        points = self._score(self._convert_board(obs.fireworks))
+        print("Game done, hits left:", self._obs.lives_remaining, file=self.log)
+        points = self._score(self._convert_board(self._obs.fireworks))
         print("Points:", points, file=self.log)
         return points
 
@@ -222,7 +221,9 @@ class HanasimGame(AbstractGame):
         HanaSim's type to pyhanabi's type.
         """
         # add 1 to cancel out the rank conversion in self._convert_card
-        return [self._convert_card((color, fireworks[color] + 1)) for color in fireworks]
+        return [
+            self._convert_card((color, fireworks[color])) for color in fireworks
+        ]
 
     @staticmethod
     def _convert_valid_actions(legal_actions: list[HanaSimAction]) -> list[Action]:
