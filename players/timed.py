@@ -1,5 +1,7 @@
 import time
+from typing import override
 
+from players import Player
 from utils import Action
 
 TIMESCALE = 40.0 / 1000.0  # ms
@@ -24,8 +26,9 @@ def priorities(c, board):
     return 6 + (4 - val)
 
 
-class TimedPlayer:
+class TimedPlayer(Player):
     def __init__(self, name, pnr):
+        super().__init__(name, pnr)
         self.name = name
         self.explanation = []
         self.last_tick = time.time()
@@ -33,6 +36,7 @@ class TimedPlayer:
         self.last_played = False
         self.tt = time.time()
 
+    @override
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
     ):
@@ -84,11 +88,13 @@ class TimedPlayer:
         self.last_tick = time.time()
         return action
 
+    @override
     def inform(self, action, player, game):
         self.last_played = action.action_type == Action.ActionType.PLAY
         self.last_tick = self.tt
         self.tt = time.time()
         # print(action, player)
 
+    @override
     def get_explanation(self):
         return self.explanation
