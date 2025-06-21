@@ -5,7 +5,7 @@ intro = """
 <p>If you are not familiar with the card game Hanabi or need a refresher on the rules, you can read a short summary at the end of this page or refer to the official rules <a href="http://www.regatuljocurilor.ro/product_extra_files/HanabiRules-EnglishTransofFrench-1page.pdf" target="_blank">here</a>
 <p>The user interface you will be playing in looks like this:
 <p><img src="/hanabiui.png"/></p>
-<p>On the left you can see how many hint tokens are currently available, how many mistakes have been made so far and how many cards are left in the deck. If you reach 2 mistakes, as in the picture above, the number will turn red and be shown in bold to draw your attention to that fact. 
+<p>On the left you can see how many hint tokens are currently available, how many mistakes have been made so far and how many cards are left in the deck. If you reach 2 mistakes, as in the picture above, the number will turn red and be shown in bold to draw your attention to that fact.
 </p>
 <p>In the center you see the AI player's hand on top, the board in the center and a representation of your hand (which you can't see) on the bottom. To play or discard one of your own cards, click the link
 on that card to do so. To hint the AI about all their cards of a particular color or rank, click the link on any card that matches that color or rank. For example, if you click the "hint color" link on the yellow 4, they

@@ -18,7 +18,7 @@ where `<players>` is a space-separated list of AI names. Refer to `hanabi.py` to
 
 ## Extension
 
-Our implementation was built with extensibility in mind. `hanabi.py` already contains 8 different AIs, some are implementations of the AIs presented in "Solving Hanabi: Estimating Hands by Opponent's Actions in Cooperative Game with Incomplete Information" (Osawa, Hirotaka, in the proceedings of Workshops at the Twenty-Ninth AAAI Conference on Artificial Intelligence, 2015), while others are our own development, two of which are presented in "An Intentional AI for Hanabi" (Eger, Markus and Martens, Chris and Alfaro Cordoba, Marcela, to appear). 
+Our implementation was built with extensibility in mind. `hanabi.py` already contains 8 different AIs, some are implementations of the AIs presented in "Solving Hanabi: Estimating Hands by Opponent's Actions in Cooperative Game with Incomplete Information" (Osawa, Hirotaka, in the proceedings of Workshops at the Twenty-Ninth AAAI Conference on Artificial Intelligence, 2015), while others are our own development, two of which are presented in "An Intentional AI for Hanabi" (Eger, Markus and Martens, Chris and Alfaro Cordoba, Marcela, to appear).
 
 To add another AI, the process consists of two steps:
 1. Subclass `Player`
@@ -29,7 +29,7 @@ The first step involves implementing the methods `get_action` and `inform`. The 
 In addition to implementing the methods to play the game, each AI player class can also set the `explanation` member to a list of lists. This list will be rendered as a table when clicking on the "Explain" button in the user interface. This way it is possible to record and convey information that is helpful with debugging and/or understanding the AI. The `SelfIntentionalPlayer` uses this to show, among other things, which cards the human cooperator has and which intentions it has for them, what they know about their own hand and the utility of discarding a card. Having this information available during game play can greatly help with improving the AI.
 
 ### `get_action`
- 
+
 This is the core method of an AI, it is passed 8 parameters:
 * `nr`: This is the 0-based index of the player that is currently making the decision as an integer.
 * `hands`: This is a list of list of cards, where each sub-list represents the hand of a single player. Note that since a player can not see their own hand, `hands[nr]` is the empty list.
@@ -40,7 +40,7 @@ This is the core method of an AI, it is passed 8 parameters:
 * `valid_actions`: This is a list of valid actions. In particular, it will not contain hint actions if no hint tokens are available.
 * `hints`: The number of hint tokens left.
 
-The return value of this function should be one of the actions in `valid_action`. It is not actually enforced that the AI returns one of these objects, it is equally permissible to construct a new action object with valid parameters. Note that the game currently does not enforce that the AI does not cheat by returning a hint action when no hint tokens are available. 
+The return value of this function should be one of the actions in `valid_action`. It is not actually enforced that the AI returns one of these objects, it is equally permissible to construct a new action object with valid parameters. Note that the game currently does not enforce that the AI does not cheat by returning a hint action when no hint tokens are available.
 
 ### Convenience functions
 
