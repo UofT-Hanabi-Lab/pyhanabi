@@ -27,7 +27,7 @@ from players import (
     SelfRecognitionPlayer,
     IntentionalPlayer,
     SelfIntentionalPlayer,
-    SelfIntentionalPlayerDetectDeadColors
+    SelfIntentionalPlayerDetectDeadColors,
 )
 
 from serverconf import HOST_NAME, PORT_NUMBER
@@ -49,11 +49,11 @@ if not debug:
 template = """
 
 <table width="100%%">
-<tr><td width="15%%" valign="top"><br/> 
+<tr><td width="15%%" valign="top"><br/>
 
 <table style="font-size:14pt" width="100%%">
 <tr><td>
-<table width="100%%" style="font-size:14pt"> 
+<table width="100%%" style="font-size:14pt">
 <tr><td width="85%%"><b>Hint tokens left:</b></td><td> %s</td></tr>
 <tr><td><b>Mistakes made so far:</b></td><td> %s</td></tr>
 <tr><td><b>Cards left in deck:</b></td><td> %s</td></tr>
@@ -159,7 +159,7 @@ def format_action(x, gid, replay=None):
     elif action.action_type == Action.ActionType.DISCARD:
         result += " discarded <b>" + format_card(card) + "</b>"
     else:
-        result += " hinted %s about all %s " % (other, otherp)
+        result += " hinted {} about all {} ".format(other, otherp)
         if action.action_type == Action.ActionType.HINT_COLOR:
             result += action.col.display_name + " cards"
         else:
@@ -274,7 +274,7 @@ def show_game_state(game, player, turn, gid, replay=False):
         style = ' style="vertical-align:top"'
         if i > 0:
             style = ' style="border-left: 1px solid #000; vertical-align:top"'
-        trashhtml += '<td valigh="top" align="center" %s>%s</td>\n' % (
+        trashhtml += '<td valigh="top" align="center" {}>{}</td>\n'.format(
             style,
             "\n".join(discarded[c]),
         )
@@ -1053,7 +1053,7 @@ class MyHandler(BaseHTTPRequestHandler):
             def format_filters(f):
                 result = ""
                 for k in f:
-                    result += "%s/%s/" % (k, f[k])
+                    result += "{}/{}/".format(k, f[k])
                 return result
 
             def update_filters(f, k, v):
@@ -1660,12 +1660,16 @@ if __name__ == "__main__":
     if not os.path.exists("log/"):
         os.makedirs("log")
     httpd = server_class((HOST_NAME, PORT_NUMBER), MyHandler)
-    errlog.write(time.asctime() + " Server Starts - %s:%s\n" % (HOST_NAME, PORT_NUMBER))
+    errlog.write(
+        time.asctime() + " Server Starts - {}:{}\n".format(HOST_NAME, PORT_NUMBER)
+    )
     errlog.flush()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
     httpd.server_close()
-    errlog.write(time.asctime() + " Server Stops - %s:%s\n" % (HOST_NAME, PORT_NUMBER))
+    errlog.write(
+        time.asctime() + " Server Stops - {}:{}\n".format(HOST_NAME, PORT_NUMBER)
+    )
     errlog.flush()

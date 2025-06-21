@@ -12,7 +12,7 @@ from players import (
     SelfIntentionalPlayer,
     SelfIntentionalPlayerDetectDeadColors,
     SamplingRecognitionPlayer,
-    TimedPlayer
+    TimedPlayer,
 )
 
 from game import Game

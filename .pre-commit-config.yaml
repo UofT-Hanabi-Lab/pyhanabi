@@ -1,0 +1,60 @@
+repos:
+  # ------------------------------- 🔒 Security ------------------------------ #
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.27.2
+    hooks:
+      - id: gitleaks
+
+  # ---------------------------- 🐍 Python Quality --------------------------- #
+
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.20.0
+    hooks:
+      - id: pyupgrade
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.12.0
+    hooks:
+      - id: ruff-check
+        # with --fix, this hook must *precede* all other formatters
+        args: [ --fix ]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.16.1
+    hooks:
+      - id: mypy
+        args: [ --ignore-missing-imports, --check-untyped-defs, --exclude=httpui.py ]
+
+  # --------------------------- 📝 Other Languages --------------------------- #
+
+  # requires ruby-rubygems
+  # NOTE (2025-06-21): `pre-commit autoupdate` incorrectly downgrades this to v0.12.0
+  - repo: https://github.com/markdownlint/markdownlint
+    rev: v0.13.0
+    hooks:
+      - id: markdownlint
+
+  # --------------------------- 📁 Filesystem / Git -------------------------- #
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    # customize this list depending on project needs
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-illegal-windows-names
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: mixed-line-ending
+        args: [ --fix=no ]
+      - id: check-merge-conflict
+        args: [ --assume-in-merge ]
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: check-json
+      - id: check-toml
+      - id: trailing-whitespace
+      - id: end-of-file-fixer

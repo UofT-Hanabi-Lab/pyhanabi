@@ -21,5 +21,5 @@ __all__ = [
     "SelfIntentionalPlayer",
     "SelfIntentionalPlayerDetectDeadColors",
     "SamplingRecognitionPlayer",
-    "TimedPlayer"
+    "TimedPlayer",
 ]
