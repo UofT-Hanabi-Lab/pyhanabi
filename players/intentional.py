@@ -145,7 +145,7 @@ class IntentionalPlayer(Player):
                 col.display_name
                 + " "
                 + str(rank)
-                + " (%.2f%%): %.2f" % (prob * 100, val)
+                + " ({:.2f}%): {:.2f}".format(prob * 100, val)
             )
 
         self.explanation.append(
