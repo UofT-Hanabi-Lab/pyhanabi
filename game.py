@@ -105,26 +105,34 @@ class HanasimGame(AbstractGame):
         self._reset()
 
         while True:
-            # Get action from current player based on game state
-            action = self.players[self._obs.current_player_id].get_action(
-                self._obs.current_player_id,
-                self._convert_hands(self._obs.hands, self._obs.current_player_id),
-                self.knowledge,
-                self._convert_trash(self._obs.discards),
-                self._convert_played(self._obs.fireworks),
-                self._convert_board(self._obs.fireworks),
-                HanasimGame._convert_valid_actions(self._obs.legal_actions),
-                self._obs.hint_tokens,
-            )
-
             acting_player_id: int = self._obs.current_player_id
-            step_result = self._env.step(self._convert_action(action))
+
+            if not isinstance(self.players[acting_player_id], HanaSimPlayer):
+                # Get action from current player based on game state
+                action = self.players[acting_player_id].get_action(
+                    acting_player_id,
+                    self._convert_hands(self._obs.hands, acting_player_id),
+                    self.knowledge,
+                    self._convert_trash(self._obs.discards),
+                    self._convert_played(self._obs.fireworks),
+                    self._convert_board(self._obs.fireworks),
+                    HanasimGame._convert_valid_actions(self._obs.legal_actions),
+                    self._obs.hint_tokens,
+                )
+
+                step_result = self._env.step(self._convert_action(action))
+            else:
+                step_result = self._env.step(None)
+                # TODO: retrieve action just executed
+                action = ...
+
             self._obs = step_result.observation
             self._update_knowledge(
                 action,
                 acting_player_id,
                 self._convert_hands(self._obs.hands, acting_player_id),
             )
+
             if step_result.done:
                 break
 
