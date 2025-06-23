@@ -1,8 +1,8 @@
 import sys
-import hana_sim
 from abc import ABCMeta, abstractmethod
-
 from typing import Sequence, override, Final
+
+import hana_sim  # type: ignore
 
 from players import Player
 from utils import (
