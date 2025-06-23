@@ -5,6 +5,7 @@ from typing import Sequence, override, Final
 import hana_sim  # type: ignore
 
 from players import Player
+from players.hanasim import HanaSimPlayer
 from utils import (
     Action,
     Color,
@@ -73,6 +74,11 @@ class HanasimGame(AbstractGame):
     def __init__(self, players, log=sys.stdout):
         super().__init__(players, log)
         self._env = hana_sim.HanabiEnv(num_players=2)
+
+        for player in self.players:
+            if isinstance(player, HanaSimPlayer):
+                self._env.add_player(player.hana_sim_name)
+
         self._reset()
 
     def _reset(self) -> None:
