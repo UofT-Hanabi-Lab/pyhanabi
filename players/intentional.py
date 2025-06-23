@@ -88,7 +88,8 @@ class IntentionalPlayer(Player):
 
         # Choose a hint if possible
         if hints > 0:
-            valid = []
+            action: tuple[Action.ActionType, Color | int]
+            valid: list[tuple[tuple[Action.ActionType, Color | int], int]] = []
             for c in Color:
                 action = (Action.ActionType.HINT_COLOR, c)
                 # print("HINT", COLORNAMES[c],)
@@ -124,7 +125,9 @@ class IntentionalPlayer(Player):
                 # print(valid)
                 (a, s) = valid[0]
                 if a[0] == Action.ActionType.HINT_COLOR:
-                    result = Action(Action.ActionType.HINT_COLOR, pnr=1 - nr, col=a[1])
+                    result = Action(
+                        Action.ActionType.HINT_COLOR, pnr=1 - nr, col=Color(a[1])
+                    )
                 else:
                     result = Action(Action.ActionType.HINT_NUMBER, pnr=1 - nr, num=a[1])
 

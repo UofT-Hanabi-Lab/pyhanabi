@@ -1,14 +1,22 @@
 import random
 from typing import Final
 
+from typing import TYPE_CHECKING
+from utils import Action
+
+# HACK: Player.inform is tightly coupled to AbstractGame
+#   to fix: extract an interface from AbstractGame to invert the two-way dependency
+if TYPE_CHECKING:
+    from game import AbstractGame
+
 
 class Player:
-    def __init__(self, name, pnr, hand_size=5):
-        self.name = name
-        self.pnr = pnr
+    def __init__(self, name: str, pnr: int, hand_size: int = 5):
+        self.name: str = name
+        self.pnr: int = pnr
         self._hand_size: Final[int] = hand_size
 
-        self.explanation = []
+        self.explanation: list = []
 
     def reset(self) -> None:
         """
@@ -19,10 +27,10 @@ class Player:
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
-    ):
+    ) -> Action:
         return random.choice(valid_actions)
 
-    def inform(self, action, player, game):
+    def inform(self, action: Action, player: int, game: "AbstractGame"):
         pass
 
     def get_explanation(self):

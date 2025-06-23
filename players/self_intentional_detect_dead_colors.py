@@ -106,11 +106,12 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
         )
 
         if hints > 0:
-            valid = []
+            hint_action: tuple[Action.ActionType, Color | int]
+            valid: list[tuple[tuple[Action.ActionType, Color | int], int]] = []
             for c in Color:
-                action = (Action.ActionType.HINT_COLOR, c)
+                hint_action = (Action.ActionType.HINT_COLOR, c)
                 (isvalid, score, expl) = pretend(
-                    action,
+                    hint_action,
                     knowledge[1 - nr],
                     intentions,
                     hands[1 - nr],
@@ -123,14 +124,14 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
                     + list(map(format_intention, expl))
                 )
                 if isvalid:
-                    valid.append((action, score))
+                    valid.append((hint_action, score))
 
             for r in range(5):
                 r += 1
-                action = (Action.ActionType.HINT_NUMBER, r)
+                hint_action = (Action.ActionType.HINT_NUMBER, r)
 
                 (isvalid, score, expl) = pretend(
-                    action,
+                    hint_action,
                     knowledge[1 - nr],
                     intentions,
                     hands[1 - nr],
@@ -143,15 +144,23 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
                     + list(map(format_intention, expl))
                 )
                 if isvalid:
-                    valid.append((action, score))
+                    valid.append((hint_action, score))
 
             if valid and not result:
                 valid.sort(key=lambda x: -x[1])
-                (a, s) = valid[0]
-                if a[0] == Action.ActionType.HINT_COLOR:
-                    result = Action(Action.ActionType.HINT_COLOR, pnr=1 - nr, col=a[1])
+                selected_action, _ = valid[0]
+                if selected_action[0] == Action.ActionType.HINT_COLOR:
+                    result = Action(
+                        Action.ActionType.HINT_COLOR,
+                        pnr=1 - nr,
+                        col=Color(selected_action[1]),
+                    )
                 else:
-                    result = Action(Action.ActionType.HINT_NUMBER, pnr=1 - nr, num=a[1])
+                    result = Action(
+                        Action.ActionType.HINT_NUMBER,
+                        pnr=1 - nr,
+                        num=selected_action[1],
+                    )
 
         self.explanation.append(
             ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
