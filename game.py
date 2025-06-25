@@ -4,8 +4,7 @@ from typing import Sequence, override, Final
 
 import hana_sim  # type: ignore
 
-from players import Player
-from players.hanasim import HanaSimPlayer
+from players import Player, HanaSimPlayer
 from utils import (
     Action,
     Color,
