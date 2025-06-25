@@ -122,8 +122,7 @@ class HanasimGame(AbstractGame):
                 step_result = self._env.step(self._convert_action(action))
             else:
                 step_result = self._env.step(None)
-                # TODO: retrieve action just executed
-                action = ...
+                action = self._convert_valid_actions([step_result.last_move])[0]
 
             self._obs = step_result.observation
             self._update_knowledge(
