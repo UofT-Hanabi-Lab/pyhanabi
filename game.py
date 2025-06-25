@@ -76,7 +76,7 @@ class HanasimGame(AbstractGame):
 
         for player in self.players:
             if isinstance(player, HanaSimPlayer):
-                self._env.add_player(player.hana_sim_name)
+                self._env.add_player(player.hana_sim_name, player.pnr)
 
         self._reset()
 
