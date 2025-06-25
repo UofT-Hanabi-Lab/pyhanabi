@@ -60,12 +60,16 @@ def make_player(player_type: str, player_id: int) -> Player:
         )
 
     else:
+        # try to find a matching HanaSim player name
         try:
-            return HanaSimPlayer(PlayerName(player_type), player_id)
-        except ValueError:
+            normalized_name = player_type.strip().lower()
+            for key in PlayerName.__members__:
+                if normalized_name == key.lower():
+                    return HanaSimPlayer(PlayerName.__members__[key], player_id)
+        except KeyError:
             pass
 
-        raise ValueError("Unknown player type")
+        raise ValueError(f"Unknown player type: {player_type}")
 
 
 def main(args):
