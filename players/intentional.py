@@ -21,18 +21,12 @@ class IntentionalPlayer(Player):
     def __init__(self, name, pnr):
         super().__init__(name, pnr)
         self.hints = {}
-        self.gothint = None
-        self.last_knowledge = []
-        self.last_played = []
-        self.last_board = []
+        self.got_hint = None
 
     @override
     def reset(self) -> None:
         self.hints = {}
-        self.gothint = None
-        self.last_knowledge = []
-        self.last_played = []
-        self.last_board = []
+        self.got_hint = None
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -44,7 +38,7 @@ class IntentionalPlayer(Player):
         self.explanation.append(["Your Hand:"] + list(map(f, hands[1 - nr])))
 
         # Get all possible identities for each card
-        self.gothint = None
+        self.got_hint = None
         for k in knowledge[nr]:
             possible.append(get_possible(k))
 
@@ -176,8 +170,4 @@ class IntentionalPlayer(Player):
                     ]
                     self.hints[(action.cnr + i + 1, player)] = []
         elif action.pnr == self.pnr:
-            self.gothint = (action, player)
-            self.last_knowledge = game.knowledge[:]
-            self.last_board = game.board[:]
-            self.last_trash = game.trash[:]
-            self.played = game.played[:]
+            self.got_hint = (action, player)
