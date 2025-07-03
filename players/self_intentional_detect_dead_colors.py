@@ -23,10 +23,7 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
         super().__init__(name, pnr)
         self.hints = {}
         self.pnr = pnr
-        self.gothint = None
-        self.last_knowledge = []
-        self.last_played = []
-        self.last_board = []
+        self.got_hint = None
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -39,8 +36,8 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
         action = []
         dead_colors = highest_playable_cards(board, trash)
 
-        if self.gothint:
-            (act, plr) = self.gothint
+        if self.got_hint:
+            (act, plr) = self.got_hint
             if act.action_type == Action.ActionType.HINT_COLOR:
                 for k in knowledge[nr]:
                     action.append(whattodo(k, sum(k[act.col]) > 0, board, dead_colors))
@@ -67,7 +64,7 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
                 elif a == Action.ActionType.DISCARD and not result:
                     result = Action(Action.ActionType.DISCARD, cnr=i)
 
-        self.gothint = None
+        self.got_hint = None
         for k in knowledge[nr]:
             possible.append(get_possible(k))
 
@@ -213,8 +210,4 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
                     ]
                     self.hints[(action.cnr + i + 1, player)] = []
         elif action.pnr == self.pnr:
-            self.gothint = (action, player)
-            self.last_knowledge = game.knowledge[:]
-            self.last_board = game.board[:]
-            self.last_trash = game.trash[:]
-            self.played = game.played[:]
+            self.got_hint = (action, player)

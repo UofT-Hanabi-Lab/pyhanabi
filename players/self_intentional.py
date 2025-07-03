@@ -21,11 +21,11 @@ from utils import (
 class SelfIntentionalPlayer(Player):
     def __init__(self, name, pnr):
         super().__init__(name, pnr)
-        self.gothint = None
+        self.got_hint = None
 
     @override
     def reset(self) -> None:
-        self.gothint = None
+        self.got_hint = None
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -36,8 +36,8 @@ class SelfIntentionalPlayer(Player):
         self.explanation = []
         self.explanation.append(["Your Hand:"] + list(map(f, hands[1 - nr])))
         action = []
-        if self.gothint:
-            (act, plr) = self.gothint
+        if self.got_hint:
+            (act, plr) = self.got_hint
             if act.action_type == Action.ActionType.HINT_COLOR:
                 for k in knowledge[nr]:
                     action.append(whattodo(k, sum(k[act.col]) > 0, board))
@@ -64,7 +64,7 @@ class SelfIntentionalPlayer(Player):
                 elif a == Action.ActionType.DISCARD and not result:
                     result = Action(Action.ActionType.DISCARD, cnr=i)
 
-        self.gothint = None
+        self.got_hint = None
         for k in knowledge[nr]:
             possible.append(get_possible(k))
 
@@ -201,4 +201,4 @@ class SelfIntentionalPlayer(Player):
             Action.ActionType.HINT_COLOR,
             Action.ActionType.HINT_NUMBER,
         }:
-            self.gothint = (action, player)
+            self.got_hint = (action, player)
