@@ -16,6 +16,11 @@ and open http://127.0.0.1:31337/ in a web browser. The command line version of t
 
 where `<players>` is a space-separated list of AI names. Refer to `hanabi.py` to see valid names for AIs and general usage. We recommend using the graphical interface for playing the game and general development and restrict using the command line option to run simulations of AI/AI games.
 
+### pre-commit
+
+If you are modifying this repo, a [pre-commit](https://pre-commit.com/) is provided. Please install
+it (e.g. `uv run pre-commit install`) to maintain code quality and prevent erroneous commits.
+
 ## Extension
 
 Our implementation was built with extensibility in mind. `hanabi.py` already contains 8 different AIs, some are implementations of the AIs presented in "Solving Hanabi: Estimating Hands by Opponent's Actions in Cooperative Game with Incomplete Information" (Osawa, Hirotaka, in the proceedings of Workshops at the Twenty-Ninth AAAI Conference on Artificial Intelligence, 2015), while others are our own development, two of which are presented in "An Intentional AI for Hanabi" (Eger, Markus and Martens, Chris and Alfaro Cordoba, Marcela, to appear).
