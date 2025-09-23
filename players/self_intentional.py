@@ -104,61 +104,66 @@ class SelfIntentionalPlayer(Player):
 
         if hints > 0:
             hint_action: tuple[Action.ActionType, Color | int]
-            valid: list[tuple[tuple[Action.ActionType, Color | int], int]] = []
-            for c in Color:
-                hint_action = (Action.ActionType.HINT_COLOR, c)
-                # print("HINT", COLORNAMES[c],)
-                (isvalid, score, expl) = pretend(
-                    hint_action,
-                    knowledge[1 - nr],
-                    intentions,
-                    hands[1 - nr],
-                    board,
-                    trash,
-                )
-                self.explanation.append(
-                    ["Prediction for: Hint Color " + c.display_name]
-                    + list(map(format_intention, expl))
-                )
-                # print(isvalid, score)
-                if isvalid:
-                    valid.append((hint_action, score))
+            valid: list[tuple[tuple[Action.ActionType, Color | int], int, int]] = []
 
-            for r in range(5):
-                r += 1
-                hint_action = (Action.ActionType.HINT_NUMBER, r)
-                # print("HINT", r,)
+            for hintee_id in range(len(knowledge)):
+                if hintee_id == nr:
+                    continue
 
-                (isvalid, score, expl) = pretend(
-                    hint_action,
-                    knowledge[1 - nr],
-                    intentions,
-                    hands[1 - nr],
-                    board,
-                    trash,
-                )
-                self.explanation.append(
-                    ["Prediction for: Hint Rank " + str(r)]
-                    + list(map(format_intention, expl))
-                )
-                # print(isvalid, score)
-                if isvalid:
-                    valid.append((hint_action, score))
+                for c in Color:
+                    hint_action = (Action.ActionType.HINT_COLOR, c)
+                    # print("HINT", COLORNAMES[c],)
+                    (isvalid, score, expl) = pretend(
+                        hint_action,
+                        knowledge[hintee_id],
+                        intentions,
+                        hands[hintee_id],
+                        board,
+                        trash,
+                    )
+                    self.explanation.append(
+                        ["Prediction for: Hint Color " + c.display_name]
+                        + list(map(format_intention, expl))
+                    )
+                    # print(isvalid, score)
+                    if isvalid:
+                        valid.append((hint_action, score, hintee_id))
+
+                for r in range(5):
+                    r += 1
+                    hint_action = (Action.ActionType.HINT_NUMBER, r)
+                    # print("HINT", r,)
+
+                    (isvalid, score, expl) = pretend(
+                        hint_action,
+                        knowledge[hintee_id],
+                        intentions,
+                        hands[hintee_id],
+                        board,
+                        trash,
+                    )
+                    self.explanation.append(
+                        ["Prediction for: Hint Rank " + str(r)]
+                        + list(map(format_intention, expl))
+                    )
+                    # print(isvalid, score)
+                    if isvalid:
+                        valid.append((hint_action, score, hintee_id))
 
             if valid and not result:
                 valid.sort(key=lambda x: -x[1])
                 # print(valid)
-                (selected_action, _) = valid[0]
+                (selected_action, _, _) = valid[0]
                 if selected_action[0] == Action.ActionType.HINT_COLOR:
                     result = Action(
                         Action.ActionType.HINT_COLOR,
-                        pnr=1 - nr,
+                        pnr=valid[0][2],
                         col=Color(selected_action[1]),
                     )
                 else:
                     result = Action(
                         Action.ActionType.HINT_NUMBER,
-                        pnr=1 - nr,
+                        pnr=valid[0][2],
                         num=selected_action[1],
                     )
 
