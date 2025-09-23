@@ -72,7 +72,7 @@ class HanasimGame(AbstractGame):
     @override
     def __init__(self, players, log=sys.stdout):
         super().__init__(players, log)
-        self._env = hana_sim.HanabiEnv(num_players=2)
+        self._env = hana_sim.HanabiEnv(num_players=len(players))
 
         for player in self.players:
             if isinstance(player, HanaSimPlayer):
@@ -196,18 +196,13 @@ class HanasimGame(AbstractGame):
         Convert the representation of the current player's hand info from HanaSim's
         type to pyhanabi's type.
 
-        Precondition:
-          - len(self.players) == 2
+        The resulting representation hides the hand of the current player by replacing
+        it with an empty list.
         """
-        partner_pnr: int = (curr_player + 1) % len(self.players)
-        visible_hand: list[NativeCard] = [
-            self._convert_card(card) for card in hands[partner_pnr]
+        return [
+            [] if i == curr_player else [self._convert_card(card) for card in hands[i]]
+            for i in range(len(self.players))
         ]
-
-        if curr_player == 0:
-            return [[], visible_hand]
-        else:
-            return [visible_hand, []]
 
     def _convert_card(self, card: HanaSimCard) -> NativeCard:
         return self.hanasim_colour_map[card[0]], card[1]
