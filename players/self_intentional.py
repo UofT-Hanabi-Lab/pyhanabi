@@ -213,7 +213,9 @@ class SelfIntentionalPlayer(Player):
         )
         scores.sort(key=lambda x: -x[1])
         if result:
+            assert result in valid_actions
             return result
+        assert scores[0][0] in valid_actions
         return scores[0][0]
 
     def inform(self, action, player, game):
