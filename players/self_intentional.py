@@ -15,6 +15,7 @@ from utils import (
     format_knowledge,
     pretend_discard,
     whattodo,
+    MAX_HINT_TOKENS,
 )
 
 
@@ -68,15 +69,17 @@ class SelfIntentionalPlayer(Player):
         for k in knowledge[nr]:
             possible.append(get_possible(k))
 
-        discards = []
+        discardable_idx = []
         for i, p in enumerate(possible):
             if playable(p, board) and not result:
                 result = Action(Action.ActionType.PLAY, cnr=i)
             if discardable(p, board):
-                discards.append(i)
+                discardable_idx.append(i)
 
-        if discards and hints < 8 and not result:
-            result = Action(Action.ActionType.DISCARD, cnr=random.choice(discards))
+        if discardable_idx and hints < MAX_HINT_TOKENS and not result:
+            result = Action(
+                Action.ActionType.DISCARD, cnr=random.choice(discardable_idx)
+            )
 
         playables = []
         useless = []
@@ -166,6 +169,18 @@ class SelfIntentionalPlayer(Player):
                         pnr=valid[0][2],
                         num=selected_action[1],
                     )
+
+        if hints == MAX_HINT_TOKENS:
+            # then I cannot discard
+            # give a random hint instead
+            result = random.choice(
+                [
+                    action
+                    for action in valid_actions
+                    if action.action_type
+                    in {Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER}
+                ]
+            )
 
         self.explanation.append(
             ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
