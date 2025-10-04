@@ -64,7 +64,7 @@ class Action:
         if self.action_type == Action.ActionType.HINT_COLOR:
             assert self.col is not None
             return (
-                "hints "
+                "hints player "
                 + str(self.pnr)
                 + " about all their "
                 + self.col.display_name
