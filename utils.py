@@ -87,6 +87,23 @@ class Action:
         )
 
 
+class Log:
+    outfile: str
+    num_turns: int
+
+    def __init__(self, outfile):
+        """
+        Outfile must be the file path from the top level directory pyhanabi.
+        """
+        self.outfile = outfile
+        self.num_turns = 0
+
+    def log_action(self, pnr: int, action: Action):
+        self.num_turns += 1
+        with open(self.outfile, "a") as file:
+            file.write(f"Turn {self.num_turns}: Player {pnr} {action.__str__()}\n")
+
+
 # semi-intelligently format cards in any format
 def f(something):
     if isinstance(something, list):

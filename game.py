@@ -70,9 +70,10 @@ class HanasimGame(AbstractGame):
     }
 
     @override
-    def __init__(self, players, log=sys.stdout):
+    def __init__(self, players, log=sys.stdout, action_log=None):
         super().__init__(players, log)
         self._env = hana_sim.HanabiEnv(num_players=len(players))
+        self.action_log = action_log
 
         for player in self.players:
             if isinstance(player, HanaSimPlayer):
@@ -124,6 +125,8 @@ class HanasimGame(AbstractGame):
                 step_result = self._env.step(None)
                 action = self._convert_valid_actions([step_result.last_move])[0]
 
+            if self.action_log:
+                self.action_log.log_action(acting_player_id, action)
             self._obs = step_result.observation
             self._update_knowledge(
                 action,

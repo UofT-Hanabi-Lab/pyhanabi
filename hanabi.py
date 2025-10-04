@@ -1,3 +1,4 @@
+import os.path
 import random
 import sys
 import time
@@ -19,7 +20,7 @@ from players import (
     TimedPlayer,
 )
 from players.hanasim import HanaSimPlayer
-from utils import NullStream
+from utils import NullStream, Log
 
 random.seed(123)
 
@@ -73,6 +74,19 @@ def make_player(player_type: str, player_id: int) -> Player:
 
 
 def main(args):
+    """
+    Usage: python hanabi.py [ player1, player2, ... ]
+    - If no argument is provided, 3 players of type random will play.
+    - If "trial" is provided as argument, a set configuration will run.
+    - To activate the game log, provide --log <filename> as the first argument
+        followed by the list of players, as such
+            python hanabi.py --log <filename> player1 player2 player3
+        Note: Currently the logging feature only works when all players are
+            passed directly through command line.
+            It will not work if running the program with no arguments or in
+            "trial" mode.
+    """
+    log_fpath = None
     if not args:
         args = ["random"] * 3
     if args[0] == "trial":
@@ -110,6 +124,13 @@ def main(args):
             print("avg times:", avg_times)
 
         return
+    elif args[0] == "--log":
+        assert len(args) > 2, \
+            ("ERROR: you must provide a filename argument to use the log mode, "
+             "and at least two players")
+        log_fname = args[1]
+        log_fpath = os.path.join(os.getcwd(), log_fname)
+        args = args[2:]
 
     players: list[Player] = []
 
@@ -129,7 +150,10 @@ def main(args):
         random.seed(i + 1)
         # TODO: change back or add flag
         # g = Game(players, out)
-        g = HanasimGame(players, out)
+        if log_fpath:
+            g = HanasimGame(players, out, Log(log_fpath))
+        else:
+            g = HanasimGame(players, out)
         try:
             pts.append(g.run())
             if (i + 1) % 100 == 0:
