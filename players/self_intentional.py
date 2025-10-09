@@ -108,6 +108,9 @@ class SelfIntentionalPlayer(Player):
         if hints > 0:
             hint_action: tuple[Action.ActionType, Color | int]
             valid: list[tuple[tuple[Action.ActionType, Color | int], int, int]] = []
+            redundant_hints: list[
+                tuple[tuple[Action.ActionType, Color | int], int]
+            ] = []
 
             for hintee_id in range(len(knowledge)):
                 if hintee_id == nr:
@@ -115,7 +118,6 @@ class SelfIntentionalPlayer(Player):
 
                 for c in Color:
                     hint_action = (Action.ActionType.HINT_COLOR, c)
-                    # print("HINT", COLORNAMES[c],)
                     (isvalid, score, expl) = pretend(
                         hint_action,
                         knowledge[hintee_id],
@@ -128,15 +130,14 @@ class SelfIntentionalPlayer(Player):
                         ["Prediction for: Hint Color " + c.display_name]
                         + list(map(format_intention, expl))
                     )
-                    # print(isvalid, score)
                     if isvalid:
                         valid.append((hint_action, score, hintee_id))
+                    if expl == ["No new information"]:
+                        redundant_hints.append((hint_action, hintee_id))
 
                 for r in range(5):
                     r += 1
                     hint_action = (Action.ActionType.HINT_NUMBER, r)
-                    # print("HINT", r,)
-
                     (isvalid, score, expl) = pretend(
                         hint_action,
                         knowledge[hintee_id],
@@ -149,38 +150,58 @@ class SelfIntentionalPlayer(Player):
                         ["Prediction for: Hint Rank " + str(r)]
                         + list(map(format_intention, expl))
                     )
-                    # print(isvalid, score)
                     if isvalid:
                         valid.append((hint_action, score, hintee_id))
+                    if expl == ["No new information"]:
+                        redundant_hints.append((hint_action, hintee_id))
 
             if valid and not result:
-                valid.sort(key=lambda x: -x[1])
-                # print(valid)
-                (selected_action, _, _) = valid[0]
-                if selected_action[0] == Action.ActionType.HINT_COLOR:
+                # sort descending by hint score
+                valid.sort(key=lambda x: x[1], reverse=True)
+
+                selected_action, _, hintee_id = valid[0]
+                if selected_action[0] is Action.ActionType.HINT_COLOR:
                     result = Action(
                         Action.ActionType.HINT_COLOR,
-                        pnr=valid[0][2],
+                        pnr=hintee_id,
                         col=Color(selected_action[1]),
                     )
                 else:
                     result = Action(
                         Action.ActionType.HINT_NUMBER,
-                        pnr=valid[0][2],
+                        pnr=hintee_id,
                         num=selected_action[1],
                     )
 
         if hints == MAX_HINT_TOKENS:
             # then I cannot discard
-            # give a random hint instead
-            result = random.choice(
-                [
-                    action
-                    for action in valid_actions
-                    if action.action_type
-                    in {Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER}
-                ]
-            )
+
+            # first, try to give a redundant hint
+            if redundant_hints:
+                selected_action, hintee_id = random.choice(redundant_hints)
+                if selected_action[0] is Action.ActionType.HINT_COLOR:
+                    result = Action(
+                        Action.ActionType.HINT_COLOR,
+                        pnr=hintee_id,
+                        col=Color(selected_action[1]),
+                    )
+                else:
+                    result = Action(
+                        Action.ActionType.HINT_NUMBER,
+                        pnr=hintee_id,
+                        num=selected_action[1],
+                    )
+
+            else:
+                # if there are no redundant hints to give, give a random hint
+                result = random.choice(
+                    [
+                        action
+                        for action in valid_actions
+                        if action.action_type
+                        in {Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER}
+                    ]
+                )
 
         self.explanation.append(
             ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
