@@ -116,7 +116,7 @@ def main(args):
     for i, a in enumerate(args):
         players.append(make_player(a, i))
 
-    n = 10000
+    n = 1000
 
     out: Any = NullStream()
     if n < 3:
