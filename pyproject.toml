@@ -4,7 +4,8 @@ version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.12, <3.13"
 dependencies = [
-    "numpy>=2.2.3",
+    "dit>=1.5",
+    "numpy~=1.0",
 ]
 
 [dependency-groups]
