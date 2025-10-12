@@ -1,8 +1,11 @@
 import random
-from typing import Sequence, override
+from typing import Sequence, override, TYPE_CHECKING
 
 from players import Player
-from game import Game
+
+if TYPE_CHECKING:
+    # see players.base for an explanation of this hack
+    from game import AbstractGame
 from utils import (
     get_possible,
     playable,
@@ -225,7 +228,7 @@ class SelfIntentionalPlayerWithMemory(Player):
             self._intents_conveyed = [
                 self._intents_conveyed[i]
                 if expl[i] is None and self._intents_conveyed[i] == Intent.PLAY
-                else expl[i]
+                else Intent(expl[i])
                 for i in range(len(expl))
             ]
         return result
@@ -235,7 +238,7 @@ class SelfIntentionalPlayerWithMemory(Player):
             self._intents_conveyed[i] = self._intents_conveyed[i + 1]
         self._intents_conveyed[-1] = None
 
-    def inform(self, action: Action, player: int, game: Game) -> None:
+    def inform(self, action: Action, player: int, game: "AbstractGame") -> None:
         if (
             action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}
             and player != self.pnr

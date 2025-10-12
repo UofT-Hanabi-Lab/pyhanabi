@@ -1,7 +1,11 @@
 import random
 import sys
 import time
+from typing import Any
 
+from hana_sim import PlayerName  # type: ignore
+
+from game import HanasimGame
 from players import (
     Player,
     SelfIntentionalPlayerWithMemory,
@@ -14,18 +18,12 @@ from players import (
     SamplingRecognitionPlayer,
     TimedPlayer,
 )
-
-from game import Game
-
-
-class NullStream:
-    def write(self, *args):
-        pass
-
+from players.hanasim import HanaSimPlayer
+from utils import NullStream
 
 random.seed(123)
 
-playertypes = {
+player_types = {
     "random": Player,
     "inner": InnerStatePlayer,
     "outer": OuterStatePlayer,
@@ -40,23 +38,38 @@ playertypes = {
 names = ["Shangdi", "Yu Di", "Tian", "Nu Wa", "Pangu"]
 
 
-def make_player(player, i):
-    if player in playertypes:
-        return playertypes[player](names[i], i)
-    elif player.startswith("self("):
-        other = player[5:-1]
-        return SelfRecognitionPlayer(names[i], i, playertypes[other])
-    elif player.startswith("sample("):
-        other = player[7:-1]
+def make_player(player_type: str, player_id: int) -> Player:
+    if player_type in player_types:
+        return player_types[player_type](names[player_id], player_id)
+
+    elif player_type.startswith("self("):
+        other = player_type[5:-1]
+        return SelfRecognitionPlayer(names[player_id], player_id, player_types[other])
+
+    elif player_type.startswith("sample("):
+        other = player_type[7:-1]
         if "," in other:
-            othername, maxtime = other.split(",")
-            othername = othername.strip()
-            maxtime = int(maxtime.strip())
+            othername_raw, maxtime_raw = other.split(",")
+            othername = othername_raw.strip()
+            maxtime = int(maxtime_raw.strip())
             return SamplingRecognitionPlayer(
-                names[i], i, playertypes[othername], maxtime=maxtime
+                names[player_id], player_id, player_types[othername], maxtime=maxtime
             )
-        return SamplingRecognitionPlayer(names[i], i, playertypes[other])
-    return None
+        return SamplingRecognitionPlayer(
+            names[player_id], player_id, player_types[other]
+        )
+
+    else:
+        # try to find a matching HanaSim player name
+        try:
+            normalized_name = player_type.strip().lower()
+            for key in PlayerName.__members__:
+                if normalized_name == key.lower():
+                    return HanaSimPlayer(PlayerName.__members__[key], player_id)
+        except KeyError:
+            pass
+
+        raise ValueError(f"Unknown player type: {player_type}")
 
 
 def main(args):
@@ -73,43 +86,50 @@ def main(args):
         for i in range(int(args[1])):
             result = []
             times = []
-            avgtimes = []
+            avg_times: list[float] = []
             print("trial", i + 1)
             for t in treatments:
                 random.seed(i)
-                players = []
+                trial_players = []
                 for j, player in enumerate(t):
-                    players.append(make_player(player, j))
-                g = Game(players, NullStream())
+                    trial_players.append(make_player(player, j))
+                # TODO: change back or add flag
+                # g = Game(trial_players, NullStream())
+                g = HanasimGame(trial_players, NullStream())
                 t0 = time.time()
                 result.append(g.run())
                 times.append(time.time() - t0)
-                avgtimes.append(times[-1] * 1.0 / g.turn)
+                # TODO: change back or add flag
+                # avg_times.append(times[-1] * 1.0 / g.turn)
                 print(
                     ".",
                 )
             print()
             print("scores:", result)
             print("times:", times)
-            print("avg times:", avgtimes)
+            print("avg times:", avg_times)
 
         return
 
-    players = []
+    players: list[Player] = []
 
     for i, a in enumerate(args):
         players.append(make_player(a, i))
 
     n = 10000
-    out = NullStream()
+
+    out: Any = NullStream()
     if n < 3:
         out = sys.stdout
+
     pts = []
     for i in list(range(n)):
         if (i + 1) % 100 == 0:
             print("Starting game", i + 1)
         random.seed(i + 1)
-        g = Game(players, out)
+        # TODO: change back or add flag
+        # g = Game(players, out)
+        g = HanasimGame(players, out)
         try:
             pts.append(g.run())
             if (i + 1) % 100 == 0:

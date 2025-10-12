@@ -21,18 +21,12 @@ class IntentionalPlayer(Player):
     def __init__(self, name, pnr):
         super().__init__(name, pnr)
         self.hints = {}
-        self.gothint = None
-        self.last_knowledge = []
-        self.last_played = []
-        self.last_board = []
+        self.got_hint = None
 
     @override
     def reset(self) -> None:
         self.hints = {}
-        self.gothint = None
-        self.last_knowledge = []
-        self.last_played = []
-        self.last_board = []
+        self.got_hint = None
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -44,7 +38,7 @@ class IntentionalPlayer(Player):
         self.explanation.append(["Your Hand:"] + list(map(f, hands[1 - nr])))
 
         # Get all possible identities for each card
-        self.gothint = None
+        self.got_hint = None
         for k in knowledge[nr]:
             possible.append(get_possible(k))
 
@@ -88,7 +82,8 @@ class IntentionalPlayer(Player):
 
         # Choose a hint if possible
         if hints > 0:
-            valid = []
+            action: tuple[Action.ActionType, Color | int]
+            valid: list[tuple[tuple[Action.ActionType, Color | int], int]] = []
             for c in Color:
                 action = (Action.ActionType.HINT_COLOR, c)
                 # print("HINT", COLORNAMES[c],)
@@ -124,7 +119,9 @@ class IntentionalPlayer(Player):
                 # print(valid)
                 (a, s) = valid[0]
                 if a[0] == Action.ActionType.HINT_COLOR:
-                    result = Action(Action.ActionType.HINT_COLOR, pnr=1 - nr, col=a[1])
+                    result = Action(
+                        Action.ActionType.HINT_COLOR, pnr=1 - nr, col=Color(a[1])
+                    )
                 else:
                     result = Action(Action.ActionType.HINT_NUMBER, pnr=1 - nr, num=a[1])
 
@@ -173,8 +170,4 @@ class IntentionalPlayer(Player):
                     ]
                     self.hints[(action.cnr + i + 1, player)] = []
         elif action.pnr == self.pnr:
-            self.gothint = (action, player)
-            self.last_knowledge = game.knowledge[:]
-            self.last_board = game.board[:]
-            self.last_trash = game.trash[:]
-            self.played = game.played[:]
+            self.got_hint = (action, player)

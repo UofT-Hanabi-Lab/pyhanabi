@@ -23,10 +23,7 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
         super().__init__(name, pnr)
         self.hints = {}
         self.pnr = pnr
-        self.gothint = None
-        self.last_knowledge = []
-        self.last_played = []
-        self.last_board = []
+        self.got_hint = None
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -39,8 +36,8 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
         action = []
         dead_colors = highest_playable_cards(board, trash)
 
-        if self.gothint:
-            (act, plr) = self.gothint
+        if self.got_hint:
+            (act, plr) = self.got_hint
             if act.action_type == Action.ActionType.HINT_COLOR:
                 for k in knowledge[nr]:
                     action.append(whattodo(k, sum(k[act.col]) > 0, board, dead_colors))
@@ -67,7 +64,7 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
                 elif a == Action.ActionType.DISCARD and not result:
                     result = Action(Action.ActionType.DISCARD, cnr=i)
 
-        self.gothint = None
+        self.got_hint = None
         for k in knowledge[nr]:
             possible.append(get_possible(k))
 
@@ -106,11 +103,12 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
         )
 
         if hints > 0:
-            valid = []
+            hint_action: tuple[Action.ActionType, Color | int]
+            valid: list[tuple[tuple[Action.ActionType, Color | int], int]] = []
             for c in Color:
-                action = (Action.ActionType.HINT_COLOR, c)
+                hint_action = (Action.ActionType.HINT_COLOR, c)
                 (isvalid, score, expl) = pretend(
-                    action,
+                    hint_action,
                     knowledge[1 - nr],
                     intentions,
                     hands[1 - nr],
@@ -123,14 +121,14 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
                     + list(map(format_intention, expl))
                 )
                 if isvalid:
-                    valid.append((action, score))
+                    valid.append((hint_action, score))
 
             for r in range(5):
                 r += 1
-                action = (Action.ActionType.HINT_NUMBER, r)
+                hint_action = (Action.ActionType.HINT_NUMBER, r)
 
                 (isvalid, score, expl) = pretend(
-                    action,
+                    hint_action,
                     knowledge[1 - nr],
                     intentions,
                     hands[1 - nr],
@@ -143,15 +141,23 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
                     + list(map(format_intention, expl))
                 )
                 if isvalid:
-                    valid.append((action, score))
+                    valid.append((hint_action, score))
 
             if valid and not result:
                 valid.sort(key=lambda x: -x[1])
-                (a, s) = valid[0]
-                if a[0] == Action.ActionType.HINT_COLOR:
-                    result = Action(Action.ActionType.HINT_COLOR, pnr=1 - nr, col=a[1])
+                selected_action, _ = valid[0]
+                if selected_action[0] == Action.ActionType.HINT_COLOR:
+                    result = Action(
+                        Action.ActionType.HINT_COLOR,
+                        pnr=1 - nr,
+                        col=Color(selected_action[1]),
+                    )
                 else:
-                    result = Action(Action.ActionType.HINT_NUMBER, pnr=1 - nr, num=a[1])
+                    result = Action(
+                        Action.ActionType.HINT_NUMBER,
+                        pnr=1 - nr,
+                        num=selected_action[1],
+                    )
 
         self.explanation.append(
             ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
@@ -204,8 +210,4 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
                     ]
                     self.hints[(action.cnr + i + 1, player)] = []
         elif action.pnr == self.pnr:
-            self.gothint = (action, player)
-            self.last_knowledge = game.knowledge[:]
-            self.last_board = game.board[:]
-            self.last_trash = game.trash[:]
-            self.played = game.played[:]
+            self.got_hint = (action, player)

@@ -1,5 +1,6 @@
 from .base import Player
 from .fully_intentional import FullyIntentionalPlayer
+from .hanasim import HanaSimPlayer
 from .self_intentional_with_memory import SelfIntentionalPlayerWithMemory
 from .inner_state import InnerStatePlayer
 from .outer_state import OuterStatePlayer
@@ -22,4 +23,5 @@ __all__ = [
     "SelfIntentionalPlayerDetectDeadColors",
     "SamplingRecognitionPlayer",
     "TimedPlayer",
+    "HanaSimPlayer",
 ]
