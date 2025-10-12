@@ -1,25 +1,55 @@
-# A platform for the exploration and evaluation of Hanabi AIs
+# Intentional AI (IntAI) for Hanabi
 
-## Synopsis
-
-This repository contains an implementation of the card game [Hanabi](https://boardgamegeek.com/boardgame/98778/hanabi) with several different AIs. It can be used to see how current AIs perform, as well as to develop new AIs, including testing them with human cooperators.
+This repository contains an implementation of the card game [Hanabi](https://boardgamegeek.com/boardgame/98778/hanabi)
+with several different AIs, most notably Intentional AI created by
+Eger et al. (2017).
 
 ## Usage
 
-Our implementation has two modes of operation: A graphical one, running inside a web-browser, and a command-line option. To use the graphical interface, run:
+### Prerequisites
+
+By default, our simulator uses the Python binding of [HanaSim](https://github.com/UofT-Hanabi-Lab/HanaSim/tree/pyhanabi-xp)
+to handle the game state.
+You must build the binding and install it into our simulator, following the
+steps below:
+
+1. From the [pyhanabi-xp](https://github.com/UofT-Hanabi-Lab/HanaSim/tree/pyhanabi-xp)
+    branch of HanaSim, follow the instructions in `Instruction.md` to build the
+    binding binary.
+   1. You must build the binding using the same version of Python that you'll
+       use to run IntAI (e.g. Python 3.12).
+2. Copy the binary into your IntAI env with the name `hana_sim.so`
+    (e.g. `.venv/lib/python3.12/site-packages/hana_sim.so`).
+
+The synergy metric depends on additional system libraries, which can be
+installed using `apt`:
+`sudo apt install libsuitesparse-dev libopenblas-dev libcdd-dev libgmp-dev`.
+For more detailed instructions (including for other platforms), refer to the
+documentation for [pycddlib](https://pycddlib.readthedocs.io/en/stable/quickstart.html#installing-cddlib-and-gmp)
+and [cvxopt](https://cvxopt.org/install/index.html).
+
+All Python dependencies are specified in the `pyproject.toml` at the repo root.
+
+### Running games
+
+Our implementation has two modes of operation: A graphical one, running inside a
+web-browser, and a command-line option. To use the graphical interface, run:
 
 ```python httpui.py```
 
-and open http://127.0.0.1:31337/ in a web browser. The command line version of the tool is run with
+and open `http://127.0.0.1:31337/` in a web browser. The command line version of
+the tool is run with:
 
 ```python hanabi.py <players>```
 
-where `<players>` is a space-separated list of AI names. Refer to `hanabi.py` to see valid names for AIs and general usage. We recommend using the graphical interface for playing the game and general development and restrict using the command line option to run simulations of AI/AI games.
+where `<players>` is a space-separated list of AI names. Refer to `hanabi.py` to
+see valid names for  AIs and general usage.
 
 ### pre-commit
 
 If you are modifying this repo, a [pre-commit](https://pre-commit.com/) is provided. Please install
-it (e.g. `uv run pre-commit install`) to maintain code quality and prevent erroneous commits.
+it (e.g. `uv run pre-commit install`) to maintain code quality and prevent
+erroneous commits.
 
 ## Extension
 
@@ -57,8 +87,9 @@ The following functions can be useful when developing a new AI:
 * `potentially_playable` and `potentially_discardable` are the same as `playable` and `discardable`, respectively, but return `True` if the card *may* be playable/discardable, even if it is not guaranteed
 * `update_knowledge` takes a player knowledge structure (which is a list of card knowledge structures), and a list of cards `used`, and removes these cards from the possibilities. Initially, every entry in the knowledge structure contains the number of exemplars of the card corresponding to the entry, and this function decreases that count by one for each card in the list `used`. The use of this function is to update a player's knowledge by counting which cards have been played or discarded so far, and removing those possibilities from their knowledge base. For example, if a player knows that a card is red, the entries corresponding to the red 1 through 5 will be `[3, 2, 2, 2, 1]`, because there are three red 1s, two of each of the red 2s, 3s and 4s and one red 5. However, if both red 3s have been discarded already, the player can dismiss this possibility. The `update_knowledge` function is meant to be used to basically subtract the trash and the board from the knowledge to achieve this.
 
+## Dataset
 
-## Data Set
+**The replay feature may not be functional. The authors' original message is included below for reference.**
 
 Our system can also be used to view replays of games, as well as taking over game play at any point during such a replay, even with a different AI. As an example for the use of this feature, we have obtained a data set, consisting of over 2000 game logs from 240 players, which is available in a [separate repository](https://github.com/yawgmoth/HanabiData). Simply place the game logs in the `log/` directory and they can be opened from the main menu of the UI.
 
@@ -68,15 +99,15 @@ If you use the AIs contained in this project for research purposes, these are th
 
 For the Inner State, Outer State and Self Recognition player:
 
-Osawa, Hirotaka. "Solving Hanabi: Estimating Hands by Opponent's Actions in Cooperative Game with Incomplete Information." Workshops at the Twenty-Ninth AAAI Conference on Artificial Intelligence. 2015.
+> Osawa, Hirotaka. "Solving Hanabi: Estimating Hands by Opponent's Actions in Cooperative Game with Incomplete Information." Workshops at the Twenty-Ninth AAAI Conference on Artificial Intelligence. 2015.
 
 For the Intentional and Self Intentional player:
 
-Eger, Markus, Martens, Chris and Alfaro Cordoba, Marcela. "An Intentional AI for Hanabi". 2017 IEEE Conference on Computational Intelligence and Games (CIG). IEEE, 2017. [pdf](http://www.cig2017.com/wp-content/uploads/2017/08/paper_24.pdf)
+> Eger, Markus, Martens, Chris and Alfaro Cordoba, Marcela. "An Intentional AI for Hanabi". 2017 IEEE Conference on Computational Intelligence and Games (CIG). IEEE, 2017. [pdf](http://www.cig2017.com/wp-content/uploads/2017/08/paper_24.pdf)
 
 For the timing player:
 
-Eger, Markus and Gruss, Daniel. "Wait a Second: Playing Hanabi without Giving Hints". 14th International Conference on Foundations of Digital Games (FDG), 2019. [pdf](https://gruss.cc/files/waitasecond.pdf)
+> Eger, Markus and Gruss, Daniel. "Wait a Second: Playing Hanabi without Giving Hints". 14th International Conference on Foundations of Digital Games (FDG), 2019. [pdf](https://gruss.cc/files/waitasecond.pdf)
 
 ## Disclaimer
 
