@@ -71,7 +71,7 @@ class Action:
                 + " cards"
             )
         if self.action_type == Action.ActionType.HINT_NUMBER:
-            return "hints " + str(self.pnr) + " about all their " + str(self.num)
+            return "hints player " + str(self.pnr) + " about all their " + str(self.num)
         if self.action_type == Action.ActionType.PLAY:
             return "plays their " + str(self.cnr)
         if self.action_type == Action.ActionType.DISCARD:
