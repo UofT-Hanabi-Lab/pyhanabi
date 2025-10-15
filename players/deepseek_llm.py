@@ -4,7 +4,7 @@ from typing import override, List, Dict, Any
 import json
 
 from openai import OpenAI
-from prompts import general_system_prompt, h_group_prompt, instruction_prompt
+from .prompts import general_system_prompt, h_group_prompt, instruction_prompt
 
 from players import Player
 from utils import (
@@ -26,8 +26,8 @@ class LLMAgentPlayer(Player):
     def __init__(self, name, pnr, use_h_conventions: bool = False, model: str = "deepseek-reasoner"):
         super().__init__(name, pnr)
         self.client = OpenAI(
-            api_key=os.environ.get("sk-e61ce8affabb4352bb5fbd2168592500"),
-            base_url="https://api.deepseek.com/v1",
+            api_key="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",
+            base_url="https://openrouter.ai/api/v1",
         )
         self.use_h_conventions = use_h_conventions
         self.conversation_history = []
@@ -61,7 +61,7 @@ class LLMAgentPlayer(Player):
         ranks = list(range(1, 6))
         result = [f"## Player {player_index} Knowledge:"]
         for card_idx, card_knowledge in enumerate(knowledge[player_index]):
-            possibilities = self._summarize_card_knowledge(card_knowledge, colors, ranks)
+            possibilities = self._summarize_card_knowledge(card_knowledge)
             formatted = ", ".join(
                 f"{color.display_name} {rank}" for color, rank in possibilities
             )
@@ -83,6 +83,8 @@ class LLMAgentPlayer(Player):
         
         # Look for JSON in the response
         try:
+
+            print(response_text)
             # Extract JSON from the response (might be embedded in text)
             json_start = response_text.find('{')
             json_end = response_text.rfind('}') + 1
@@ -112,6 +114,8 @@ class LLMAgentPlayer(Player):
                     return Action(Action.ActionType.HINT_COLOR, pnr=teammate, col=color)
                 elif action_type == "HINT_NUMBER":
                     return Action(Action.ActionType.HINT_NUMBER, pnr=teammate, num=number)
+                else: 
+                    return random.choice(valid_actions)
                 
         except (json.JSONDecodeError, KeyError) as e:
             print(f"Failed to parse response: {e}")
@@ -122,6 +126,8 @@ class LLMAgentPlayer(Player):
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
     ):
+        
+        nr = nr
         
         current_score = sum([col[1] for col in board])
         deck_size = 50 - current_score - len(knowledge) * 5 - len(trash) 
@@ -148,6 +154,7 @@ class LLMAgentPlayer(Player):
         
 
         user_prompt = """
+
         You are player {nr}
 
         Score: {current_score}
@@ -177,22 +184,39 @@ class LLMAgentPlayer(Player):
         {teammate_b_knowledge}
 
         ## Valid Actions (choose ONE):
-        {actions_str}
+        {action_str}
 
         {instruction_prompt}
         """
 
         if self.use_h_conventions:
             user_prompt = h_group_prompt + user_prompt
+
+        user_prompt_filled = user_prompt.format(nr=nr,
+                current_score=current_score,
+                deck_size=deck_size,
+                hints=hints,
+                fireworks_str=fireworks_str,
+                trash_str=trash_str,
+                current_player_knowledge=current_player_knowledge,
+                teammate_a=teammate_a,
+                teammate_a_hand=teammate_a_hand,
+                teammate_a_knowledge=teammate_a_knowledge,
+                teammate_b=teammate_b,
+                teammate_b_hand=teammate_b_hand,
+                teammate_b_knowledge=teammate_b_knowledge,
+                action_str=action_str,
+                instruction_prompt=instruction_prompt)
         
    
         try:
             # Call DeepSeek R1 API
+
             response = self.client.chat.completions.create(
-                model="deepseek-reasoner",
+                model="deepseek/deepseek-chat-v3.1:free",
                 messages=[
                     {"role": "system", "content": general_system_prompt},
-                    {"role": "user", "content": user_prompt}
+                    {"role": "user", "content": user_prompt_filled}
                 ],
                 temperature=0.1,  # Low temperature for consistent reasoning
                 max_tokens=4000,  # Allow for long chain-of-thought
@@ -200,7 +224,7 @@ class LLMAgentPlayer(Player):
             )
             
             # Parse the response
-            action = self._parse_response(response.choices[0].message.content)
+            action = self._parse_response(response.choices[0].message.content, valid_actions)
             return action
             
         except Exception as e:

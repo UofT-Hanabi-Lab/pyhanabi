@@ -9,6 +9,7 @@ from .intentional import IntentionalPlayer
 from .self_intentional import SelfIntentionalPlayer
 from .self_intentional_detect_dead_colors import SelfIntentionalPlayerDetectDeadColors
 from .sampling_recognition import SamplingRecognitionPlayer
+from .deepseek_llm import LLMAgentPlayer
 from .timed import TimedPlayer
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "SamplingRecognitionPlayer",
     "TimedPlayer",
     "HanaSimPlayer",
+    "LLMAgentPlayer",
 ]
