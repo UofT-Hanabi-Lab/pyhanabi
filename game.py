@@ -8,6 +8,7 @@ from players import Player, HanaSimPlayer
 from utils import (
     Action,
     Color,
+    get_possible,
     make_deck,
     initial_knowledge,
     format_hand,
@@ -103,6 +104,8 @@ class HanasimGame(AbstractGame):
 
         self._reset()
 
+        ipp_list = [[] for _ in range(len(self.players))]
+
         while True:
             acting_player_id: int = self._obs.current_player_id
 
@@ -119,6 +122,10 @@ class HanasimGame(AbstractGame):
                     self._obs.hint_tokens,
                 )
 
+                # Information per play
+                if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
+                    ipp_list[acting_player_id].append(self._information_per_play(action, acting_player_id))
+                
                 step_result = self._env.step(self._convert_action(action))
             else:
                 step_result = self._env.step(None)
@@ -137,7 +144,9 @@ class HanasimGame(AbstractGame):
         print("Game done, hits left:", self._obs.lives_remaining, file=self.log)
         points = self._score(self._convert_board(self._obs.fireworks))
         print("Points:", points, file=self.log)
-        return points
+        for i in range(len(self.players)):
+            print(f"Player {i} ({self.players[i].name}) IPP: {sum(ipp_list[i]) / len(ipp_list[i]) if ipp_list[i] else 0:.2f}", file=self.log)
+        return points, ipp_list
 
     def _update_knowledge(
         self, action: Action, acting_player: int, hands: list[list[NativeCard]]
@@ -358,6 +367,36 @@ class HanasimGame(AbstractGame):
                 acting_player_id,
                 self._convert_hands(self._obs.hands, self._obs.current_player_id),
             )
+
+    def _information_per_play(self, action: Action, acting_player_id: int) -> int:
+        total_info = 0
+
+        possible_cards = get_possible(self.knowledge[acting_player_id][action.cnr])
+
+        if len(possible_cards) == 1:
+            total_info = 2
+        else:
+            no_colour = False
+            no_rank = False
+            # check colour
+            for i in range(1, len(possible_cards)):
+                if possible_cards[i][0] != possible_cards[i - 1][0]:
+                    no_colour = True
+                    break
+
+            for i in range(1, len(possible_cards)):
+                if possible_cards[i][1] != possible_cards[i - 1][1]:
+                    no_rank = False
+                    break
+            
+            if not no_colour:
+                total_info += 1
+            
+            if not no_rank:
+                total_info += 1
+        
+        return total_info / 2
+
 
 
 class Game(AbstractGame):
