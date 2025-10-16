@@ -1,9 +1,10 @@
 import random
 import copy
 from enum import Enum, IntEnum, unique
-
+from typing import Final
 
 COUNTS = [3, 2, 2, 2, 1]
+MAX_HINT_TOKENS: Final[int] = 8
 
 
 @unique

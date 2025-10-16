@@ -130,14 +130,11 @@ def main(args):
         # TODO: change back or add flag
         # g = Game(players, out)
         g = HanasimGame(players, out)
-        try:
-            pts.append(g.run())
-            if (i + 1) % 100 == 0:
-                print("score", pts[-1])
-        except Exception:
-            import traceback
 
-            traceback.print_exc()
+        pts.append(g.run())
+        if (i + 1) % 100 == 0:
+            print("score", pts[-1])
+
     if n < 10:
         print(pts)
     import numpy
