@@ -26,8 +26,8 @@ class LLMAgentPlayer(Player):
     def __init__(self, name, pnr, use_h_conventions: bool = False, model: str = "deepseek-reasoner"):
         super().__init__(name, pnr)
         self.client = OpenAI(
-            api_key="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",
-            base_url="https://openrouter.ai/api/v1",
+            api_key="APIKEYHERE",
+            base_url="https://api.deepseek.com/v1",
         )
         self.use_h_conventions = use_h_conventions
         self.conversation_history = []
@@ -83,8 +83,6 @@ class LLMAgentPlayer(Player):
         
         # Look for JSON in the response
         try:
-
-            print(response_text)
             # Extract JSON from the response (might be embedded in text)
             json_start = response_text.find('{')
             json_end = response_text.rfind('}') + 1
@@ -103,7 +101,7 @@ class LLMAgentPlayer(Player):
                 if color is not None:
                     color = Color[color.upper()]
 
-                
+                print(f"{action_type}")
 
                 # Map schema to your Action class
                 if action_type == "PLAY":
@@ -213,7 +211,7 @@ class LLMAgentPlayer(Player):
             # Call DeepSeek R1 API
 
             response = self.client.chat.completions.create(
-                model="deepseek/deepseek-chat-v3.1:free",
+                model="deepseek-reasoner",
                 messages=[
                     {"role": "system", "content": general_system_prompt},
                     {"role": "user", "content": user_prompt_filled}
