@@ -100,7 +100,10 @@ class SynergyMetric(PostMoveMetric):
 
     @property
     def final_value(self) -> float:
-        return PID_CCS(self._get_distribution())
+        assert self._window.maxlen is not None
+        return PID_CCS(self._get_distribution())[
+            tuple((n,) for n in range(self._window.maxlen))
+        ]
 
     def _get_distribution(self) -> Distribution:
         outcomes: list[str] = []
