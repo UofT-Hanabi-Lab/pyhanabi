@@ -4,7 +4,7 @@ from typing import override, List, Dict, Any
 import json
 
 from openai import OpenAI
-from .prompts import general_system_prompt, h_group_prompt, instruction_prompt
+from .prompts import general_system_prompt, h_group_prompt, instruction_prompt, shorter_instruction_prompt, shorter_system_prompt
 
 from players import Player
 from utils import (
@@ -26,7 +26,7 @@ class LLMAgentPlayer(Player):
     def __init__(self, name, pnr, use_h_conventions: bool = False, model: str = "deepseek-reasoner"):
         super().__init__(name, pnr)
         self.client = OpenAI(
-            api_key="APIKEYHERE",
+            api_key="sk-e61ce8affabb4352bb5fbd2168592500",
             base_url="https://api.deepseek.com/v1",
         )
         self.use_h_conventions = use_h_conventions
@@ -86,6 +86,7 @@ class LLMAgentPlayer(Player):
             # Extract JSON from the response (might be embedded in text)
             json_start = response_text.find('{')
             json_end = response_text.rfind('}') + 1
+            print(response_text)
             if json_start != -1 and json_end != -1:
                 json_str = response_text[json_start:json_end]
                 action_data = json.loads(json_str)
@@ -150,6 +151,7 @@ class LLMAgentPlayer(Player):
         teammate_b_hand = self._format_hand(teammate_b, hands)
         teammate_b_knowledge = self._format_player_knowledge(knowledge, teammate_b)
         
+        # TODO: add default behaviour
 
         user_prompt = """
 
@@ -204,7 +206,7 @@ class LLMAgentPlayer(Player):
                 teammate_b_hand=teammate_b_hand,
                 teammate_b_knowledge=teammate_b_knowledge,
                 action_str=action_str,
-                instruction_prompt=instruction_prompt)
+                instruction_prompt=shorter_instruction_prompt)
         
    
         try:
@@ -213,7 +215,7 @@ class LLMAgentPlayer(Player):
             response = self.client.chat.completions.create(
                 model="deepseek-reasoner",
                 messages=[
-                    {"role": "system", "content": general_system_prompt},
+                    {"role": "system", "content": shorter_system_prompt},
                     {"role": "user", "content": user_prompt_filled}
                 ],
                 temperature=0.1,  # Low temperature for consistent reasoning

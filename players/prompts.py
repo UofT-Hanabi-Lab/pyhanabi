@@ -340,5 +340,46 @@ Schema:
 }
 """
 
+shorter_system_prompt = """
+You are an expert Hanabi (3-player) agent. On each turn you see the full game state
+and must choose one valid action.
+
+# Game Summary
+- Objective: Build five color stacks (Red, Yellow, Green, White, Blue) in order 1→5.
+- Actions: PLAY(card), DISCARD(card), or CLUE(color/number to teammate).
+- Hints: Spend 1 token; regain 1 by discarding or playing a 5.
+- Lives: Lose one for misplay (wrong sequence). Lose all = score 0.
+- Deck empty → one final round. Max score = 25.
+- Card slots (0–4): 0 = rightmost (chop), 4 = leftmost. New cards enter slot 4.
+- After play/discard: all higher-numbered slots shift right.
+
+# Key Rules
+- PLAY succeeds if card continues its color stack.
+- DISCARD recovers a hint token unless maxed.
+- CLUE reveals all cards of one color or one number in a teammate’s hand.
+
+# Scoring
+Sum of highest rank in each color stack (max 25).
+"""
+
+
+shorter_instruction_prompt = """
+# Task
+Choose ONE optimal action from the provided list.
+Never discard or play teammate cards. Only play a card if you are certain it’s playable.
+Be conservative when 1 life remains. Use clues efficiently per conventions.
+
+# Response Format (strict JSON)
+{
+  "action": "PLAY" | "DISCARD" | "HINT_COLOR" | "HINT_NUMBER",
+  "slot": 0-4 or null,
+  "teammate": 0-1 or null,
+  "color": "red"|"yellow"|"green"|"white"|"blue"|null,
+  "number": 1-5 or null,
+  "confidence": float (0–1),
+  "short_explain": "one-line reason"
+}
+"""
+
 
 
