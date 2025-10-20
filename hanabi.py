@@ -6,6 +6,7 @@ from typing import Any
 from hana_sim import PlayerName  # type: ignore
 
 from game import HanasimGame
+from metrics.post_move import SynergyMetric
 from players import (
     Player,
     SelfIntentionalPlayerWithMemory,
@@ -122,29 +123,36 @@ def main(args):
     if n < 3:
         out = sys.stdout
 
-    pts = []
+    points_per_game: list[int] = []
+    synergy_per_game: list[float] = []
+
     for i in list(range(n)):
         if (i + 1) % 100 == 0:
             print("Starting game", i + 1)
         random.seed(i + 1)
-        # TODO: change back or add flag
-        # g = Game(players, out)
-        g = HanasimGame(players, out)
+
+        game = HanasimGame(players, out)
+
+        synergy = SynergyMetric(window_size=len(players))
+        game.register_post_move_metric(synergy)
+
         try:
-            pts.append(g.run())
+            points_per_game.append(game.run())
+            synergy_per_game.append(synergy.final_value)
             if (i + 1) % 100 == 0:
-                print("score", pts[-1])
+                print("score", points_per_game[-1])
         except Exception:
             import traceback
 
             traceback.print_exc()
     if n < 10:
-        print(pts)
+        print(points_per_game)
     import numpy
 
-    print("average:", numpy.mean(pts))
-    print("stddev:", numpy.std(pts, ddof=1))
-    print("range", min(pts), max(pts))
+    print("average:", numpy.mean(points_per_game))
+    print("stddev:", numpy.std(points_per_game, ddof=1))
+    print("range", min(points_per_game), max(points_per_game))
+    print(f"mean synergy: {numpy.mean(synergy_per_game)}")
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ from typing import Sequence, override, Final
 
 import hana_sim  # type: ignore
 
+from metrics.post_move import PostMoveMetric
 from players import Player, HanaSimPlayer
 from utils import (
     Action,
@@ -60,6 +61,7 @@ class HanasimGame(AbstractGame):
     _env: hana_sim.HanabiEnv
     _obs: hana_sim.Observation
     knowledge: list[list[list[list[int]]]]
+    _post_move_metrics: set[PostMoveMetric]
 
     hanasim_colour_map: Final[dict[str, Color]] = {
         "red": Color.RED,
@@ -79,6 +81,13 @@ class HanasimGame(AbstractGame):
                 self._env.add_player(player.hana_sim_name, player.pnr)
 
         self._reset()
+        self._post_move_metrics = set()
+
+    def register_post_move_metric(self, metric: PostMoveMetric) -> None:
+        """Register a metric to be called after each move."""
+        if not isinstance(metric, PostMoveMetric):
+            raise TypeError(f"{str(metric)} doesn't inherit from PostMoveMetric")
+        self._post_move_metrics.add(metric)
 
     def _reset(self) -> None:
         self._obs = self._env.reset()
@@ -130,6 +139,14 @@ class HanasimGame(AbstractGame):
                 acting_player_id,
                 self._convert_hands(self._obs.hands, acting_player_id),
             )
+
+            # Notify all registered post-move metrics
+            for metric in self._post_move_metrics:
+                metric(
+                    action,
+                    score=self._score(self._convert_board(self._obs.fireworks)),
+                    lives=self._obs.lives_remaining,
+                )
 
             if step_result.done:
                 break
