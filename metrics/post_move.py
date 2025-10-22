@@ -32,7 +32,7 @@ class SynergyMetric(PostMoveMetric):
     The number of occurrences of each information state observed in the game
 
     e.g. The value at key "001" is the number of times in the game that the sequence of
-    actions encoded as "00" and the outcome encoded as "1" occurs.
+    actions encoded as "00" and the result encoded as "1" occurs.
     """
 
     _prev_lives_remaining: int
@@ -73,7 +73,7 @@ class SynergyMetric(PostMoveMetric):
         encoding: str = ""
         for action in self._window:
             encoding += self._encode_action(action)
-        encoding += self._encode_outcome(score, lives)
+        encoding += self._encode_result(score, lives)
         return encoding
 
     @staticmethod
@@ -88,7 +88,7 @@ class SynergyMetric(PostMoveMetric):
             case _:
                 raise ValueError(f"Unknown action type: {action.action_type}")
 
-    def _encode_outcome(self, score: int, lives: int) -> str:
+    def _encode_result(self, score: int, lives: int) -> str:
         if self._prev_lives_remaining > lives:
             # a life was lost by the last action
             return "0"
