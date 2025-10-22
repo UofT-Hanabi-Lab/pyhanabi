@@ -24,8 +24,10 @@ class SynergyMetric(PostMoveMetric):
     The final value can be retrieved from the `final_value` property.
     """
 
+    _window_size: int
+
     _window: deque[Action]
-    """Moving window containing the last window_size actions"""
+    """Moving window containing the last _window_size actions"""
 
     _counts: Counter[str]
     """
@@ -42,6 +44,7 @@ class SynergyMetric(PostMoveMetric):
     """Game score before the most recent action is taken"""
 
     def __init__(self, window_size: int) -> None:
+        self._window_size = window_size
         self._window = deque(maxlen=window_size)
         self._counts = Counter()
         self._prev_score = 0
@@ -62,8 +65,8 @@ class SynergyMetric(PostMoveMetric):
 
         self._window.append(last_action)
 
-        # only start counting after window_size actions have occurred
-        if len(self._window) == self._window.maxlen:
+        # only start counting after _window_size actions have occurred
+        if len(self._window) == self._window_size:
             self._counts[self._encode_window(score, lives)] += 1
 
         self._prev_score = score
@@ -100,9 +103,8 @@ class SynergyMetric(PostMoveMetric):
 
     @property
     def final_value(self) -> float:
-        assert self._window.maxlen is not None
         return PID_CCS(self._get_distribution())[
-            tuple((n,) for n in range(self._window.maxlen))
+            tuple((n,) for n in range(self._window_size))
         ]
 
     def _get_distribution(self) -> Distribution:
