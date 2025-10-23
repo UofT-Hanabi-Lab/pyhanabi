@@ -109,14 +109,12 @@ class SynergyMetric(PostMoveMetric):
         ]
 
     def _get_distribution(self) -> Distribution:
-        outcomes: list[str] = []
-        pmf: list[float] = []
-
-        for state, count in self._counts.items():
-            outcomes.append(state)
-            pmf.append(count / self._counts.total())
-
-        return Distribution(outcomes, pmf)
+        return Distribution(
+            {
+                outcome: count / self._counts.total()
+                for outcome, count in self._counts.items()
+            }
+        )
 
     def _get_sample_space(self) -> list[str]:
         single_action_space = ["0", "1", "2"]
