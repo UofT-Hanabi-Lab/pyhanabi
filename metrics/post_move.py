@@ -84,11 +84,11 @@ class SynergyMetric(PostMoveMetric):
     def _encode_action(action: Action) -> str:
         match action.action_type:
             case Action.ActionType.PLAY:
-                return "00"
+                return "0"
             case Action.ActionType.DISCARD:
-                return "01"
+                return "1"
             case Action.ActionType.HINT_COLOR | Action.ActionType.HINT_NUMBER:
-                return "10"
+                return "2"
             case _:
                 raise ValueError(f"Unknown action type: {action.action_type}")
 
@@ -119,7 +119,7 @@ class SynergyMetric(PostMoveMetric):
         return Distribution(outcomes, pmf)
 
     def _get_sample_space(self) -> list[str]:
-        single_action_space = ["00", "01", "10"]
+        single_action_space = ["0", "1", "2"]
         result_space = ["0", "1", "2"]
 
         return [
