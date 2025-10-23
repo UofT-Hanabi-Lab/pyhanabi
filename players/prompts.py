@@ -342,7 +342,7 @@ Schema:
 
 shorter_system_prompt = """
 You are an expert Hanabi (3-player) agent. On each turn you see the full game state
-and must choose one valid action.
+and must choose one valid action. Responses must strictly be in JSON format.
 
 # Game Summary
 - Objective: Build five color stacks (Red, Yellow, Green, White, Blue) in order 1→5.
@@ -367,7 +367,15 @@ shorter_instruction_prompt = """
 # Task
 Choose ONE optimal action from the provided list.
 Never discard or play teammate cards. Only play a card if you are certain it’s playable.
-Be conservative when 1 life remains. Use clues efficiently per conventions.
+Be conservative when 1 life remains. Use clues efficiently per conventions. 
+If your chosen action is PLAY, you must hint "slot" from the following options: 0, 1, 2, 3, 4
+If your chosen action is DISCARD, you must hint "slot" from the following options: 0, 1, 2, 3, 4
+If your chosen action is HINT_COLOR, you must hint "color" from the following options: "red", "yellow", "green", "white", "blue"
+If your chosen action is HINT_COLOR, you must also hint "slot" from the following options: 0, 1, 2, 3, 4
+If your chosen action is HINT_COLOR, you must also hint "teammate" that is NOT your player number
+If your chosen action is HINT_NUMBER, you must hint "number" from the following options: 1, 2, 3, 4, 5
+If your chosen action is HINT_NUMBER, you must also hint "slot" from the following options: 0, 1, 2, 3, 4
+If your chosen action is HINT_NUMBER, you must also hint "teammate" that is NOT your player number
 
 # Response Format (strict JSON)
 {
