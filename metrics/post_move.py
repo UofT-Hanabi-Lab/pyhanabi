@@ -1,3 +1,4 @@
+import itertools
 from abc import ABC, abstractmethod
 from collections import deque, Counter
 from typing import override
@@ -116,3 +117,15 @@ class SynergyMetric(PostMoveMetric):
             pmf.append(count / self._counts.total())
 
         return Distribution(outcomes, pmf)
+
+    def _get_sample_space(self) -> list[str]:
+        single_action_space = ["00", "01", "10"]
+        result_space = ["0", "1", "2"]
+
+        return [
+            "".join(p) + s
+            for p, s in itertools.product(
+                itertools.product(single_action_space, repeat=self._window_size),
+                result_space,
+            )
+        ]
