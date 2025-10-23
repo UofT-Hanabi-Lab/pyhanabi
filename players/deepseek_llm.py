@@ -92,26 +92,40 @@ class LLMAgentPlayer(Player):
                 action_data = json.loads(json_str)
 
                 action_type = action_data["action"]
-                slot = action_data.get("slot")
-                teammate = action_data.get("teammate")
+                slot = int(action_data.get("slot"))
+                teammate = int(action_data.get("teammate"))
                 color = action_data.get("color")
                 number = action_data.get("number")
                 last_justification = action_data.get("short_explain", "")
 
                 # Convert color string back to Color enum if present
                 if color is not None:
-                    color = Color[color.upper()]
+                    if color in ["red", "yellow", "green", "white", "blue"]:
+                        color = Color[color.upper()]
+                    return(random.choice(valid_actions))
 
                 print(f"{action_type}")
 
-                # Map schema to your Action class
+                # Map schema to Action class
                 if action_type == "PLAY":
+                    if slot is None or slot not in [0, 1, 2, 3, 4]:
+                        return random.choice(valid_actions)
                     return Action(Action.ActionType.PLAY, cnr=slot)
                 elif action_type == "DISCARD":
+                    if slot is None or slot not in [0, 1, 2, 3, 4]:
+                        return random.choice(valid_actions)
                     return Action(Action.ActionType.DISCARD, cnr=slot)
                 elif action_type == "HINT_COLOR":
+                    if color is None:
+                        return random.choice(valid_actions)
+                    if teammate is None or teammate not in ((player_nr + 1) % 3, (player_nr + 2) % 3):
+                        return random.choice(valid_actions)
                     return Action(Action.ActionType.HINT_COLOR, pnr=teammate, col=color)
                 elif action_type == "HINT_NUMBER":
+                    if teammate is None or teammate not in ((player_nr + 1) % 3, (player_nr + 2) % 3):
+                        return random.choice(valid_actions)
+                    if number is None or number not in [1, 2, 3, 4, 5]:
+                        return random.choice(valid_actions)
                     return Action(Action.ActionType.HINT_NUMBER, pnr=teammate, num=number)
                 else: 
                     return random.choice(valid_actions)
