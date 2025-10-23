@@ -26,7 +26,7 @@ class LLMAgentPlayer(Player):
     def __init__(self, name, pnr, use_h_conventions: bool = False, model: str = "deepseek-reasoner"):
         super().__init__(name, pnr)
         self.client = OpenAI(
-            api_key="sk-e61ce8affabb4352bb5fbd2168592500",
+            api_key="API_KEY",
             base_url="https://api.deepseek.com/v1",
         )
         self.use_h_conventions = use_h_conventions
@@ -78,7 +78,7 @@ class LLMAgentPlayer(Player):
             formatted_cards.append(f"Slot {slot}: {col.display_name} {num}")
         return f"Player {player_nr}'s Hand:\n" + "\n".join(formatted_cards)
     
-    def _parse_response(self, response_text: str, valid_actions) -> Action:
+    def _parse_response(self, player_nr, response_text: str, valid_actions) -> Action:
         """Parse the model's response to extract the action"""
         
         # Look for JSON in the response
@@ -92,8 +92,10 @@ class LLMAgentPlayer(Player):
                 action_data = json.loads(json_str)
 
                 action_type = action_data["action"]
-                slot = int(action_data.get("slot"))
-                teammate = int(action_data.get("teammate"))
+                slot = action_data.get("slot")
+                
+                teammate = action_data.get("teammate")
+
                 color = action_data.get("color")
                 number = action_data.get("number")
                 last_justification = action_data.get("short_explain", "")
@@ -175,6 +177,8 @@ class LLMAgentPlayer(Player):
         Deck Size: {deck_size}
         Clue Tokens: {hints}
 
+        {instruction_prompt}
+
         ## Fireworks:
         *(Last card played on each stack, 0 means no card has been played on that stack yet)*
         - Current Stacks: {fireworks_str}
@@ -199,8 +203,6 @@ class LLMAgentPlayer(Player):
 
         ## Valid Actions (choose ONE):
         {action_str}
-
-        {instruction_prompt}
         """
 
         if self.use_h_conventions:
@@ -238,7 +240,7 @@ class LLMAgentPlayer(Player):
             )
             
             # Parse the response
-            action = self._parse_response(response.choices[0].message.content, valid_actions)
+            action = self._parse_response(nr, response.choices[0].message.content, valid_actions)
             return action
             
         except Exception as e:
