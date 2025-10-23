@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from collections import deque, Counter
 from typing import override
 
-from dit import Distribution  # type: ignore
+from dit import Distribution, shannon  # type: ignore
 from dit.pid import PID_CCS  # type: ignore
 
 from utils import Action
@@ -104,9 +104,13 @@ class SynergyMetric(PostMoveMetric):
 
     @property
     def final_value(self) -> float:
-        return PID_CCS(self._get_distribution())[
-            tuple((n,) for n in range(self._window_size))
-        ]
+        dist = self._get_distribution()
+        synergy = PID_CCS(dist)[tuple((n,) for n in range(self._window_size))]
+        mutual_info = shannon.mutual_information(
+            dist, list(range(self._window_size)), [self._window_size], rv_mode="indices"
+        )
+
+        return synergy / mutual_info
 
     def _get_distribution(self) -> Distribution:
         return Distribution(
