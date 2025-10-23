@@ -371,10 +371,8 @@ Be conservative when 1 life remains. Use clues efficiently per conventions.
 If your chosen action is PLAY, you must hint "slot" from the following options: 0, 1, 2, 3, 4
 If your chosen action is DISCARD, you must hint "slot" from the following options: 0, 1, 2, 3, 4
 If your chosen action is HINT_COLOR, you must hint "color" from the following options: "red", "yellow", "green", "white", "blue"
-If your chosen action is HINT_COLOR, you must also hint "slot" from the following options: 0, 1, 2, 3, 4
 If your chosen action is HINT_COLOR, you must also hint "teammate" that is NOT your player number
 If your chosen action is HINT_NUMBER, you must hint "number" from the following options: 1, 2, 3, 4, 5
-If your chosen action is HINT_NUMBER, you must also hint "slot" from the following options: 0, 1, 2, 3, 4
 If your chosen action is HINT_NUMBER, you must also hint "teammate" that is NOT your player number
 
 # Response Format (strict JSON)
