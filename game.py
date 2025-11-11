@@ -102,6 +102,9 @@ class HanasimGame(AbstractGame):
                 f"Number of players must be between {MIN_PLAYERS} and {MAX_PLAYERS}"
             )
 
+        if self.action_log:
+            self.action_log.log_game_start(self._env.deck)
+
         self._reset()
 
         while True:
