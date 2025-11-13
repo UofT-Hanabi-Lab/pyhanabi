@@ -116,13 +116,14 @@ def main(args):
     for i, a in enumerate(args):
         players.append(make_player(a, i))
 
-    n = 10000
+    n = 5
 
     out: Any = NullStream()
     if n < 3:
         out = sys.stdout
 
     pts = []
+    ipp_lists = []
     for i in list(range(n)):
         if (i + 1) % 100 == 0:
             print("Starting game", i + 1)
@@ -131,7 +132,9 @@ def main(args):
         # g = Game(players, out)
         g = HanasimGame(players, out)
         try:
-            pts.append(g.run())
+            pt, ipp_list = g.run()
+            pts.append(pt)
+            ipp_lists.append(ipp_list)
             if (i + 1) % 100 == 0:
                 print("score", pts[-1])
         except Exception:
@@ -145,6 +148,12 @@ def main(args):
     print("average:", numpy.mean(pts))
     print("stddev:", numpy.std(pts, ddof=1))
     print("range", min(pts), max(pts))
+    for i, player in enumerate(players):
+        ipp_total = 0.0
+        for ipp_list in ipp_lists:
+            ipp_total += numpy.mean(ipp_list[i])
+        print(f"IPP for {player.name}: {ipp_total / n}")
+            
 
 
 if __name__ == "__main__":

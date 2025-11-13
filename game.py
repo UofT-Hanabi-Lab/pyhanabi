@@ -121,15 +121,15 @@ class HanasimGame(AbstractGame):
                     HanasimGame._convert_valid_actions(self._obs.legal_actions),
                     self._obs.hint_tokens,
                 )
-
-                # Information per play
-                if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
-                    ipp_list[acting_player_id].append(self._information_per_play(action, acting_player_id))
                 
                 step_result = self._env.step(self._convert_action(action))
             else:
                 step_result = self._env.step(None)
                 action = self._convert_valid_actions([step_result.last_move])[0]
+
+            # Information per play
+            if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
+                ipp_list[acting_player_id].append(self._information_per_play(action, acting_player_id))
 
             self._obs = step_result.observation
             self._update_knowledge(
