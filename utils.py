@@ -98,9 +98,9 @@ class Log:
         self.outfile = outfile
         self.num_turns = 0
 
-    def log_game_start(self, deck):
+    def log_game_start(self, deck, num_players):
         with open(self.outfile, "a") as file:
-            file.write(f"NEW: starting a new game with the following deck:\n{deck}\n")
+            file.write(f"NEW: starting a new game of {num_players} players with the following deck:\n{deck}\n")
 
     def log_action(self, pnr: int, action: Action):
         self.num_turns += 1

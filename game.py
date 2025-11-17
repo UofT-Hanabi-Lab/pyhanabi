@@ -103,7 +103,7 @@ class HanasimGame(AbstractGame):
             )
 
         if self.action_log:
-            self.action_log.log_game_start(self._env.deck)
+            self.action_log.log_game_start(self._env.deck, len(self.players))
 
         self._reset()
 
