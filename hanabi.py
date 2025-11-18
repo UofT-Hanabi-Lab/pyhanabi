@@ -18,6 +18,7 @@ from players import (
     SamplingRecognitionPlayer,
     TimedPlayer,
     LLMAgentPlayer,
+    AdaptedLLMAgent
 )
 from players.hanasim import HanaSimPlayer
 from utils import NullStream
@@ -36,6 +37,7 @@ player_types = {
     "full-with-mem": SelfIntentionalPlayerWithMemory,
     "full-detect-dead": SelfIntentionalPlayerDetectDeadColors,
     "llm": LLMAgentPlayer,
+    "adapted-llm": AdaptedLLMAgent,
 }
 names = ["Shangdi", "Yu Di", "Tian", "Nu Wa", "Pangu"]
 
