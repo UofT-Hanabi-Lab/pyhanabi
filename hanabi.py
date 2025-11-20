@@ -181,24 +181,17 @@ def main(args):
         # TODO: change back or add flag
         # g = Game(players, out)
         g = HanasimGame(players, out, post_move_metrics)
-        try:
-            if post_move_metrics:
-                pt, metrics = g.run()
+        if post_move_metrics:
+            pt, metrics = g.run()
 
-                ipp_lists.append(metrics["ipp_list"])
-                critical_discards.append(metrics["critical_discards"])
-                known_discards.append(metrics["known_discards"])
+            ipp_lists.append(metrics["ipp_list"])
+            critical_discards.append(metrics["critical_discards"])
+            known_discards.append(metrics["known_discards"])
 
-            else:
-                pt, _ = g.run()
-            pts.append(pt)
-            
-            if (i + 1) % 100 == 0:
-                print("score", pts[-1])
-        except Exception:
-            import traceback
+        else:
+            pt, _ = g.run()
+        pts.append(pt)
 
-            traceback.print_exc()
     if n < 10:
         print(pts)
     import numpy
