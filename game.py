@@ -71,9 +71,10 @@ class HanasimGame(AbstractGame):
     }
 
     @override
-    def __init__(self, players, log=sys.stdout):
+    def __init__(self, players, log=sys.stdout, post_move_metrics: bool = True):
         super().__init__(players, log)
         self._env = hana_sim.HanabiEnv(num_players=len(players))
+        self._post_move_metrics = post_move_metrics
 
         for player in self.players:
             if isinstance(player, HanaSimPlayer):
@@ -104,7 +105,10 @@ class HanasimGame(AbstractGame):
 
         self._reset()
 
-        ipp_list = [[] for _ in range(len(self.players))]
+        if self._post_move_metrics:
+            ipp_list = [[] for _ in range(len(self.players))]
+            critical_discards = [0 for _ in range(len(self.players))]
+            known_playable_discards = [0 for _ in range(len(self.players))]
 
         while True:
             acting_player_id: int = self._obs.current_player_id
@@ -127,9 +131,17 @@ class HanasimGame(AbstractGame):
                 step_result = self._env.step(None)
                 action = self._convert_valid_actions([step_result.last_move])[0]
 
-            # Information per play
-            if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
-                ipp_list[acting_player_id].append(self._information_per_play(action, acting_player_id))
+            # Collect post-move metrics if enabled
+            if self._post_move_metrics:
+                # Critical discards per play
+                critical_discards[acting_player_id] += self._discarding_critical_card(action, acting_player_id)
+                
+                # Known playable discards per play
+                known_playable_discards[acting_player_id] += self._discarding_known_playable_card(action, acting_player_id)
+
+                # Information per play
+                if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
+                    ipp_list[acting_player_id].append(self._information_per_play(action, acting_player_id))
 
             self._obs = step_result.observation
             self._update_knowledge(
@@ -144,9 +156,21 @@ class HanasimGame(AbstractGame):
         print("Game done, hits left:", self._obs.lives_remaining, file=self.log)
         points = self._score(self._convert_board(self._obs.fireworks))
         print("Points:", points, file=self.log)
-        for i in range(len(self.players)):
-            print(f"Player {i} ({self.players[i].name}) IPP: {sum(ipp_list[i]) / len(ipp_list[i]) if ipp_list[i] else 0:.2f}", file=self.log)
-        return points, ipp_list
+
+        if self._post_move_metrics:
+            for i in range(len(self.players)):
+                if len(ipp_list[i]) == 0:
+                    print(f"Player {i} ({self.players[i].name}) IPP: n/a (did not play or discard card)", file=self.log)
+                else:
+                    print(f"Player {i} ({self.players[i].name}) IPP: {sum(ipp_list[i]) / len(ipp_list[i]) if ipp_list[i] else 0:.2f}", file=self.log)
+                print(f"Player {i} ({self.players[i].name}) Critical Discards: {critical_discards[i]}", file=self.log)
+                print(f"Player {i} ({self.players[i].name}) Known Playable Discards: {known_playable_discards[i]}", file=self.log)
+
+            return points, {"ipp_list": ipp_list, 
+                            "critical_discards": critical_discards, 
+                            "known_discards": known_playable_discards}
+
+        return points, None
 
     def _update_knowledge(
         self, action: Action, acting_player: int, hands: list[list[NativeCard]]
@@ -368,6 +392,62 @@ class HanasimGame(AbstractGame):
                 self._convert_hands(self._obs.hands, self._obs.current_player_id),
             )
 
+    def _discarding_critical_card(self, action: Action, acting_player_id: int) -> int:  
+        """
+        This returns 1 if a player has discarded a critical card
+        """
+        
+        # If action is not a discard, it is irrelevant to the calculation
+        if action.action_type != Action.ActionType.DISCARD:
+            return 0
+
+        # Identify card number and colour
+        (col, num) = self._convert_card(
+            self._obs.hands[acting_player_id][action.cnr]
+        )
+
+        # a 5 card is always critical
+        if num == 5:
+            return 1
+
+        # Check how many instances of the card are in the discard pile
+        trash = self._convert_trash(self._obs.discards)
+        count = 0
+        for card in trash:
+            if card[0] == col and card[1] == num:
+                count += 1
+        
+        # Determine if discard is critical based on card number
+        if num == 1 and count == 2:
+            return 1
+        if (num == 2 or num == 3 or num == 4) and count == 1:
+            return 1
+        
+        return 0
+    
+    def _discarding_known_playable_card(self, action: Action, acting_player_id: int) -> int:
+        """
+        This returns 1 if a player has discarded a known-to-be-playable card
+        """
+        # If action is not a discard, it is irrelevant to the calculation
+        if action.action_type != Action.ActionType.DISCARD:
+            return 0
+        
+        # Identify card number and colour
+        (col, num) = self._convert_card(
+            self._obs.hands[acting_player_id][action.cnr]
+        )
+
+        firework_card = self._convert_board(self._obs.fireworks)[col]
+
+        # Check if the card is playable - only one possible card it could be
+        if num == firework_card[1] + 1:
+            possible_cards = get_possible(self.knowledge[acting_player_id][action.cnr])
+            if len(possible_cards) == 1:
+                return 1
+            
+        return 0
+            
     def _information_per_play(self, action: Action, acting_player_id: int) -> int:
         total_info = 0
 
