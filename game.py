@@ -14,6 +14,7 @@ from utils import (
     format_hand,
     COUNTS,
     format_card,
+    MAX_HINT_TOKENS,
 )
 
 MAX_PLAYERS: Final[int] = 5
@@ -484,7 +485,7 @@ class Game(AbstractGame):
     def __init__(self, players, log=sys.stdout, format=0):
         super().__init__(players)
         self.hits = 3
-        self.hints = 8
+        self.hints = MAX_HINT_TOKENS
         self.current_player = 0
         self.board = [(c, 0) for c in Color]
         self.played = []
