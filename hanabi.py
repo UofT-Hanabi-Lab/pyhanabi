@@ -73,6 +73,7 @@ def make_player(player_type: str, player_id: int) -> Player:
 
 
 def main(args):
+    post_move_metrics = False
     if not args:
         args = ["random"] * 3
     if args[0] == "trial":
@@ -99,19 +100,23 @@ def main(args):
                     trial_players.append(make_player(player, j))
                 # TODO: change back or add flag
                 # g = Game(trial_players, NullStream())
-                g = HanasimGame(trial_players, NullStream())
+                g = HanasimGame(trial_players, NullStream(), post_move_metrics)
 
                 
 
                 t0 = time.time()
-                result_game, metrics = g.run()
+                if post_move_metrics:
+                    result_game, metrics = g.run()
+                else:
+                    result_game, _ = g.run()
                 result.append(result_game)
                 times.append(time.time() - t0)
 
                 # Comment out below lines if you don't want additional metrics
-                ipp_lists.append(metrics["ipp_list"])
-                critical_discards.append(metrics["critical_discards"])
-                known_discards.append(metrics["known_discards"])
+                if post_move_metrics:
+                    ipp_lists.append(metrics["ipp_list"])
+                    critical_discards.append(metrics["critical_discards"])
+                    known_discards.append(metrics["known_discards"])
 
                 # TODO: change back or add flag
                 # avg_times.append(times[-1] * 1.0 / g.turn)
@@ -123,35 +128,34 @@ def main(args):
             print("times:", times)
             print("avg times:", avg_times)
 
-            # Comment out below lines if you don't want additional metrics
-            for i, player in enumerate(treatments):
-                total_valid_ipp = 0
-                sum_ipp = 0
-                for j in range(int(args[1])):
-                    if len(ipp_lists[j][i]) > 0:
-                        total_valid_ipp += 1
-                        sum_ipp += numpy.mean(ipp_lists[j][i])
+            if post_move_metrics:
+                for i, player in enumerate(treatments):
+                    total_valid_ipp = 0
+                    sum_ipp = 0
+                    for j in range(int(args[1])):
+                        if len(ipp_lists[j][i]) > 0:
+                            total_valid_ipp += 1
+                            sum_ipp += numpy.mean(ipp_lists[j][i])
 
-                avg_ipp = sum_ipp / total_valid_ipp if total_valid_ipp > 0 else None
+                    avg_ipp = sum_ipp / total_valid_ipp if total_valid_ipp > 0 else None
 
 
-                avg_critical_discards = sum(
-                    critical_discards[j][i] for j in range(int(args[1]))
-                ) / int(args[1])
+                    avg_critical_discards = sum(
+                        critical_discards[j][i] for j in range(int(args[1]))
+                    ) / int(args[1])
 
-                avg_known_discards = sum(
-                    known_discards[j][i] for j in range(int(args[1]))
-                ) / int(args[1])
+                    avg_known_discards = sum(
+                        known_discards[j][i] for j in range(int(args[1]))
+                    ) / int(args[1])
 
-                if avg_ipp is None:
-                    print(f"IPP for {player}: No valid data")
-                else:
-                    print(f"Average valid IPP count for {player}: {total_valid_ipp} out of {int(args[1])}")
-                    print(f"IPP for {player}: {avg_ipp}")
+                    if avg_ipp is None:
+                        print(f"IPP for {player}: No valid data")
+                    else:
+                        print(f"Average valid IPP count for {player}: {total_valid_ipp} out of {int(args[1])}")
+                        print(f"IPP for {player}: {avg_ipp}")
 
-                print(f"IPP for {player}: {avg_ipp}")
-                print(f"Average critical discards for {player}: {avg_critical_discards}")
-                print(f"Average known discards for {player}: {avg_known_discards}")
+                    print(f"Average critical discards for {player}: {avg_critical_discards}")
+                    print(f"Average known discards for {player}: {avg_known_discards}")
 
         return
 
@@ -160,7 +164,7 @@ def main(args):
     for i, a in enumerate(args):
         players.append(make_player(a, i))
 
-    n = 100
+    n = 5
 
     out: Any = NullStream()
     if n < 3:
@@ -176,15 +180,19 @@ def main(args):
         random.seed(i + 1)
         # TODO: change back or add flag
         # g = Game(players, out)
-        g = HanasimGame(players, out)
+        g = HanasimGame(players, out, post_move_metrics)
         try:
-            pt, metrics = g.run()
-            pts.append(pt)
+            if post_move_metrics:
+                pt, metrics = g.run()
 
-            # Comment out below lines if you don't want additional metrics
-            ipp_lists.append(metrics["ipp_list"])
-            critical_discards.append(metrics["critical_discards"])
-            known_discards.append(metrics["known_discards"])
+                ipp_lists.append(metrics["ipp_list"])
+                critical_discards.append(metrics["critical_discards"])
+                known_discards.append(metrics["known_discards"])
+
+            else:
+                pt, _ = g.run()
+            pts.append(pt)
+            
             if (i + 1) % 100 == 0:
                 print("score", pts[-1])
         except Exception:
@@ -199,37 +207,33 @@ def main(args):
     print("stddev:", numpy.std(pts, ddof=1))
     print("range", min(pts), max(pts))
 
-    # Comment out below lines if you don't want additional metrics
-    for i, player in enumerate(args):
+    if post_move_metrics:
+        for i, player in enumerate(args):
 
-        total_valid_ipp = 0
-        sum_ipp = 0
-        for j in range(n):
-            if  len(ipp_lists[j][i]) > 0:
-                total_valid_ipp += 1
-                sum_ipp += numpy.mean(ipp_lists[j][i])
+            total_valid_ipp = 0
+            sum_ipp = 0
+            for j in range(n):
+                if  len(ipp_lists[j][i]) > 0:
+                    total_valid_ipp += 1
+                    sum_ipp += numpy.mean(ipp_lists[j][i])
 
-        avg_ipp = sum_ipp / total_valid_ipp if total_valid_ipp > 0 else None
+            avg_ipp = sum_ipp / total_valid_ipp if total_valid_ipp > 0 else None
 
-        avg_critical_discards = sum(
-            critical_discards[j][i] for j in range(n)
-        ) / n
+            avg_critical_discards = sum(
+                critical_discards[j][i] for j in range(n)
+            ) / n
 
-        avg_known_discards = sum(
-            known_discards[j][i] for j in range(n)
-        ) / n
+            avg_known_discards = sum(
+                known_discards[j][i] for j in range(n)
+            ) / n
 
-        if avg_ipp is None:
-            print(f"IPP for {player}: No valid data")
-        else:
-            print(f"Average valid IPP count for {player}: {total_valid_ipp} out of {n}")
-            print(f"IPP for {player}: {avg_ipp}")
-        print(f"Average critical discards for {player}: {avg_critical_discards}")
-        print(f"Average known discards for {player}: {avg_known_discards}")
-
-
-            
-
+            if avg_ipp is None:
+                print(f"IPP for {player}: No valid data")
+            else:
+                print(f"Average valid IPP count for {player}: {total_valid_ipp} out of {n}")
+                print(f"IPP for {player}: {avg_ipp}")
+            print(f"Average critical discards for {player}: {avg_critical_discards}")
+            print(f"Average known discards for {player}: {avg_known_discards}")
 
 if __name__ == "__main__":
     main(sys.argv[1:])

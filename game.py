@@ -71,7 +71,7 @@ class HanasimGame(AbstractGame):
     }
 
     @override
-    def __init__(self, players, log=sys.stdout, post_move_metrics: bool = True):
+    def __init__(self, players, log=sys.stdout, post_move_metrics: bool = False):
         super().__init__(players, log)
         self._env = hana_sim.HanabiEnv(num_players=len(players))
         self._post_move_metrics = post_move_metrics
@@ -170,7 +170,7 @@ class HanasimGame(AbstractGame):
                             "critical_discards": critical_discards, 
                             "known_discards": known_playable_discards}
 
-        return points, None
+        return points, {}
 
     def _update_knowledge(
         self, action: Action, acting_player: int, hands: list[list[NativeCard]]
@@ -448,7 +448,7 @@ class HanasimGame(AbstractGame):
             
         return 0
             
-    def _information_per_play(self, action: Action, acting_player_id: int) -> int:
+    def _information_per_play(self, action: Action, acting_player_id: int) -> float:
         total_info = 0
 
         possible_cards = get_possible(self.knowledge[acting_player_id][action.cnr])
@@ -456,23 +456,23 @@ class HanasimGame(AbstractGame):
         if len(possible_cards) == 1:
             total_info = 2
         else:
-            no_colour = False
-            no_rank = False
+            colour = True
+            rank = True
             # check colour
             for i in range(1, len(possible_cards)):
                 if possible_cards[i][0] != possible_cards[i - 1][0]:
-                    no_colour = True
+                    colour = False
                     break
 
             for i in range(1, len(possible_cards)):
                 if possible_cards[i][1] != possible_cards[i - 1][1]:
-                    no_rank = False
+                    rank = False
                     break
             
-            if not no_colour:
+            if colour:
                 total_info += 1
             
-            if not no_rank:
+            if rank:
                 total_info += 1
         
         return total_info / 2
