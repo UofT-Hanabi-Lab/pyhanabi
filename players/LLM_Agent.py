@@ -34,7 +34,7 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 
-class AdaptedLLMAgent(Player):
+class LLMAgentPlayer(Player):
     def __init__(self, name, pnr, model='deepseek-chat', use_verification=True, use_interpretation=True):
         super().__init__(name, pnr)
         self.player_id = pnr
@@ -57,15 +57,7 @@ class AdaptedLLMAgent(Player):
         
         self.time_stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.action_regex = r"Action:\s*(.*)"
-        
-        self.color_map = {
-            Color.RED: 'R',
-            Color.YELLOW: 'Y',
-            Color.GREEN: 'G',
-            Color.WHITE: 'W',
-            Color.BLUE: 'B'
-        }
-        
+
         self.color_name_map = {
             Color.RED: 'Red',
             Color.YELLOW: 'Yellow',
@@ -86,7 +78,7 @@ class AdaptedLLMAgent(Player):
                 1. Hint (Clue): Spend a hint token to reveal cards with a particular color or rank. Revealing a color reveals all cards of that color in partner's hand. Revealing a rank reveals all cards with that rank in partner's hand. The game starts with 8 hint tokens. If no token left, no more hints can be given. 
                 2. Discard: Discard a card to regain a hint token and draw a new card. 
                 3. Play a Card: If a card played follows sequence in its color stack, it succeeds. Success of rank 5 card in any stack gives an additional hint token. Failure discards the card and loses a life. Playing a card you are unsure about is risky as it costs a life.
-        ***The game ends when:***
+        ***The game ends when: (three options) ***
                 - All five stacks are completed. 25 Points. 
                 - Three lives have been lost. 0 Points no matter how many cards have been placed in the stack. 
                 - After the last card from the deck is drawn and each player has had a final turn. Sum total of the top card ranks of each color stack. 
