@@ -64,6 +64,7 @@ class HanasimGame(AbstractGame):
     _env: hana_sim.HanabiEnv
     _obs: hana_sim.Observation
     knowledge: list[list[list[list[int]]]]
+    _metric_dict: dict[str, list]
 
     hanasim_colour_map: Final[dict[str, Color]] = {
         "red": Color.RED,
@@ -78,6 +79,7 @@ class HanasimGame(AbstractGame):
         super().__init__(players, log)
         self._env = hana_sim.HanabiEnv(num_players=len(players))
         self._post_move_metrics = post_move_metrics
+        self._metric_dict = {}
 
         for player in self.players:
             if isinstance(player, HanaSimPlayer):
@@ -170,11 +172,11 @@ class HanasimGame(AbstractGame):
                 print(f"Player {i} ({self.players[i].name}) Critical Discards: {critical_discards[i]}", file=self.log)
                 print(f"Player {i} ({self.players[i].name}) Known Playable Discards: {known_playable_discards[i]}", file=self.log)
 
-            return points, {"ipp_list": ipp_list, 
-                            "critical_discards": critical_discards, 
-                            "known_discards": known_playable_discards}
+            self._metric_dict["ipp_list"] = ipp_list
+            self._metric_dict["critical_discards"] = critical_discards
+            self._metric_dict["known_discards"] = known_playable_discards
 
-        return points, {}
+        return points
 
     def _update_knowledge(
         self, action: Action, acting_player: int, hands: list[list[NativeCard]]
@@ -470,6 +472,10 @@ class HanasimGame(AbstractGame):
                 total_info += 1
         
         return total_info / 2
+    
+    def retrieve_metric_dict(self) -> dict[str, list]:
+        "Function that allows retrival of metrics dictionary to display results once the game has finished"
+        return self._metric_dict
 
 
 

@@ -105,15 +105,12 @@ def main(args):
                 
 
                 t0 = time.time()
-                if post_move_metrics:
-                    result_game, metrics = g.run()
-                else:
-                    result_game, _ = g.run()
-                result.append(result_game)
+                result.append(g.run())
+                       
                 times.append(time.time() - t0)
 
-                # Comment out below lines if you don't want additional metrics
                 if post_move_metrics:
+                    metrics = g.retrieve_metric_dict
                     ipp_lists.append(metrics["ipp_list"])
                     critical_discards.append(metrics["critical_discards"])
                     known_discards.append(metrics["known_discards"])
@@ -181,16 +178,13 @@ def main(args):
         # TODO: change back or add flag
         # g = Game(players, out)
         g = HanasimGame(players, out, post_move_metrics)
+        pts.append(g.run())
+        
         if post_move_metrics:
-            pt, metrics = g.run()
-
+            metrics = g.retrieve_metric_dict()
             ipp_lists.append(metrics["ipp_list"])
             critical_discards.append(metrics["critical_discards"])
             known_discards.append(metrics["known_discards"])
-
-        else:
-            pt, _ = g.run()
-        pts.append(pt)
 
     if n < 10:
         print(pts)
