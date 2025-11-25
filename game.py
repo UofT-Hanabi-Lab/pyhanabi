@@ -1,6 +1,7 @@
 import sys
 from abc import ABCMeta, abstractmethod
 from typing import Sequence, override, Final
+from collections import Counter
 
 import hana_sim  # type: ignore
 
@@ -15,6 +16,7 @@ from utils import (
     COUNTS,
     format_card,
     MAX_HINT_TOKENS,
+    playable
 )
 
 MAX_PLAYERS: Final[int] = 5
@@ -107,9 +109,10 @@ class HanasimGame(AbstractGame):
         self._reset()
 
         if self._post_move_metrics:
-            ipp_list = [[] for _ in range(len(self.players))]
-            critical_discards = [0 for _ in range(len(self.players))]
-            known_playable_discards = [0 for _ in range(len(self.players))]
+            # These structures track post-move metrics for each player
+            ipp_list = [[] for _ in range(len(self.players))] # list of ipp scores per player for each turn they play/discard
+            critical_discards = Counter() # count of critical discards per player
+            known_playable_discards = Counter() # count of known playable discards per player
 
         while True:
             acting_player_id: int = self._obs.current_player_id
@@ -393,14 +396,14 @@ class HanasimGame(AbstractGame):
                 self._convert_hands(self._obs.hands, self._obs.current_player_id),
             )
 
-    def _discarding_critical_card(self, action: Action, acting_player_id: int) -> int:  
+    def _discarding_critical_card(self, action: Action, acting_player_id: int) -> bool:  
         """
-        This returns 1 if a player has discarded a critical card
+        This returns True if a player has discarded a critical card
         """
         
         # If action is not a discard, it is irrelevant to the calculation
         if action.action_type != Action.ActionType.DISCARD:
-            return 0
+            return False
 
         # Identify card number and colour
         (col, num) = self._convert_card(
@@ -409,7 +412,7 @@ class HanasimGame(AbstractGame):
 
         # a 5 card is always critical
         if num == 5:
-            return 1
+            return True
 
         # Check how many instances of the card are in the discard pile
         trash = self._convert_trash(self._obs.discards)
@@ -420,34 +423,24 @@ class HanasimGame(AbstractGame):
         
         # Determine if discard is critical based on card number
         if num == 1 and count == 2:
-            return 1
+            return True
         if (num == 2 or num == 3 or num == 4) and count == 1:
-            return 1
+            return True
         
-        return 0
+        return False
     
-    def _discarding_known_playable_card(self, action: Action, acting_player_id: int) -> int:
+    def _discarding_known_playable_card(self, action: Action, acting_player_id: int) -> bool:
         """
-        This returns 1 if a player has discarded a known-to-be-playable card
+        This returns True if a player has discarded a known-to-be-playable card
         """
         # If action is not a discard, it is irrelevant to the calculation
         if action.action_type != Action.ActionType.DISCARD:
-            return 0
-        
-        # Identify card number and colour
-        (col, num) = self._convert_card(
-            self._obs.hands[acting_player_id][action.cnr]
-        )
+            return False
 
-        firework_card = self._convert_board(self._obs.fireworks)[col]
-
-        # Check if the card is playable - only one possible card it could be
-        if num == firework_card[1] + 1:
-            possible_cards = get_possible(self.knowledge[acting_player_id][action.cnr])
-            if len(possible_cards) == 1:
-                return 1
-            
-        return 0
+        # Check if the card is playable
+        possible_cards = get_possible(self.knowledge[acting_player_id][action.cnr])
+        return playable(possible_cards, self._convert_board(self._obs.fireworks))
+    
             
     def _information_per_play(self, action: Action, acting_player_id: int) -> float:
         total_info = 0

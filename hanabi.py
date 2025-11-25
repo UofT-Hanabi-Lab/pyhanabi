@@ -73,7 +73,7 @@ def make_player(player_type: str, player_id: int) -> Player:
 
 
 def main(args):
-    post_move_metrics = False
+    post_move_metrics = True
     if not args:
         args = ["random"] * 3
     if args[0] == "trial":
@@ -164,7 +164,7 @@ def main(args):
     for i, a in enumerate(args):
         players.append(make_player(a, i))
 
-    n = 5
+    n = 10000
 
     out: Any = NullStream()
     if n < 3:
@@ -201,7 +201,7 @@ def main(args):
     print("range", min(pts), max(pts))
 
     if post_move_metrics:
-        for i, player in enumerate(args):
+        for i in range(len(players)):
 
             total_valid_ipp = 0
             sum_ipp = 0
@@ -221,12 +221,12 @@ def main(args):
             ) / n
 
             if avg_ipp is None:
-                print(f"IPP for {player}: No valid data")
+                print(f"IPP for Player {players[i].pnr}: No valid data")
             else:
-                print(f"Average valid IPP count for {player}: {total_valid_ipp} out of {n}")
-                print(f"IPP for {player}: {avg_ipp}")
-            print(f"Average critical discards for {player}: {avg_critical_discards}")
-            print(f"Average known discards for {player}: {avg_known_discards}")
+                print(f"Average valid IPP count for Player {players[i].pnr}: {total_valid_ipp} out of {n}")
+                print(f"IPP for Player {players[i].pnr}: {avg_ipp}")
+            print(f"Average critical discards for {players[i].pnr}: {avg_critical_discards}")
+            print(f"Average known discards for {players[i].pnr}: {avg_known_discards}")
 
 if __name__ == "__main__":
     main(sys.argv[1:])
