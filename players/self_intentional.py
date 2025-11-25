@@ -35,7 +35,7 @@ class SelfIntentionalPlayer(Player):
         self.got_hint = None
 
     def get_action(
-        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
+        self, nr, hands, knowledge, trash, played, board, valid_actions, hint_tokens
     ):
         num_players = len(knowledge)
         possible = []
@@ -82,7 +82,7 @@ class SelfIntentionalPlayer(Player):
             if discardable(p, board):
                 discardable_idx.append(i)
 
-        if discardable_idx and hints < MAX_HINT_TOKENS and not result:
+        if discardable_idx and hint_tokens < MAX_HINT_TOKENS and not result:
             result = Action(
                 Action.ActionType.DISCARD, cnr=random.choice(discardable_idx)
             )
@@ -109,7 +109,7 @@ class SelfIntentionalPlayer(Player):
                 + list(map(format_intention, intents_for_sub))
             )
 
-        if hints > 0:
+        if hint_tokens > 0:
             hint_action: tuple[Action.ActionType, Color | int]
             valid: list[tuple[tuple[Action.ActionType, Color | int], int, int]] = []
             redundant_hints: list[
@@ -182,7 +182,7 @@ class SelfIntentionalPlayer(Player):
                         num=selected_action[1],
                     )
 
-        if hints == MAX_HINT_TOKENS:
+        if hint_tokens == MAX_HINT_TOKENS:
             # then I cannot discard
 
             # first, try to give a redundant hint

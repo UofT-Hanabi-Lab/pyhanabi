@@ -23,7 +23,7 @@ class FullyIntentionalPlayer(Player):
         self.last_board = []
 
     def get_action(
-        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
+        self, nr, hands, knowledge, trash, played, board, valid_actions, hint_tokens
     ):
         handsize = len(knowledge[0])
         possible = []  # list[list[(color, rank)]] for each card in the hand
@@ -64,7 +64,7 @@ class FullyIntentionalPlayer(Player):
 
         # determine a score for each of the hints you can possibly give,
         # and give the color or rank hint with the highest calculated score
-        if hints > 0:
+        if hint_tokens > 0:
             action: tuple[Action.ActionType, Color | int]
             valid: list[tuple[tuple[Action.ActionType, Color | int], int]] = []
             for c in Color:
@@ -110,7 +110,7 @@ class FullyIntentionalPlayer(Player):
                 self.hints[(c, i)] = []
             for h in self.hints[(c, i)]:
                 hinttype.remove(h)
-            if hinttype and hints > 0:
+            if hinttype and hint_tokens > 0:
                 if random.choice(hinttype) == Action.ActionType.HINT_COLOR:
                     self.hints[(c, i)].append(Action.ActionType.HINT_COLOR)
                     return Action(Action.ActionType.HINT_COLOR, pnr=i, col=col)

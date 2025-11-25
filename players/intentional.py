@@ -29,7 +29,7 @@ class IntentionalPlayer(Player):
         self.got_hint = None
 
     def get_action(
-        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
+        self, nr, hands, knowledge, trash, played, board, valid_actions, hint_tokens
     ):
         handsize = len(knowledge[0])
         possible = []
@@ -51,7 +51,7 @@ class IntentionalPlayer(Player):
                 discards.append(i)
 
         # If no play is possible, discard
-        if discards and hints < 8 and not result:
+        if discards and hint_tokens < 8 and not result:
             result = Action(Action.ActionType.DISCARD, cnr=random.choice(discards))
 
         # Track the goal for the other player's hand
@@ -81,7 +81,7 @@ class IntentionalPlayer(Player):
         )
 
         # Choose a hint if possible
-        if hints > 0:
+        if hint_tokens > 0:
             action: tuple[Action.ActionType, Color | int]
             valid: list[tuple[tuple[Action.ActionType, Color | int], int]] = []
             for c in Color:

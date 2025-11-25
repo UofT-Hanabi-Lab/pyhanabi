@@ -26,7 +26,7 @@ class Player:
         pass
 
     def get_action(
-        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
+        self, nr, hands, knowledge, trash, played, board, valid_actions, hint_tokens
     ) -> Action:
         return random.choice(valid_actions)
 

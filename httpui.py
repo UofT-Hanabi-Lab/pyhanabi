@@ -574,7 +574,7 @@ class ReplayHTTPPlayer(HTTPPlayer):
         self.actions = []
 
     def get_action(
-        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
+        self, nr, hands, knowledge, trash, played, board, valid_actions, hint_tokens
     ):
         return self.actions.pop(0)
 
@@ -590,11 +590,11 @@ class ReplayPlayer(Player):
         self.actions = []
 
     def get_action(
-        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
+        self, nr, hands, knowledge, trash, played, board, valid_actions, hint_tokens
     ):
         if self.realplayer:
             self.realplayer.get_action(
-                nr, hands, knowledge, trash, played, board, valid_actions, hints
+                nr, hands, knowledge, trash, played, board, valid_actions, hint_tokens
             )
         return self.actions.pop(0)
 

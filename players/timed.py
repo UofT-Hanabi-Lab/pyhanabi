@@ -38,7 +38,7 @@ class TimedPlayer(Player):
 
     @override
     def get_action(
-        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
+        self, nr, hands, knowledge, trash, played, board, valid_actions, hint_tokens
     ):
         global SENT, ERRORS, COUNT
         tick = time.time()
@@ -74,7 +74,7 @@ class TimedPlayer(Player):
             action = Action(Action.ActionType.DISCARD, cnr=fix(duration - 5))
         else:
             action = Action(Action.ActionType.PLAY, cnr=fix(duration))
-        if self.last_played and hints > 0 and CAREFUL:
+        if self.last_played and hint_tokens > 0 and CAREFUL:
             action = Action(
                 Action.ActionType.HINT_COLOR, pnr=other, col=other_hand[0][0]
             )

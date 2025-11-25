@@ -26,7 +26,7 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
         self.got_hint = None
 
     def get_action(
-        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
+        self, nr, hands, knowledge, trash, played, board, valid_actions, hint_tokens
     ):
         handsize = len(knowledge[0])
         possible = []
@@ -75,7 +75,7 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
             if discardable(p, board, dead_colors):
                 discards.append(i)
 
-        if discards and hints < 8 and not result:
+        if discards and hint_tokens < 8 and not result:
             result = Action(Action.ActionType.DISCARD, cnr=random.choice(discards))
 
         playables = []
@@ -102,7 +102,7 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
             ["Intentions"] + list(map(format_intention, intentions))
         )
 
-        if hints > 0:
+        if hint_tokens > 0:
             hint_action: tuple[Action.ActionType, Color | int]
             valid: list[tuple[tuple[Action.ActionType, Color | int], int]] = []
             for c in Color:

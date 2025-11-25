@@ -21,6 +21,6 @@ class HanaSimPlayer(Player):
 
     @override
     def get_action(
-        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
+        self, nr, hands, knowledge, trash, played, board, valid_actions, hint_tokens
     ) -> Action:
         raise TypeError("get_action should never be called on a HanaSim player")

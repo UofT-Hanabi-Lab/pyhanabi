@@ -73,7 +73,7 @@ class SamplingRecognitionPlayer(Player):
         self.last_board = []
 
     def get_action(
-        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
+        self, nr, hands, knowledge, trash, played, board, valid_actions, hint_tokens
     ):
         handsize = len(knowledge[0])
         possible = []
@@ -103,7 +103,7 @@ class SamplingRecognitionPlayer(Player):
                     self.last_played,
                     self.last_board,
                     valid_actions,
-                    hints + 1,
+                    hint_tokens + 1,
                 )
                 lastact = self.gothint[0]
                 if act == lastact:
@@ -155,7 +155,7 @@ class SamplingRecognitionPlayer(Player):
                     if board[col][1] + 1 == n:
                         playables.append((i, j))
         playables.sort(key=lambda x: -hands[x[0]][x[1]][1])
-        while playables and hints > 0:
+        while playables and hint_tokens > 0:
             i, j = playables[0]
 
             hinttype = [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]
@@ -186,7 +186,7 @@ class SamplingRecognitionPlayer(Player):
                 self.hints[(c, i)] = []
             for h in self.hints[(c, i)]:
                 hinttype.remove(h)
-            if hinttype and hints > 0:
+            if hinttype and hint_tokens > 0:
                 if random.choice(hinttype) == Action.ActionType.HINT_COLOR:
                     self.hints[(c, i)].append(Action.ActionType.HINT_COLOR)
                     return Action(Action.ActionType.HINT_COLOR, pnr=i, col=col)

@@ -9,7 +9,7 @@ class InnerStatePlayer(Player):
         super().__init__(name, pnr)
 
     def get_action(
-        self, nr, hands, knowledge, trash, played, board, valid_actions, hints
+        self, nr, hands, knowledge, trash, played, board, valid_actions, hint_tokens
     ):
         possible = []
         for k in knowledge[nr]:
@@ -32,7 +32,7 @@ class InnerStatePlayer(Player):
                     if board[col][1] + 1 == n:
                         playables.append((i, j))
 
-        if playables and hints > 0:
+        if playables and hint_tokens > 0:
             i, j = playables[0]
             if random.random() < 0.5:
                 return Action(Action.ActionType.HINT_COLOR, pnr=i, col=hands[i][j][0])
@@ -46,7 +46,7 @@ class InnerStatePlayer(Player):
             c = cards[0]
             (col, num) = hands[i][c]
             hinttype = [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]
-            if hinttype and hints > 0:
+            if hinttype and hint_tokens > 0:
                 if random.choice(hinttype) == Action.ActionType.HINT_COLOR:
                     return Action(Action.ActionType.HINT_COLOR, pnr=i, col=col)
                 else:
@@ -60,7 +60,7 @@ class InnerStatePlayer(Player):
             }:
                 prefer.append(v)
         prefer = []
-        if prefer and hints > 0:
+        if prefer and hint_tokens > 0:
             return random.choice(prefer)
         return random.choice(
             [Action(Action.ActionType.DISCARD, cnr=i) for i in range(len(knowledge[0]))]
