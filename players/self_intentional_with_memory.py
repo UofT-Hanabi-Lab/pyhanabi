@@ -238,13 +238,13 @@ class SelfIntentionalPlayerWithMemory(Player):
             self._intents_conveyed[i] = self._intents_conveyed[i + 1]
         self._intents_conveyed[-1] = None
 
-    def inform(self, action: Action, player: int, game: "AbstractGame") -> None:
+    def inform(self, action: Action, acting_player: int, game: "AbstractGame") -> None:
         if (
             action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}
-            and player != self.pnr
+            and acting_player != self.pnr
         ):
             assert action.cnr is not None
             self._rotate_intents(action.cnr)
 
         elif action.pnr == self.pnr:
-            self.got_hint = (action, player)
+            self.got_hint = (action, acting_player)

@@ -86,13 +86,13 @@ class OuterStatePlayer(Player):
             [Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))]
         )
 
-    def inform(self, action, player, game):
+    def inform(self, action, acting_player, game):
         if action.action_type in {Action.ActionType.PLAY, Action.ActionType.DISCARD}:
-            if (action.cnr, player) in self.hints:
-                self.hints[(action.cnr, player)] = []
+            if (action.cnr, acting_player) in self.hints:
+                self.hints[(action.cnr, acting_player)] = []
             for i in range(10):
-                if (action.cnr + i + 1, player) in self.hints:
-                    self.hints[(action.cnr + i, player)] = self.hints[
-                        (action.cnr + i + 1, player)
+                if (action.cnr + i + 1, acting_player) in self.hints:
+                    self.hints[(action.cnr + i, acting_player)] = self.hints[
+                        (action.cnr + i + 1, acting_player)
                     ]
-                    self.hints[(action.cnr + i + 1, player)] = []
+                    self.hints[(action.cnr + i + 1, acting_player)] = []

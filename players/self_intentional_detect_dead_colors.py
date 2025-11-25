@@ -198,16 +198,16 @@ class SelfIntentionalPlayerDetectDeadColors(Player):
             return result
         return scores[0][0]
 
-    def inform(self, action: Action, player: int, game):
+    def inform(self, action: Action, acting_player: int, game):
         if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
             assert action.cnr is not None
-            if (action.cnr, player) in self.hints:
-                self.hints[(action.cnr, player)] = []
+            if (action.cnr, acting_player) in self.hints:
+                self.hints[(action.cnr, acting_player)] = []
             for i in range(10):
-                if (action.cnr + i + 1, player) in self.hints:
-                    self.hints[(action.cnr + i, player)] = self.hints[
-                        (action.cnr + i + 1, player)
+                if (action.cnr + i + 1, acting_player) in self.hints:
+                    self.hints[(action.cnr + i, acting_player)] = self.hints[
+                        (action.cnr + i + 1, acting_player)
                     ]
-                    self.hints[(action.cnr + i + 1, player)] = []
+                    self.hints[(action.cnr + i + 1, acting_player)] = []
         elif action.pnr == self.pnr:
-            self.got_hint = (action, player)
+            self.got_hint = (action, acting_player)

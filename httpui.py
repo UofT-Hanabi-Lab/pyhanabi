@@ -480,17 +480,17 @@ class HTTPPlayer(Player):
         self.aiknows = [set() for _ in range(5)]
         self.show = []
 
-    def inform(self, action, player, game):
-        if player == 1:
+    def inform(self, action, acting_player, game):
+        if acting_player == 1:
             self.show = []
         card = None
         if action.action_type in [
             Action.ActionType.PLAY,
             Action.ActionType.DISCARD,
         ]:
-            card = game.hands[player][action.cnr]
-        self.actions.append((action, player, card))
-        if player != self.pnr:
+            card = game.hands[acting_player][action.cnr]
+        self.actions.append((action, acting_player, card))
+        if acting_player != self.pnr:
             if action.action_type == Action.ActionType.HINT_COLOR:
                 for i, (col, num) in enumerate(game.hands[self.pnr]):
                     if col == action.col:
@@ -515,7 +515,7 @@ class HTTPPlayer(Player):
 
         if (
             action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]
-            and player == 0
+            and acting_player == 0
         ):
             newshow = []
             for where, who, what in self.show:
@@ -538,7 +538,7 @@ class HTTPPlayer(Player):
             self.show.append((TRASH, 0, -1))
 
         elif action.action_type == Action.ActionType.PLAY:
-            (col, num) = game.hands[player][action.cnr]
+            (col, num) = game.hands[acting_player][action.cnr]
             if game.board[col][1] + 1 == num:
                 self.show.append((BOARD, 0, col))
             else:
@@ -550,13 +550,13 @@ class HTTPPlayer(Player):
                         newshow.append((t, w1, w2))
                 self.show = newshow
                 self.show.append((TRASH, 0, -1))
-        if player == self.pnr and action.action_type in [
+        if acting_player == self.pnr and action.action_type in [
             Action.ActionType.PLAY,
             Action.ActionType.DISCARD,
         ]:
             del self.knows[action.cnr]
             self.knows.append(set())
-        if player != self.pnr and action.action_type in [
+        if acting_player != self.pnr and action.action_type in [
             Action.ActionType.PLAY,
             Action.ActionType.DISCARD,
         ]:
@@ -598,9 +598,9 @@ class ReplayPlayer(Player):
             )
         return self.actions.pop(0)
 
-    def inform(self, action, player, game):
+    def inform(self, action, acting_player, game):
         if self.realplayer:
-            self.realplayer.inform(action, player, game)
+            self.realplayer.inform(action, acting_player, game)
 
     def get_explanation(self):
         if self.realplayer:

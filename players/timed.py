@@ -89,7 +89,7 @@ class TimedPlayer(Player):
         return action
 
     @override
-    def inform(self, action, player, game):
+    def inform(self, action, acting_player, game):
         self.last_played = action.action_type == Action.ActionType.PLAY
         self.last_tick = self.tt
         self.tt = time.time()

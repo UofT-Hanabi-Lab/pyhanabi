@@ -267,9 +267,9 @@ class SelfIntentionalPlayer(Player):
 
         return intentions
 
-    def inform(self, action, player, game):
+    def inform(self, action, acting_player, game):
         if action.pnr == self.pnr and action.action_type in {
             Action.ActionType.HINT_COLOR,
             Action.ActionType.HINT_NUMBER,
         }:
-            self.got_hint = (action, player)
+            self.got_hint = (action, acting_player)

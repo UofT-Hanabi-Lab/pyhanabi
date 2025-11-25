@@ -66,5 +66,5 @@ class InnerStatePlayer(Player):
             [Action(Action.ActionType.DISCARD, cnr=i) for i in range(len(knowledge[0]))]
         )
 
-    def inform(self, action, player, game):
+    def inform(self, action, acting_player, game):
         pass

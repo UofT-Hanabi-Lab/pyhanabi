@@ -30,7 +30,7 @@ class Player:
     ) -> Action:
         return random.choice(valid_actions)
 
-    def inform(self, action: Action, player: int, game: "AbstractGame"):
+    def inform(self, action: Action, acting_player: int, game: "AbstractGame"):
         pass
 
     def get_explanation(self):
