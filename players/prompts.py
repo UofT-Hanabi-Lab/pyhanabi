@@ -386,6 +386,3 @@ If your chosen action is HINT_NUMBER, you must also hint "teammate" that is NOT 
   "short_explain": "one-line reason"
 }
 """
-
-
-

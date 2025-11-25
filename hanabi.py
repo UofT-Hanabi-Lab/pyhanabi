@@ -17,7 +17,7 @@ from players import (
     SelfIntentionalPlayerDetectDeadColors,
     SamplingRecognitionPlayer,
     TimedPlayer,
-    LLMAgentPlayer
+    LLMAgentPlayer,
 )
 from players.hanasim import HanaSimPlayer
 from utils import NullStream
@@ -118,7 +118,7 @@ def main(args):
     for i, a in enumerate(args):
         players.append(make_player(a, i))
 
-    n = 5
+    n = 10000
 
     out: Any = NullStream()
     if n < 3:
