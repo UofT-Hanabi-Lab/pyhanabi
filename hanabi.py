@@ -73,7 +73,7 @@ def make_player(player_type: str, player_id: int) -> Player:
 
 
 def main(args):
-    post_move_metrics = True
+    post_move_metrics = False
     if not args:
         args = ["random"] * 3
     if args[0] == "trial":
