@@ -2,6 +2,7 @@ import random
 import sys
 import time
 from typing import Any
+import numpy
 
 from hana_sim import PlayerName  # type: ignore
 
@@ -110,7 +111,7 @@ def main(args):
                 times.append(time.time() - t0)
 
                 if post_move_metrics:
-                    metrics = g.retrieve_metric_dict
+                    metrics = g.metric_dict
                     ipp_lists.append(metrics["ipp_list"])
                     critical_discards.append(metrics["critical_discards"])
                     known_discards.append(metrics["known_discards"])
@@ -181,14 +182,13 @@ def main(args):
         pts.append(g.run())
         
         if post_move_metrics:
-            metrics = g.retrieve_metric_dict()
+            metrics = g.metric_dict
             ipp_lists.append(metrics["ipp_list"])
             critical_discards.append(metrics["critical_discards"])
             known_discards.append(metrics["known_discards"])
 
     if n < 10:
         print(pts)
-    import numpy
 
     print("average:", numpy.mean(pts))
     print("stddev:", numpy.std(pts, ddof=1))

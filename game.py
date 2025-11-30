@@ -64,7 +64,7 @@ class HanasimGame(AbstractGame):
     _env: hana_sim.HanabiEnv
     _obs: hana_sim.Observation
     knowledge: list[list[list[list[int]]]]
-    _metric_dict: dict[str, list]
+    _metric_dict: Counter
 
     hanasim_colour_map: Final[dict[str, Color]] = {
         "red": Color.RED,
