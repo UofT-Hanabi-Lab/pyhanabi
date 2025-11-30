@@ -178,9 +178,7 @@ class LLMAgentPlayer(Player):
         self.last_actions = {0: None, 1: None, 2: None}
 
     def _summarize_card_knowledge(self, card_knowledge):
-        """Summarize a single card slot's knowledge as a list of possible (color, rank).
-
-        This is a non-overriding method.       
+        """Summarize a single card slot's knowledge as a list of possible (color, rank).     
         """
         colors = list(Color)
         ranks = list(range(1, 6))
@@ -194,8 +192,6 @@ class LLMAgentPlayer(Player):
     def _get_card_knowledge(self, knowledge, player_idx):
         """
         This function summarises a player's card knowledge to input into the LLM. 
-
-        This is a non-overriding method.
         """
         description = f"Player {player_idx}'s cards based on their knowledge:\n"
         for i, card_knowledge in enumerate(knowledge[player_idx]):
@@ -220,11 +216,9 @@ class LLMAgentPlayer(Player):
         add_to_dict_list(self.log_csv_dict, "My Card Knowledge", description)
         return description
 
-    def _get_player_hand(self, hands, player_idx):
+    def _get_player_hand(self, hands: list[list[tuple]], player_idx: int):
         """
         This function summarises a player's hand for the LLM Agent. 
-
-        It is a non-overriding method.
         """
         description = f"Player {player_idx}'s visible cards:\n"
         hand = hands[player_idx]
@@ -233,11 +227,9 @@ class LLMAgentPlayer(Player):
         add_to_dict_list(self.log_csv_dict, f"Player {player_idx} Hand", description)
         return description
 
-    def _get_current_stack(self, board):
+    def _get_current_stack(self, board: list[tuple]):
         """
         This function summarises the current stacks for the LLM Agent.
-
-        It is a non-overriding method.
         """
         description = "Current Stacks: "
         for color, num in board:
@@ -248,12 +240,10 @@ class LLMAgentPlayer(Player):
         add_to_dict_list(self.log_csv_dict, "Stack", description)
         return description
 
-    def _add_soft_constraints(self, board):
+    def _add_soft_constraints(self, board: list[tuple]):
         """
         This function adds soft constraints about the next playable cards for each stack to help the LLM 
         reason about the game state better.
-        
-        It is a non-overriding method.
         """
         description = "The next cards that can be played on each stack are:\n"
         for color, num in board:
@@ -265,10 +255,8 @@ class LLMAgentPlayer(Player):
         description += "\n"
         return description
 
-    def _format_actions(self, valid_actions):
+    def _format_actions(self, valid_actions: list[Action]):
         """Turn valid Action objects into a lettered list for the prompt.
-
-        This is a non-overriding method.
         """
         formatted = []
         for i, action in enumerate(valid_actions):
@@ -287,11 +275,10 @@ class LLMAgentPlayer(Player):
                 )
         return formatted
 
-    def _get_legal_moves(self, valid_actions):
+    def _get_legal_moves(self, valid_actions: list[Action]):
         """
         This function summarises the legal moves for the LLM Agent.
-        
-        It is a non-overriding method.
+
         """
         self.transformed = self._format_actions(valid_actions)
         description = "Available Legal Actions:\n"
@@ -302,8 +289,6 @@ class LLMAgentPlayer(Player):
 
     def _get_previous_selected_actions(self):
         """This function gets the agent's action history to send to the LLM agent.
-        
-        It is a non-overriding method.
         """
         if len(self.action_history) > 0:
             return (
@@ -312,11 +297,9 @@ class LLMAgentPlayer(Player):
         else:
             return ""
 
-    def _infer_partner_action(self, description):
+    def _infer_partner_action(self, description: str):
         """
         This function infers the partner's last action using Theory of Mind.
-
-         It is a non-overriding method.
          """
         if not self.use_interpretation:
             return ""
@@ -370,7 +353,6 @@ class LLMAgentPlayer(Player):
         """
         This function converts the current observation to a text description for the LLM Agent.
         
-        It is a non-overriding method.
         """
         self.working_memory["turn"] = f"It is currently My (Player {nr}) turn.\n"
         description = self.working_memory["turn"]
@@ -416,11 +398,10 @@ class LLMAgentPlayer(Player):
 
         return description
 
-    def llm_inference(self, message):
+    def llm_inference(self, message: str):
         """
         This function gets he LLM's response.
         
-        It is a non-overriding method
         """
         response = self.client.chat.completions.create(
             messages=message,
@@ -433,11 +414,10 @@ class LLMAgentPlayer(Player):
         response_string = response.choices[0].message.content
         return response_string
 
-    def find_best_match(self, action_string):
+    def find_best_match(self, action_string: str):
         """
         This function finds the best matching action from the LLM's response.
         
-        It is a non-overriding method.
         """
         match = re.search(self.action_regex, action_string.strip())
         if match:
@@ -588,10 +568,9 @@ class LLMAgentPlayer(Player):
         self.last_actions[player] = action_str
         self.episodic_memory[player].append(action_str)
 
-    def _action_to_string(self, action, player):
+    def _action_to_string(self, action: Action, player: int):
         """Convert an Action object to a readable string
         
-        It is a non-overriding method.
         """
         if action.action_type == Action.ActionType.PLAY:
             return f"Player {player} played Slot {action.cnr}."
