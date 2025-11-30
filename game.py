@@ -473,8 +473,9 @@ class HanasimGame(AbstractGame):
         
         return total_info / 2
     
-    def retrieve_metric_dict(self) -> dict[str, list]:
-        "Function that allows retrival of metrics dictionary to display results once the game has finished"
+    @property
+    def metric_dict(self) -> dict[str, list]:
+        "Retrieve a dict of metrics to display results once the game has finished"
         return self._metric_dict
 
 
