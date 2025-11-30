@@ -1,6 +1,6 @@
 import sys
 from abc import ABCMeta, abstractmethod
-from typing import Sequence, override, Final
+from typing import Sequence, override, Final, Any
 from collections import Counter
 
 import hana_sim  # type: ignore
@@ -64,7 +64,7 @@ class HanasimGame(AbstractGame):
     _env: hana_sim.HanabiEnv
     _obs: hana_sim.Observation
     knowledge: list[list[list[list[int]]]]
-    _metric_dict: Counter
+    _metric_dict: dict[str, Any]
 
     hanasim_colour_map: Final[dict[str, Color]] = {
         "red": Color.RED,
