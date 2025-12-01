@@ -1,0 +1,774 @@
+
+=== PLAYER 0 TURN ===
+PROMPT:
+You are Player 0 in a cooperative Hanabi game.
+
+RULES:
+
+        - The game uses a 50-card deck, divided into five colours (red (R), green (G), blue (B), yellow (Y), white (W)). Each color has cards of ranks 1 to 5. Each color has with three 1's, two 2's, two 3's, two 4's, one 5.
+        - Players have to create stacks of each color. Each color stack starts with a Rank 1 card and goes up one by one in ascending order up to Rank 5.  (e.g. Red Stack should go from R1 -> R2 -> R3 -> R4 -> R5). A card can only be played if it is the next in the incremental sequence for its color stack.
+        - Players can only see the other's hand, not their own.
+        - Players have plausible knowledge of their cards based on previously provided hints by the other player
+        - They can either play a card, give a reveal, or discard a card.
+        ***Actions:***
+                1. Reveal (Clue): Spend a reveal token to reveal cards with a particular color or rank. Revealing a color reveals all cards of that color in partner's hand. Revealing a rank reveals all cards with that rank in partner's hand. The game starts with 8 reveal tokens. If no token left, no more reveals can be given. 
+                2. Discard: Discard a card to regain a reveal token and draw a new card. 
+                3. Play a Card: If a card played follows sequence in its color stack, it succeeds. Success of rank 5 card in any stack gives an additional reveal token. Failure discards the card, and loses a life. Playing a card you are unsure about is risky as it costs a life and you have only 3 lives. Before playing a card make sure that it's the next card in the sequence for that stack.
+        ***The game ends when:***
+                - All five stacks are completed. 25 Points. 
+                - Three lives have been lost. 0 Points no matter how many cards have been placed in the stack. 
+                - After the last card from the deck is drawn and each player has had a final turn. Sum total of the top card ranks of each color stack. 
+        
+
+GAME STATE:
+- Score: 0/25
+- Deck Remaining: 40 cards
+- Hint Tokens: 8/8
+
+
+STRATEGIC PRIORITIES:
+1. SAFETY FIRST: Never play a card unless you're certain it's playable
+2. INFORMATION: Give hints that provide maximum useful information
+3. EFFICIENCY: Only discard when necessary (low on hints) or when certain a card is useless
+4. CRITICAL CARDS: Be extremely careful with 5s and unique cards visible in teammates' hands
+
+DECISION FRAMEWORK:
+- If you have certain knowledge a card is playable → PLAY it
+- If hints available and teammate has playable card → Give helpful HINT
+- If hints needed and you're certain a card is useless → DISCARD it
+- Otherwise → Give a hint or discard safest card (oldest/leftmost with least info)
+
+RULE: If you choose PLAY or DISCARD, "slot" MUST be one of the valid slots shown.
+RULE: If you choose a hint, "teammate" MUST be one of: {teammate_a}, {teammate_b}.
+If you choose anything invalid, you lose the game.
+
+SAFE DISCARD HEURISTIC:
+- If any of your cards are guaranteed dead → discard the leftmost dead card.
+- If none dead: discard your oldest card that is most likely unplayable
+  (slot with the largest number of remaining possibilities).
+- NEVER discard a 5 unless it is confirmed dead.
+
+
+FIREWORKS (Current progress on each color):
+  - green: 0
+  - yellow: 0
+  - white: 0
+  - blue: 0
+  - red: 0
+
+DISCARD PILE:
+None
+
+YOUR KNOWLEDGE (What you know about YOUR cards):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+
+VISIBLE PLAYABLE CARDS (guaranteed correct):
+  - Player 1 Slot 0: white 1
+  - Player 1 Slot 1: white 1
+  - Player 2 Slot 0: yellow 1
+  - Player 2 Slot 1: red 1
+
+VISIBLE DEAD CARDS (safe discards):
+None
+
+
+
+TEAMMATE 1's VISIBLE HAND (What you can see):
+Player 1's Hand:
+Slot 0: white 1
+Slot 1: white 1
+Slot 2: blue 4
+Slot 3: blue 3
+Slot 4: white 3
+
+Teammate 1's Knowledge (What they know):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+
+TEAMMATE 2's VISIBLE HAND (What you can see):
+Player 2's Hand:
+Slot 0: yellow 1
+Slot 1: red 1
+Slot 2: green 2
+Slot 3: white 2
+Slot 4: red 3
+
+Teammate 2's Knowledge (What they know):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+
+Respond with a JSON object:
+{
+    "action": "PLAY|DISCARD|HINT_COLOR|HINT_NUMBER",
+    "slot": slot_number (0-4, for PLAY/DISCARD only),
+    "teammate": player_number (for hints only),
+    "color": "red|yellow|green|white|blue" (for HINT_COLOR only),
+    "number": 1-5 (for HINT_NUMBER only)
+}
+
+Before producing JSON, write 2–3 bullet points explaining your reasoning.
+Then output ONLY the JSON object on a new line.
+
+
+LLM RESPONSE:
+                                                                                                                                       {
+    "action": "HINT_COLOR",
+    "teammate": 1,
+    "color": "white"
+}
+==================================================
+
+=== PLAYER 1 TURN ===
+PROMPT:
+You are Player 1 in a cooperative Hanabi game.
+
+RULES:
+
+        - The game uses a 50-card deck, divided into five colours (red (R), green (G), blue (B), yellow (Y), white (W)). Each color has cards of ranks 1 to 5. Each color has with three 1's, two 2's, two 3's, two 4's, one 5.
+        - Players have to create stacks of each color. Each color stack starts with a Rank 1 card and goes up one by one in ascending order up to Rank 5.  (e.g. Red Stack should go from R1 -> R2 -> R3 -> R4 -> R5). A card can only be played if it is the next in the incremental sequence for its color stack.
+        - Players can only see the other's hand, not their own.
+        - Players have plausible knowledge of their cards based on previously provided hints by the other player
+        - They can either play a card, give a reveal, or discard a card.
+        ***Actions:***
+                1. Reveal (Clue): Spend a reveal token to reveal cards with a particular color or rank. Revealing a color reveals all cards of that color in partner's hand. Revealing a rank reveals all cards with that rank in partner's hand. The game starts with 8 reveal tokens. If no token left, no more reveals can be given. 
+                2. Discard: Discard a card to regain a reveal token and draw a new card. 
+                3. Play a Card: If a card played follows sequence in its color stack, it succeeds. Success of rank 5 card in any stack gives an additional reveal token. Failure discards the card, and loses a life. Playing a card you are unsure about is risky as it costs a life and you have only 3 lives. Before playing a card make sure that it's the next card in the sequence for that stack.
+        ***The game ends when:***
+                - All five stacks are completed. 25 Points. 
+                - Three lives have been lost. 0 Points no matter how many cards have been placed in the stack. 
+                - After the last card from the deck is drawn and each player has had a final turn. Sum total of the top card ranks of each color stack. 
+        
+
+GAME STATE:
+- Score: 0/25
+- Deck Remaining: 40 cards
+- Hint Tokens: 7/8
+
+
+STRATEGIC PRIORITIES:
+1. SAFETY FIRST: Never play a card unless you're certain it's playable
+2. INFORMATION: Give hints that provide maximum useful information
+3. EFFICIENCY: Only discard when necessary (low on hints) or when certain a card is useless
+4. CRITICAL CARDS: Be extremely careful with 5s and unique cards visible in teammates' hands
+
+DECISION FRAMEWORK:
+- If you have certain knowledge a card is playable → PLAY it
+- If hints available and teammate has playable card → Give helpful HINT
+- If hints needed and you're certain a card is useless → DISCARD it
+- Otherwise → Give a hint or discard safest card (oldest/leftmost with least info)
+
+RULE: If you choose PLAY or DISCARD, "slot" MUST be one of the valid slots shown.
+RULE: If you choose a hint, "teammate" MUST be one of: {teammate_a}, {teammate_b}.
+If you choose anything invalid, you lose the game.
+
+SAFE DISCARD HEURISTIC:
+- If any of your cards are guaranteed dead → discard the leftmost dead card.
+- If none dead: discard your oldest card that is most likely unplayable
+  (slot with the largest number of remaining possibilities).
+- NEVER discard a 5 unless it is confirmed dead.
+
+
+FIREWORKS (Current progress on each color):
+  - green: 0
+  - yellow: 0
+  - white: 0
+  - blue: 0
+  - red: 0
+
+DISCARD PILE:
+None
+
+YOUR KNOWLEDGE (What you know about YOUR cards):
+Slot 0: white-1, white-2, white-3, white-4, white-5
+Slot 1: white-1, white-2, white-3, white-4, white-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: white-1, white-2, white-3, white-4, white-5
+
+VISIBLE PLAYABLE CARDS (guaranteed correct):
+  - Player 0 Slot 1: blue 1
+  - Player 0 Slot 3: blue 1
+  - Player 2 Slot 0: yellow 1
+  - Player 2 Slot 1: red 1
+
+VISIBLE DEAD CARDS (safe discards):
+None
+
+
+
+TEAMMATE 2's VISIBLE HAND (What you can see):
+Player 2's Hand:
+Slot 0: yellow 1
+Slot 1: red 1
+Slot 2: green 2
+Slot 3: white 2
+Slot 4: red 3
+
+Teammate 2's Knowledge (What they know):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+
+TEAMMATE 0's VISIBLE HAND (What you can see):
+Player 0's Hand:
+Slot 0: yellow 2
+Slot 1: blue 1
+Slot 2: yellow 4
+Slot 3: blue 1
+Slot 4: blue 3
+
+Teammate 0's Knowledge (What they know):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+
+Respond with a JSON object:
+{
+    "action": "PLAY|DISCARD|HINT_COLOR|HINT_NUMBER",
+    "slot": slot_number (0-4, for PLAY/DISCARD only),
+    "teammate": player_number (for hints only),
+    "color": "red|yellow|green|white|blue" (for HINT_COLOR only),
+    "number": 1-5 (for HINT_NUMBER only)
+}
+
+Before producing JSON, write 2–3 bullet points explaining your reasoning.
+Then output ONLY the JSON object on a new line.
+
+
+LLM RESPONSE:
+{
+    "action": "HINT_COLOR",
+    "teammate": 0,
+    "color": "blue"
+}
+==================================================
+
+=== PLAYER 2 TURN ===
+PROMPT:
+You are Player 2 in a cooperative Hanabi game.
+
+RULES:
+
+        - The game uses a 50-card deck, divided into five colours (red (R), green (G), blue (B), yellow (Y), white (W)). Each color has cards of ranks 1 to 5. Each color has with three 1's, two 2's, two 3's, two 4's, one 5.
+        - Players have to create stacks of each color. Each color stack starts with a Rank 1 card and goes up one by one in ascending order up to Rank 5.  (e.g. Red Stack should go from R1 -> R2 -> R3 -> R4 -> R5). A card can only be played if it is the next in the incremental sequence for its color stack.
+        - Players can only see the other's hand, not their own.
+        - Players have plausible knowledge of their cards based on previously provided hints by the other player
+        - They can either play a card, give a reveal, or discard a card.
+        ***Actions:***
+                1. Reveal (Clue): Spend a reveal token to reveal cards with a particular color or rank. Revealing a color reveals all cards of that color in partner's hand. Revealing a rank reveals all cards with that rank in partner's hand. The game starts with 8 reveal tokens. If no token left, no more reveals can be given. 
+                2. Discard: Discard a card to regain a reveal token and draw a new card. 
+                3. Play a Card: If a card played follows sequence in its color stack, it succeeds. Success of rank 5 card in any stack gives an additional reveal token. Failure discards the card, and loses a life. Playing a card you are unsure about is risky as it costs a life and you have only 3 lives. Before playing a card make sure that it's the next card in the sequence for that stack.
+        ***The game ends when:***
+                - All five stacks are completed. 25 Points. 
+                - Three lives have been lost. 0 Points no matter how many cards have been placed in the stack. 
+                - After the last card from the deck is drawn and each player has had a final turn. Sum total of the top card ranks of each color stack. 
+        
+
+GAME STATE:
+- Score: 0/25
+- Deck Remaining: 40 cards
+- Hint Tokens: 6/8
+
+
+STRATEGIC PRIORITIES:
+1. SAFETY FIRST: Never play a card unless you're certain it's playable
+2. INFORMATION: Give hints that provide maximum useful information
+3. EFFICIENCY: Only discard when necessary (low on hints) or when certain a card is useless
+4. CRITICAL CARDS: Be extremely careful with 5s and unique cards visible in teammates' hands
+
+DECISION FRAMEWORK:
+- If you have certain knowledge a card is playable → PLAY it
+- If hints available and teammate has playable card → Give helpful HINT
+- If hints needed and you're certain a card is useless → DISCARD it
+- Otherwise → Give a hint or discard safest card (oldest/leftmost with least info)
+
+RULE: If you choose PLAY or DISCARD, "slot" MUST be one of the valid slots shown.
+RULE: If you choose a hint, "teammate" MUST be one of: {teammate_a}, {teammate_b}.
+If you choose anything invalid, you lose the game.
+
+SAFE DISCARD HEURISTIC:
+- If any of your cards are guaranteed dead → discard the leftmost dead card.
+- If none dead: discard your oldest card that is most likely unplayable
+  (slot with the largest number of remaining possibilities).
+- NEVER discard a 5 unless it is confirmed dead.
+
+
+FIREWORKS (Current progress on each color):
+  - green: 0
+  - yellow: 0
+  - white: 0
+  - blue: 0
+  - red: 0
+
+DISCARD PILE:
+None
+
+YOUR KNOWLEDGE (What you know about YOUR cards):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+
+VISIBLE PLAYABLE CARDS (guaranteed correct):
+  - Player 0 Slot 1: blue 1
+  - Player 0 Slot 3: blue 1
+  - Player 1 Slot 0: white 1
+  - Player 1 Slot 1: white 1
+
+VISIBLE DEAD CARDS (safe discards):
+None
+
+
+
+TEAMMATE 0's VISIBLE HAND (What you can see):
+Player 0's Hand:
+Slot 0: yellow 2
+Slot 1: blue 1
+Slot 2: yellow 4
+Slot 3: blue 1
+Slot 4: blue 3
+
+Teammate 0's Knowledge (What they know):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: blue-1, blue-2, blue-3, blue-4, blue-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: blue-1, blue-2, blue-3, blue-4, blue-5
+Slot 4: blue-1, blue-2, blue-3, blue-4, blue-5
+
+TEAMMATE 1's VISIBLE HAND (What you can see):
+Player 1's Hand:
+Slot 0: white 1
+Slot 1: white 1
+Slot 2: blue 4
+Slot 3: blue 3
+Slot 4: white 3
+
+Teammate 1's Knowledge (What they know):
+Slot 0: white-1, white-2, white-3, white-4, white-5
+Slot 1: white-1, white-2, white-3, white-4, white-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: white-1, white-2, white-3, white-4, white-5
+
+Respond with a JSON object:
+{
+    "action": "PLAY|DISCARD|HINT_COLOR|HINT_NUMBER",
+    "slot": slot_number (0-4, for PLAY/DISCARD only),
+    "teammate": player_number (for hints only),
+    "color": "red|yellow|green|white|blue" (for HINT_COLOR only),
+    "number": 1-5 (for HINT_NUMBER only)
+}
+
+Before producing JSON, write 2–3 bullet points explaining your reasoning.
+Then output ONLY the JSON object on a new line.
+
+
+LLM RESPONSE:
+                                                                                                                     {
+    "action": "HINT_COLOR",
+    "teammate": 0,
+    "color": "blue"
+}
+==================================================
+
+=== PLAYER 0 TURN ===
+PROMPT:
+You are Player 0 in a cooperative Hanabi game.
+
+RULES:
+
+        - The game uses a 50-card deck, divided into five colours (red (R), green (G), blue (B), yellow (Y), white (W)). Each color has cards of ranks 1 to 5. Each color has with three 1's, two 2's, two 3's, two 4's, one 5.
+        - Players have to create stacks of each color. Each color stack starts with a Rank 1 card and goes up one by one in ascending order up to Rank 5.  (e.g. Red Stack should go from R1 -> R2 -> R3 -> R4 -> R5). A card can only be played if it is the next in the incremental sequence for its color stack.
+        - Players can only see the other's hand, not their own.
+        - Players have plausible knowledge of their cards based on previously provided hints by the other player
+        - They can either play a card, give a reveal, or discard a card.
+        ***Actions:***
+                1. Reveal (Clue): Spend a reveal token to reveal cards with a particular color or rank. Revealing a color reveals all cards of that color in partner's hand. Revealing a rank reveals all cards with that rank in partner's hand. The game starts with 8 reveal tokens. If no token left, no more reveals can be given. 
+                2. Discard: Discard a card to regain a reveal token and draw a new card. 
+                3. Play a Card: If a card played follows sequence in its color stack, it succeeds. Success of rank 5 card in any stack gives an additional reveal token. Failure discards the card, and loses a life. Playing a card you are unsure about is risky as it costs a life and you have only 3 lives. Before playing a card make sure that it's the next card in the sequence for that stack.
+        ***The game ends when:***
+                - All five stacks are completed. 25 Points. 
+                - Three lives have been lost. 0 Points no matter how many cards have been placed in the stack. 
+                - After the last card from the deck is drawn and each player has had a final turn. Sum total of the top card ranks of each color stack. 
+        
+
+GAME STATE:
+- Score: 0/25
+- Deck Remaining: 40 cards
+- Hint Tokens: 5/8
+
+
+STRATEGIC PRIORITIES:
+1. SAFETY FIRST: Never play a card unless you're certain it's playable
+2. INFORMATION: Give hints that provide maximum useful information
+3. EFFICIENCY: Only discard when necessary (low on hints) or when certain a card is useless
+4. CRITICAL CARDS: Be extremely careful with 5s and unique cards visible in teammates' hands
+
+DECISION FRAMEWORK:
+- If you have certain knowledge a card is playable → PLAY it
+- If hints available and teammate has playable card → Give helpful HINT
+- If hints needed and you're certain a card is useless → DISCARD it
+- Otherwise → Give a hint or discard safest card (oldest/leftmost with least info)
+
+RULE: If you choose PLAY or DISCARD, "slot" MUST be one of the valid slots shown.
+RULE: If you choose a hint, "teammate" MUST be one of: {teammate_a}, {teammate_b}.
+If you choose anything invalid, you lose the game.
+
+SAFE DISCARD HEURISTIC:
+- If any of your cards are guaranteed dead → discard the leftmost dead card.
+- If none dead: discard your oldest card that is most likely unplayable
+  (slot with the largest number of remaining possibilities).
+- NEVER discard a 5 unless it is confirmed dead.
+
+
+FIREWORKS (Current progress on each color):
+  - green: 0
+  - yellow: 0
+  - white: 0
+  - blue: 0
+  - red: 0
+
+DISCARD PILE:
+None
+
+YOUR KNOWLEDGE (What you know about YOUR cards):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: blue-1, blue-2, blue-3, blue-4, blue-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: blue-1, blue-2, blue-3, blue-4, blue-5
+Slot 4: blue-1, blue-2, blue-3, blue-4, blue-5
+
+VISIBLE PLAYABLE CARDS (guaranteed correct):
+  - Player 1 Slot 0: white 1
+  - Player 1 Slot 1: white 1
+  - Player 2 Slot 0: yellow 1
+  - Player 2 Slot 1: red 1
+
+VISIBLE DEAD CARDS (safe discards):
+None
+
+
+
+TEAMMATE 1's VISIBLE HAND (What you can see):
+Player 1's Hand:
+Slot 0: white 1
+Slot 1: white 1
+Slot 2: blue 4
+Slot 3: blue 3
+Slot 4: white 3
+
+Teammate 1's Knowledge (What they know):
+Slot 0: white-1, white-2, white-3, white-4, white-5
+Slot 1: white-1, white-2, white-3, white-4, white-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: white-1, white-2, white-3, white-4, white-5
+
+TEAMMATE 2's VISIBLE HAND (What you can see):
+Player 2's Hand:
+Slot 0: yellow 1
+Slot 1: red 1
+Slot 2: green 2
+Slot 3: white 2
+Slot 4: red 3
+
+Teammate 2's Knowledge (What they know):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+
+Respond with a JSON object:
+{
+    "action": "PLAY|DISCARD|HINT_COLOR|HINT_NUMBER",
+    "slot": slot_number (0-4, for PLAY/DISCARD only),
+    "teammate": player_number (for hints only),
+    "color": "red|yellow|green|white|blue" (for HINT_COLOR only),
+    "number": 1-5 (for HINT_NUMBER only)
+}
+
+Before producing JSON, write 2–3 bullet points explaining your reasoning.
+Then output ONLY the JSON object on a new line.
+
+
+LLM RESPONSE:
+                                                                                               {
+    "action": "HINT_COLOR",
+    "teammate": 1,
+    "color": "white"
+}
+==================================================
+
+=== PLAYER 1 TURN ===
+PROMPT:
+You are Player 1 in a cooperative Hanabi game.
+
+RULES:
+
+        - The game uses a 50-card deck, divided into five colours (red (R), green (G), blue (B), yellow (Y), white (W)). Each color has cards of ranks 1 to 5. Each color has with three 1's, two 2's, two 3's, two 4's, one 5.
+        - Players have to create stacks of each color. Each color stack starts with a Rank 1 card and goes up one by one in ascending order up to Rank 5.  (e.g. Red Stack should go from R1 -> R2 -> R3 -> R4 -> R5). A card can only be played if it is the next in the incremental sequence for its color stack.
+        - Players can only see the other's hand, not their own.
+        - Players have plausible knowledge of their cards based on previously provided hints by the other player
+        - They can either play a card, give a reveal, or discard a card.
+        ***Actions:***
+                1. Reveal (Clue): Spend a reveal token to reveal cards with a particular color or rank. Revealing a color reveals all cards of that color in partner's hand. Revealing a rank reveals all cards with that rank in partner's hand. The game starts with 8 reveal tokens. If no token left, no more reveals can be given. 
+                2. Discard: Discard a card to regain a reveal token and draw a new card. 
+                3. Play a Card: If a card played follows sequence in its color stack, it succeeds. Success of rank 5 card in any stack gives an additional reveal token. Failure discards the card, and loses a life. Playing a card you are unsure about is risky as it costs a life and you have only 3 lives. Before playing a card make sure that it's the next card in the sequence for that stack.
+        ***The game ends when:***
+                - All five stacks are completed. 25 Points. 
+                - Three lives have been lost. 0 Points no matter how many cards have been placed in the stack. 
+                - After the last card from the deck is drawn and each player has had a final turn. Sum total of the top card ranks of each color stack. 
+        
+
+GAME STATE:
+- Score: 0/25
+- Deck Remaining: 40 cards
+- Hint Tokens: 4/8
+
+
+STRATEGIC PRIORITIES:
+1. SAFETY FIRST: Never play a card unless you're certain it's playable
+2. INFORMATION: Give hints that provide maximum useful information
+3. EFFICIENCY: Only discard when necessary (low on hints) or when certain a card is useless
+4. CRITICAL CARDS: Be extremely careful with 5s and unique cards visible in teammates' hands
+
+DECISION FRAMEWORK:
+- If you have certain knowledge a card is playable → PLAY it
+- If hints available and teammate has playable card → Give helpful HINT
+- If hints needed and you're certain a card is useless → DISCARD it
+- Otherwise → Give a hint or discard safest card (oldest/leftmost with least info)
+
+RULE: If you choose PLAY or DISCARD, "slot" MUST be one of the valid slots shown.
+RULE: If you choose a hint, "teammate" MUST be one of: {teammate_a}, {teammate_b}.
+If you choose anything invalid, you lose the game.
+
+SAFE DISCARD HEURISTIC:
+- If any of your cards are guaranteed dead → discard the leftmost dead card.
+- If none dead: discard your oldest card that is most likely unplayable
+  (slot with the largest number of remaining possibilities).
+- NEVER discard a 5 unless it is confirmed dead.
+
+
+FIREWORKS (Current progress on each color):
+  - green: 0
+  - yellow: 0
+  - white: 0
+  - blue: 0
+  - red: 0
+
+DISCARD PILE:
+None
+
+YOUR KNOWLEDGE (What you know about YOUR cards):
+Slot 0: white-1, white-2, white-3, white-4, white-5
+Slot 1: white-1, white-2, white-3, white-4, white-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: white-1, white-2, white-3, white-4, white-5
+
+VISIBLE PLAYABLE CARDS (guaranteed correct):
+  - Player 0 Slot 1: blue 1
+  - Player 0 Slot 3: blue 1
+  - Player 2 Slot 0: yellow 1
+  - Player 2 Slot 1: red 1
+
+VISIBLE DEAD CARDS (safe discards):
+None
+
+
+
+TEAMMATE 2's VISIBLE HAND (What you can see):
+Player 2's Hand:
+Slot 0: yellow 1
+Slot 1: red 1
+Slot 2: green 2
+Slot 3: white 2
+Slot 4: red 3
+
+Teammate 2's Knowledge (What they know):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+
+TEAMMATE 0's VISIBLE HAND (What you can see):
+Player 0's Hand:
+Slot 0: yellow 2
+Slot 1: blue 1
+Slot 2: yellow 4
+Slot 3: blue 1
+Slot 4: blue 3
+
+Teammate 0's Knowledge (What they know):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: blue-1, blue-2, blue-3, blue-4, blue-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: blue-1, blue-2, blue-3, blue-4, blue-5
+Slot 4: blue-1, blue-2, blue-3, blue-4, blue-5
+
+Respond with a JSON object:
+{
+    "action": "PLAY|DISCARD|HINT_COLOR|HINT_NUMBER",
+    "slot": slot_number (0-4, for PLAY/DISCARD only),
+    "teammate": player_number (for hints only),
+    "color": "red|yellow|green|white|blue" (for HINT_COLOR only),
+    "number": 1-5 (for HINT_NUMBER only)
+}
+
+Before producing JSON, write 2–3 bullet points explaining your reasoning.
+Then output ONLY the JSON object on a new line.
+
+
+LLM RESPONSE:
+                                                                                                     {
+    "action": "HINT_COLOR",
+    "teammate": 0,
+    "color": "blue"
+}
+==================================================
+
+=== PLAYER 2 TURN ===
+PROMPT:
+You are Player 2 in a cooperative Hanabi game.
+
+RULES:
+
+        - The game uses a 50-card deck, divided into five colours (red (R), green (G), blue (B), yellow (Y), white (W)). Each color has cards of ranks 1 to 5. Each color has with three 1's, two 2's, two 3's, two 4's, one 5.
+        - Players have to create stacks of each color. Each color stack starts with a Rank 1 card and goes up one by one in ascending order up to Rank 5.  (e.g. Red Stack should go from R1 -> R2 -> R3 -> R4 -> R5). A card can only be played if it is the next in the incremental sequence for its color stack.
+        - Players can only see the other's hand, not their own.
+        - Players have plausible knowledge of their cards based on previously provided hints by the other player
+        - They can either play a card, give a reveal, or discard a card.
+        ***Actions:***
+                1. Reveal (Clue): Spend a reveal token to reveal cards with a particular color or rank. Revealing a color reveals all cards of that color in partner's hand. Revealing a rank reveals all cards with that rank in partner's hand. The game starts with 8 reveal tokens. If no token left, no more reveals can be given. 
+                2. Discard: Discard a card to regain a reveal token and draw a new card. 
+                3. Play a Card: If a card played follows sequence in its color stack, it succeeds. Success of rank 5 card in any stack gives an additional reveal token. Failure discards the card, and loses a life. Playing a card you are unsure about is risky as it costs a life and you have only 3 lives. Before playing a card make sure that it's the next card in the sequence for that stack.
+        ***The game ends when:***
+                - All five stacks are completed. 25 Points. 
+                - Three lives have been lost. 0 Points no matter how many cards have been placed in the stack. 
+                - After the last card from the deck is drawn and each player has had a final turn. Sum total of the top card ranks of each color stack. 
+        
+
+GAME STATE:
+- Score: 0/25
+- Deck Remaining: 40 cards
+- Hint Tokens: 3/8
+
+
+STRATEGIC PRIORITIES:
+1. SAFETY FIRST: Never play a card unless you're certain it's playable
+2. INFORMATION: Give hints that provide maximum useful information
+3. EFFICIENCY: Only discard when necessary (low on hints) or when certain a card is useless
+4. CRITICAL CARDS: Be extremely careful with 5s and unique cards visible in teammates' hands
+
+DECISION FRAMEWORK:
+- If you have certain knowledge a card is playable → PLAY it
+- If hints available and teammate has playable card → Give helpful HINT
+- If hints needed and you're certain a card is useless → DISCARD it
+- Otherwise → Give a hint or discard safest card (oldest/leftmost with least info)
+
+RULE: If you choose PLAY or DISCARD, "slot" MUST be one of the valid slots shown.
+RULE: If you choose a hint, "teammate" MUST be one of: {teammate_a}, {teammate_b}.
+If you choose anything invalid, you lose the game.
+
+SAFE DISCARD HEURISTIC:
+- If any of your cards are guaranteed dead → discard the leftmost dead card.
+- If none dead: discard your oldest card that is most likely unplayable
+  (slot with the largest number of remaining possibilities).
+- NEVER discard a 5 unless it is confirmed dead.
+
+
+FIREWORKS (Current progress on each color):
+  - green: 0
+  - yellow: 0
+  - white: 0
+  - blue: 0
+  - red: 0
+
+DISCARD PILE:
+None
+
+YOUR KNOWLEDGE (What you know about YOUR cards):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+
+VISIBLE PLAYABLE CARDS (guaranteed correct):
+  - Player 0 Slot 1: blue 1
+  - Player 0 Slot 3: blue 1
+  - Player 1 Slot 0: white 1
+  - Player 1 Slot 1: white 1
+
+VISIBLE DEAD CARDS (safe discards):
+None
+
+
+
+TEAMMATE 0's VISIBLE HAND (What you can see):
+Player 0's Hand:
+Slot 0: yellow 2
+Slot 1: blue 1
+Slot 2: yellow 4
+Slot 3: blue 1
+Slot 4: blue 3
+
+Teammate 0's Knowledge (What they know):
+Slot 0: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, red-1, red-2, red-3, red-4, red-5
+Slot 1: blue-1, blue-2, blue-3, blue-4, blue-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, white-1, white-2, white-3, white-4, white-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: blue-1, blue-2, blue-3, blue-4, blue-5
+Slot 4: blue-1, blue-2, blue-3, blue-4, blue-5
+
+TEAMMATE 1's VISIBLE HAND (What you can see):
+Player 1's Hand:
+Slot 0: white 1
+Slot 1: white 1
+Slot 2: blue 4
+Slot 3: blue 3
+Slot 4: white 3
+
+Teammate 1's Knowledge (What they know):
+Slot 0: white-1, white-2, white-3, white-4, white-5
+Slot 1: white-1, white-2, white-3, white-4, white-5
+Slot 2: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 3: green-1, green-2, green-3, green-4, green-5, yellow-1, yellow-2, yellow-3, yellow-4, yellow-5, blue-1, blue-2, blue-3, blue-4, blue-5, red-1, red-2, red-3, red-4, red-5
+Slot 4: white-1, white-2, white-3, white-4, white-5
+
+Respond with a JSON object:
+{
+    "action": "PLAY|DISCARD|HINT_COLOR|HINT_NUMBER",
+    "slot": slot_number (0-4, for PLAY/DISCARD only),
+    "teammate": player_number (for hints only),
+    "color": "red|yellow|green|white|blue" (for HINT_COLOR only),
+    "number": 1-5 (for HINT_NUMBER only)
+}
+
+Before producing JSON, write 2–3 bullet points explaining your reasoning.
+Then output ONLY the JSON object on a new line.
+
+
+LLM RESPONSE:
+                                                                                                        {
+    "action": "HINT_COLOR",
+    "teammate": 1,
+    "color": "white"
+}
+==================================================

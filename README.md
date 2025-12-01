@@ -62,6 +62,10 @@ The following functions can be useful when developing a new AI:
 
 Our system can also be used to view replays of games, as well as taking over game play at any point during such a replay, even with a different AI. As an example for the use of this feature, we have obtained a data set, consisting of over 2000 game logs from 240 players, which is available in a [separate repository](https://github.com/yawgmoth/HanabiData). Simply place the game logs in the `log/` directory and they can be opened from the main menu of the UI.
 
+## Using the LLM Agent
+
+If you would like to use the LLM agent, you will need to input an API key for your chosen LLM model (GPT, DeepSeek etc.). Once you have an API key, set the `OPENAI_API_KEY` environment variable to its value, and you can then run the LLM agent. 
+
 ## Bibliography
 
 If you use the AIs contained in this project for research purposes, these are the appropriate references:
