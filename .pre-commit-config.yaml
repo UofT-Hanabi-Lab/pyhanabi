@@ -28,15 +28,6 @@ repos:
       - id: mypy
         args: [ --ignore-missing-imports, --check-untyped-defs, --exclude=httpui.py ]
 
-  # --------------------------- 📝 Other Languages --------------------------- #
-
-  # requires ruby-rubygems
-  # NOTE (2025-06-21): `pre-commit autoupdate` incorrectly downgrades this to v0.12.0
-  - repo: https://github.com/markdownlint/markdownlint
-    rev: v0.13.0
-    hooks:
-      - id: markdownlint
-
   # --------------------------- 📁 Filesystem / Git -------------------------- #
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
