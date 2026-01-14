@@ -1,5 +1,5 @@
 import random
-from typing import override
+from typing import override, Final
 
 from players import Player
 from utils import (
@@ -24,6 +24,12 @@ class SelfIntentionalPlayer(Player):
         super().__init__(name, pnr)
         self.got_hint = None
 
+        self._next_pnr: Final[int] = (self.pnr + 1) % 3
+        """Player ID of the next player in 3P"""
+
+        self._sub_pnr: Final[int] = (self.pnr + 2) % 3
+        """Player ID of the subsequent player in 3P"""
+
     @override
     def reset(self) -> None:
         self.got_hint = None
@@ -31,7 +37,7 @@ class SelfIntentionalPlayer(Player):
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
     ):
-        handsize = len(knowledge[0])
+        num_players = len(knowledge)
         possible = []
         result = None
         self.explanation = []
@@ -81,29 +87,27 @@ class SelfIntentionalPlayer(Player):
                 Action.ActionType.DISCARD, cnr=random.choice(discardable_idx)
             )
 
-        playables = []
-        useless = []
-        discardables = []
-        othercards = trash + board
-        intentions: list[Intent | None] = [None for _ in list(range(handsize))]
-        for i, h in enumerate(hands):
-            if i != nr:
-                for j, (col, n) in enumerate(h):
-                    if board[col][1] + 1 == n:
-                        playables.append((i, j))
-                        intentions[j] = Intent.PLAY
-                    if board[col][1] >= n:
-                        useless.append((i, j))
-                        if not intentions[j]:
-                            intentions[j] = Intent.DISCARD
-                    if n < 5 and (col, n) not in othercards:
-                        discardables.append((i, j))
-                        if not intentions[j]:
-                            intentions[j] = Intent.CAN_DISCARD
+        if num_players == 2:
+            intents_for_next = self._create_intents(
+                hands[(self.pnr + 1) % 2], board, trash
+            )
+            self.explanation.append(
+                ["Intentions for next player"]
+                + list(map(format_intention, intents_for_next))
+            )
+            intents_for_sub = None
+        else:
+            intents_for_next = self._create_intents(hands[self._next_pnr], board, trash)
+            self.explanation.append(
+                ["Intentions for next player"]
+                + list(map(format_intention, intents_for_next))
+            )
 
-        self.explanation.append(
-            ["Intentions"] + list(map(format_intention, intentions))
-        )
+            intents_for_sub = self._create_intents(hands[self._sub_pnr], board, trash)
+            self.explanation.append(
+                ["Intentions for subsequent player"]
+                + list(map(format_intention, intents_for_sub))
+            )
 
         if hints > 0:
             hint_action: tuple[Action.ActionType, Color | int]
@@ -112,16 +116,21 @@ class SelfIntentionalPlayer(Player):
                 tuple[tuple[Action.ActionType, Color | int], int]
             ] = []
 
-            for hintee_id in range(len(knowledge)):
+            for hintee_id in range(num_players):
                 if hintee_id == nr:
                     continue
+                elif num_players == 2 or hintee_id == self._next_pnr:
+                    hintee_intentions = intents_for_next
+                else:
+                    assert intents_for_sub is not None
+                    hintee_intentions = intents_for_sub
 
                 for c in Color:
                     hint_action = (Action.ActionType.HINT_COLOR, c)
                     (isvalid, score, expl) = pretend(
                         hint_action,
                         knowledge[hintee_id],
-                        intentions,
+                        hintee_intentions,
                         hands[hintee_id],
                         board,
                         trash,
@@ -141,7 +150,7 @@ class SelfIntentionalPlayer(Player):
                     (isvalid, score, expl) = pretend(
                         hint_action,
                         knowledge[hintee_id],
-                        intentions,
+                        hintee_intentions,
                         hands[hintee_id],
                         board,
                         trash,
@@ -207,7 +216,7 @@ class SelfIntentionalPlayer(Player):
             ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
         )
         possible = [
-            Action(Action.ActionType.DISCARD, cnr=i) for i in list(range(handsize))
+            Action(Action.ActionType.DISCARD, cnr=i) for i in range(self._hand_size)
         ]
 
         scores = list(
@@ -238,6 +247,25 @@ class SelfIntentionalPlayer(Player):
             return result
         assert scores[0][0] in valid_actions
         return scores[0][0]
+
+    def _create_intents(
+        self,
+        hand: list[tuple[Color, int]],
+        board: list[tuple[Color, int]],
+        trash: list[tuple[Color, int]],
+    ) -> list[Intent | None]:
+        intentions: list[Intent | None] = [None for _ in range(len(hand))]
+
+        for i, (col, n) in enumerate(hand):
+            if board[col][1] + 1 == n:
+                intentions[i] = Intent.PLAY
+            elif board[col][1] >= n:
+                intentions[i] = Intent.DISCARD
+            elif n < 5 and (col, n) not in (trash + board):
+                # TODO: this condition doesn't account for there being three 1s of each colour
+                intentions[i] = Intent.CAN_DISCARD
+
+        return intentions
 
     def inform(self, action, player, game):
         if action.pnr == self.pnr and action.action_type in {
