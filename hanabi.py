@@ -76,7 +76,7 @@ def make_player(player_type: str, player_id: int) -> Player:
 
 
 def main(args):
-    post_move_metrics = False
+    post_move_metrics = True
     if not args:
         args = ["random"] * 3
     if args[0] == "trial":
@@ -96,6 +96,8 @@ def main(args):
             known_discards: list[list[int]] = []
             known_playable_plays: list[list[int]] = []
             has_playable_cards: list[list[int]] = []
+            known_unplayable_plays: list[list[int]] = []
+            has_unplayable_cards: list[list[int]] = []
 
             print("trial", i + 1)
             for t in treatments:
@@ -121,6 +123,8 @@ def main(args):
                     known_discards.append(metrics["known_discards"])
                     known_playable_plays.append(metrics["known_playable_plays"])
                     has_playable_cards.append(metrics["has_playable"])
+                    known_unplayable_plays.append(metrics["known_unplayable_plays"])
+                    has_unplayable_cards.append(metrics["has_unplayable"])
 
                 # TODO: change back or add flag
                 # avg_times.append(times[-1] * 1.0 / g.turn)
@@ -152,9 +156,19 @@ def main(args):
                         known_discards[j][i] for j in range(int(args[1]))
                     ) / int(args[1])
 
-                    avg_known_playable_plays = sum(
-                        known_playable_plays[j][i] for j in range(int(args[1]))
-                    ) / sum(has_playable_cards[j][i] for j in range(int(args[1])))
+                    if sum(has_playable_cards[j][i] for j in range(int(args[1]))) == 0:
+                        avg_known_playable_plays = 0
+                    else:
+                        avg_known_playable_plays = sum(
+                            known_playable_plays[j][i] for j in range(int(args[1]))
+                        ) / sum(has_playable_cards[j][i] for j in range(int(args[1])))
+
+                    if sum(has_unplayable_cards[j][i] for j in range(int(args[1]))) == 0:
+                        avg_known_unplayable_plays = 0
+                    else:
+                        avg_known_unplayable_plays = sum(
+                            known_unplayable_plays[j][i] for j in range(int(args[1]))
+                        ) / sum(has_unplayable_cards[j][i] for j in range(int(args[1])))
 
                     if avg_ipp is None:
                         print(f"IPP for {player}: No valid data")
@@ -164,7 +178,8 @@ def main(args):
 
                     print(f"Average critical discards for {player}: {avg_critical_discards}")
                     print(f"Average known discards for {player}: {avg_known_discards}")
-                    print(f"Average known plays for {player}: {avg_known_playable_plays}")
+                    print(f"Average known playable plays for {player}: {avg_known_playable_plays}")
+                    print(f"Average known unplayable plays for {player}: {avg_known_unplayable_plays}")
 
         return
 
@@ -173,7 +188,7 @@ def main(args):
     for i, a in enumerate(args):
         players.append(make_player(a, i))
 
-    n = 10000
+    n = 1000
 
     out: Any = NullStream()
     if n < 3:
@@ -185,6 +200,8 @@ def main(args):
     known_discards = []
     known_playable_plays = []
     has_playable_cards = []
+    known_unplayable_plays = []
+    has_unplayable_cards = []
 
     for i in list(range(n)):
         if (i + 1) % 100 == 0:
@@ -202,6 +219,8 @@ def main(args):
             known_discards.append(metrics["known_discards"])
             known_playable_plays.append(metrics["known_playable_plays"])
             has_playable_cards.append(metrics["has_playable"])
+            known_unplayable_plays.append(metrics["known_unplayable_plays"])
+            has_unplayable_cards.append(metrics["has_unplayable"])
             
     if n < 10:
         print(pts)
@@ -230,9 +249,19 @@ def main(args):
                 known_discards[j][i] for j in range(n)
             ) / n
 
-            avg_known_playable_plays = sum(
-                known_playable_plays[j][i] for j in range(n)
-            ) / sum(has_playable_cards[j][i] for j in range(n))
+            if sum(has_playable_cards[j][i] for j in range(n)) == 0:
+                avg_known_playable_plays = 0
+            else:
+                avg_known_playable_plays = sum(
+                    known_playable_plays[j][i] for j in range(n)
+                ) / sum(has_playable_cards[j][i] for j in range(n))
+            
+            if sum(has_unplayable_cards[j][i] for j in range(n)) == 0:
+                avg_known_unplayable_plays = 0
+            else:
+                avg_known_unplayable_plays = sum(
+                    known_unplayable_plays[j][i] for j in range(n)
+                ) / sum(has_unplayable_cards[j][i] for j in range(n))
 
             if avg_ipp is None:
                 print(f"IPP for Player {players[i].pnr}: No valid data")
@@ -241,7 +270,8 @@ def main(args):
                 print(f"IPP for Player {players[i].pnr}: {avg_ipp}")
             print(f"Average critical discards for {players[i].pnr}: {avg_critical_discards}")
             print(f"Average known discards for {players[i].pnr}: {avg_known_discards}")
-            print(f"Average known plays for {players[i].pnr}: {avg_known_playable_plays}")
+            print(f"Average known playable plays for {players[i].pnr}: {avg_known_playable_plays}")
+            print(f"Average known unplayable plays for Player {players[i].pnr}: {avg_known_unplayable_plays}")
 
 if __name__ == "__main__":
     main(sys.argv[1:])
