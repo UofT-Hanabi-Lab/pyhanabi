@@ -94,6 +94,8 @@ def main(args):
             ipp_lists: list[list[list[float]]] = []
             critical_discards: list[list[int]] = []
             known_discards: list[list[int]] = []
+            known_playable_plays: list[list[int]] = []
+            has_playable_cards: list[list[int]] = []
 
             print("trial", i + 1)
             for t in treatments:
@@ -117,6 +119,8 @@ def main(args):
                     ipp_lists.append(metrics["ipp_list"])
                     critical_discards.append(metrics["critical_discards"])
                     known_discards.append(metrics["known_discards"])
+                    known_playable_plays.append(metrics["known_playable_plays"])
+                    has_playable_cards.append(metrics["has_playable"])
 
                 # TODO: change back or add flag
                 # avg_times.append(times[-1] * 1.0 / g.turn)
@@ -148,6 +152,10 @@ def main(args):
                         known_discards[j][i] for j in range(int(args[1]))
                     ) / int(args[1])
 
+                    avg_known_playable_plays = sum(
+                        known_playable_plays[j][i] for j in range(int(args[1]))
+                    ) / sum(has_playable_cards[j][i] for j in range(int(args[1])))
+
                     if avg_ipp is None:
                         print(f"IPP for {player}: No valid data")
                     else:
@@ -156,6 +164,7 @@ def main(args):
 
                     print(f"Average critical discards for {player}: {avg_critical_discards}")
                     print(f"Average known discards for {player}: {avg_known_discards}")
+                    print(f"Average known plays for {player}: {avg_known_playable_plays}")
 
         return
 
@@ -174,6 +183,9 @@ def main(args):
     ipp_lists = []
     critical_discards = []
     known_discards = []
+    known_playable_plays = []
+    has_playable_cards = []
+
     for i in list(range(n)):
         if (i + 1) % 100 == 0:
             print("Starting game", i + 1)
@@ -188,7 +200,9 @@ def main(args):
             ipp_lists.append(metrics["ipp_list"])
             critical_discards.append(metrics["critical_discards"])
             known_discards.append(metrics["known_discards"])
-
+            known_playable_plays.append(metrics["known_playable_plays"])
+            has_playable_cards.append(metrics["has_playable"])
+            
     if n < 10:
         print(pts)
 
@@ -216,6 +230,10 @@ def main(args):
                 known_discards[j][i] for j in range(n)
             ) / n
 
+            avg_known_playable_plays = sum(
+                known_playable_plays[j][i] for j in range(n)
+            ) / sum(has_playable_cards[j][i] for j in range(n))
+
             if avg_ipp is None:
                 print(f"IPP for Player {players[i].pnr}: No valid data")
             else:
@@ -223,6 +241,7 @@ def main(args):
                 print(f"IPP for Player {players[i].pnr}: {avg_ipp}")
             print(f"Average critical discards for {players[i].pnr}: {avg_critical_discards}")
             print(f"Average known discards for {players[i].pnr}: {avg_known_discards}")
+            print(f"Average known plays for {players[i].pnr}: {avg_known_playable_plays}")
 
 if __name__ == "__main__":
     main(sys.argv[1:])

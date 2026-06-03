@@ -115,7 +115,9 @@ class HanasimGame(AbstractGame):
             ipp_list = [[] for _ in range(len(self.players))] # list of ipp scores per player for each turn they play/discard
             critical_discards = Counter() # count of critical discards per player
             known_playable_discards = Counter() # count of known playable discards per player
-
+            known_playable_plays = Counter() # count of known playable plays per player
+            has_playable = Counter() # count of turns where player had at least one playable card in hand
+       
         while True:
             acting_player_id: int = self._obs.current_player_id
 
@@ -145,6 +147,12 @@ class HanasimGame(AbstractGame):
                 # Known playable discards per play
                 known_playable_discards[acting_player_id] += self._discarding_known_playable_card(action, acting_player_id)
 
+                # Known playable plays per play
+                known_playable_plays[acting_player_id] += self._playing_known_playable_card(action, acting_player_id)
+                
+                # Has playable card in hand per turn
+                has_playable[acting_player_id] += self._has_playable_card(acting_player_id)
+
                 # Information per play
                 if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
                     ipp_list[acting_player_id].append(self._information_per_play(action, acting_player_id))
@@ -171,10 +179,13 @@ class HanasimGame(AbstractGame):
                     print(f"Player {i} ({self.players[i].name}) IPP: {sum(ipp_list[i]) / len(ipp_list[i]) if ipp_list[i] else 0:.2f}", file=self.log)
                 print(f"Player {i} ({self.players[i].name}) Critical Discards: {critical_discards[i]}", file=self.log)
                 print(f"Player {i} ({self.players[i].name}) Known Playable Discards: {known_playable_discards[i]}", file=self.log)
-
+                print(f"Player {i} ({self.players[i].name}) Known Playable Plays: {known_playable_plays[i]}", file=self.log)
+                print(f"Player {i} ({self.players[i].name}) Has Playable Cards: {has_playable[i]}", file=self.log)
             self._metric_dict["ipp_list"] = ipp_list
             self._metric_dict["critical_discards"] = critical_discards
             self._metric_dict["known_discards"] = known_playable_discards
+            self._metric_dict["known_playable_plays"] = known_playable_plays
+            self._metric_dict["has_playable"] = has_playable
 
         return points
 
@@ -443,7 +454,29 @@ class HanasimGame(AbstractGame):
         possible_cards = get_possible(self.knowledge[acting_player_id][action.cnr])
         return playable(possible_cards, self._convert_board(self._obs.fireworks))
     
-            
+    def _playing_known_playable_card(self, action: Action, acting_player_id: int) -> bool:
+        """
+        This returns True if a player has played a known-to-be-playable card
+        """
+        # If action is not a play, it is irrelevant to the calculation
+        if action.action_type != Action.ActionType.PLAY:
+            return False
+        
+        # Check if the card is playable
+        possible_cards = get_possible(self.knowledge[acting_player_id][action.cnr])
+        return playable(possible_cards, self._convert_board(self._obs.fireworks))
+    
+    def _has_playable_card(self, acting_player_id: int) -> bool:
+        """
+        This returns True if a player has at least one playable card in their
+        current hand
+        """
+        for i in range(len(self.knowledge[acting_player_id])):
+            possible_cards = get_possible(self.knowledge[acting_player_id][i])
+            if playable(possible_cards, self._convert_board(self._obs.fireworks)):
+                return True
+        return False
+
     def _information_per_play(self, action: Action, acting_player_id: int) -> float:
         total_info = 0
 
