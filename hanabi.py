@@ -80,7 +80,7 @@ def make_player(player_type: str, player_id: int) -> Player:
         raise ValueError(f"Unknown player type: {player_type}")
 
 
-def report_distributions(pts, ipp_lists, players, n, prefix=""):
+def report_metrics(pts, ipp_lists, players, n, prefix=""):
     """
     Statistics + Histograms for game scores and per-game mean IPP.
     TODO: Refactor main() to move all evaluation results to this helper.
@@ -242,7 +242,7 @@ def main(args):
     print("average:", numpy.mean(pts))
     print("stddev:", numpy.std(pts, ddof=1))
     print("range", min(pts), max(pts))
-    report_distributions(pts, ipp_lists, players, n, "plots/")
+    report_metrics(pts, ipp_lists, players, n, "plots/")
 
     if post_move_metrics:
         for i in range(len(players)):
