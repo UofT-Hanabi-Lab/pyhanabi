@@ -4,6 +4,11 @@ import time
 from typing import Any
 import numpy
 
+import pandas as pd
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
 from hana_sim import PlayerName  # type: ignore
 
 from game import HanasimGame
@@ -75,6 +80,48 @@ def make_player(player_type: str, player_id: int) -> Player:
         raise ValueError(f"Unknown player type: {player_type}")
 
 
+def report_metrics(pts, ipp_lists, players, n, prefix=""):
+    """
+    Statistics + Histograms for game scores and per-game mean IPP.
+    TODO: Refactor main() to move all evaluation results to this helper.
+    """
+    # --- Scores ---
+    scores = pd.Series(pts, name="score")
+    print("\n=== Score distribution ===")
+    print(scores.describe())
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    scores.hist(bins=range(0, 27), ax=ax, edgecolor="black")  # 26 integer bins, scores 0..25
+    ax.set_xlabel("Final score")
+    ax.set_ylabel("Number of games")
+    ax.set_title(f"Score distribution over {n} games")
+    fig.tight_layout()
+    fig.savefig(f"{prefix}score_distribution.png", dpi=120)
+    plt.close(fig)
+
+    # IPP: one column per player, one row per game (NaN when the player had no plays/discards)
+    ipp_df = pd.DataFrame({
+        f"Player {players[p].pnr}": [
+            numpy.mean(ipp_lists[g][p]) if len(ipp_lists[g][p]) > 0 else numpy.nan
+            for g in range(n)
+        ]
+        for p in range(len(players))
+    })
+    print("\n=== IPP distribution (per-game mean) ===")
+    print(ipp_df.describe())
+
+    axes = ipp_df.hist(bins=20, figsize=(5 * len(players), 4),
+                       edgecolor="black", layout=(1, len(players)))
+    for ax in numpy.ravel(axes):
+        ax.set_xlabel("Mean IPP per game")
+        ax.set_ylabel("Number of games")
+    plt.tight_layout()
+    plt.savefig(f"{prefix}ipp_distribution.png", dpi=120)
+    plt.close("all")
+
+    print(f"\nSaved {prefix}score_distribution.png and {prefix}ipp_distribution.png")
+
+
 def main(args):
     post_move_metrics = True
     if not args:
@@ -109,11 +156,11 @@ def main(args):
                 # g = Game(trial_players, NullStream())
                 g = HanasimGame(trial_players, NullStream(), post_move_metrics)
 
-                
+
 
                 t0 = time.time()
                 result.append(g.run())
-                       
+
                 times.append(time.time() - t0)
 
                 if post_move_metrics:
@@ -211,7 +258,7 @@ def main(args):
         # g = Game(players, out)
         g = HanasimGame(players, out, post_move_metrics)
         pts.append(g.run())
-        
+
         if post_move_metrics:
             metrics = g.metric_dict
             ipp_lists.append(metrics["ipp_list"])
@@ -228,6 +275,7 @@ def main(args):
     print("average:", numpy.mean(pts))
     print("stddev:", numpy.std(pts, ddof=1))
     print("range", min(pts), max(pts))
+    report_metrics(pts, ipp_lists, players, n, "plots/")
 
     if post_move_metrics:
         for i in range(len(players)):

@@ -246,7 +246,15 @@ def format_intention(i: str | Intent | None) -> str:
         raise ValueError("Unexpected intent value")
 
 
-def whattodo(knowledge, pointed, board, dead_colors=None) -> Action.ActionType | None:
+def whattodo(knowledge, pointed: bool, board, dead_colors=None) -> Action.ActionType | None:
+    """
+    Return the prediction of a single card.
+    Params:
+    - knowledge: KB of the card
+    - pointed: whether the card is positively identified
+    - board: the current game board (firework stacks)
+    - dead_colors: color -> highest-still-achievable-rank map
+    """
     possible = get_possible(knowledge)
     play = potentially_playable(possible, board, dead_colors)
     discard = potentially_discardable(possible, board, dead_colors)
