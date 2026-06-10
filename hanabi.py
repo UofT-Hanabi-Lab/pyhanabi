@@ -1,4 +1,5 @@
 import random
+import os
 import sys
 import time
 from typing import Any
@@ -43,7 +44,18 @@ player_types = {
     "full-detect-dead": SelfIntentionalPlayerDetectDeadColors,
     "llm": LLMAgentPlayer,
 }
+
 names = ["Shangdi", "Yu Di", "Tian", "Nu Wa", "Pangu"]
+
+# Per-game, per-player count metrics collected by HanasimGame when post_move_metrics is on.
+POST_MOVE_METRICS = [
+    "critical_discards",
+    "known_discards",
+    "known_playable_plays",
+    "has_playable",
+    "known_unplayable_plays",
+    "has_unplayable",
+]
 
 
 def make_player(player_type: str, player_id: int) -> Player:
@@ -80,46 +92,86 @@ def make_player(player_type: str, player_id: int) -> Player:
         raise ValueError(f"Unknown player type: {player_type}")
 
 
-def report_metrics(pts, ipp_lists, players, n, prefix=""):
-    """
-    Statistics + Histograms for game scores and per-game mean IPP.
-    TODO: Refactor main() to move all evaluation results to this helper.
-    """
-    # --- Scores ---
+def report_metrics(pts: list[int], players: list[Player], n: int,
+                   post_move_metrics: bool=False, metrics:dict=None, prefix="plots/"):
+    """All end-of-run evaluation: summary statistics + histograms"""
+    # If plots/ doesn't exist, create one
+    if os.path.dirname(prefix):
+        os.makedirs(os.path.dirname(prefix), exist_ok=True)
+    saved = []
+
+    # Scores: always reported
     scores = pd.Series(pts, name="score")
     print("\n=== Score distribution ===")
     print(scores.describe())
 
+    # Save the score distribution
     fig, ax = plt.subplots(figsize=(6, 4))
-    scores.hist(bins=range(0, 27), ax=ax, edgecolor="black")  # 26 integer bins, scores 0..25
+    scores.hist(bins=range(0, 27), ax=ax, edgecolor="black")
     ax.set_xlabel("Final score")
     ax.set_ylabel("Number of games")
     ax.set_title(f"Score distribution over {n} games")
     fig.tight_layout()
     fig.savefig(f"{prefix}score_distribution.png", dpi=120)
     plt.close(fig)
+    saved.append(f"{prefix}score_distribution.png")
 
-    # IPP: one column per player, one row per game (NaN when the player had no plays/discards)
-    ipp_df = pd.DataFrame({
-        f"Player {players[p].pnr}": [
-            numpy.mean(ipp_lists[g][p]) if len(ipp_lists[g][p]) > 0 else numpy.nan
-            for g in range(n)
-        ]
-        for p in range(len(players))
-    })
-    print("\n=== IPP distribution (per-game mean) ===")
-    print(ipp_df.describe())
+    # Post-move metrics: summarized and plotted iff enabled
+    if post_move_metrics and metrics is not None:
+        cols = [f"Player {pl.pnr}" for pl in players]
 
-    axes = ipp_df.hist(bins=20, figsize=(5 * len(players), 4),
-                       edgecolor="black", layout=(1, len(players)))
-    for ax in numpy.ravel(axes):
-        ax.set_xlabel("Mean IPP per game")
-        ax.set_ylabel("Number of games")
-    plt.tight_layout()
-    plt.savefig(f"{prefix}ipp_distribution.png", dpi=120)
-    plt.close("all")
+        # IPP: per-game mean per player; NaN when a player had no IPP data that game
+        ipp_df = pd.DataFrame({
+            cols[p]: [
+                numpy.mean(metrics["ipp_list"][g][p]) if len(metrics["ipp_list"][g][p]) > 0
+                else numpy.nan
+                for g in range(n)
+            ]
+            for p in range(len(players))
+        })
+        print("\n=== IPP (per-game mean) ===")
+        print(ipp_df.describe())
 
-    print(f"\nSaved {prefix}score_distribution.png and {prefix}ipp_distribution.png")
+        # Save the ipp distribution
+        axes = ipp_df.hist(bins=20, figsize=(5 * len(players), 4),
+                           edgecolor="black", layout=(1, len(players)))
+        for ax in numpy.ravel(axes):
+            ax.set_xlabel("Mean IPP per game")
+            ax.set_ylabel("Number of games")
+        plt.tight_layout()
+        plt.savefig(f"{prefix}ipp_distribution.png", dpi=120)
+        plt.close("all")
+        saved.append(f"{prefix}ipp_distribution.png")
+
+        # Post-move metrics: one DataFrame per metric
+        # rows = games, columns = players
+        for name in POST_MOVE_METRICS:
+            if name not in metrics: # error guard
+                continue
+            df = pd.DataFrame(metrics[name], columns=cols)
+            print(f"\n=== {name} (per game) ===")
+            print(df.describe())
+
+            # Save the plot
+            max_v = int(numpy.nanmax(df.to_numpy()))
+            value_range = range(0, max_v + 1)
+
+            fig, axes = plt.subplots(1, len(players), figsize=(5 * len(players), 4),
+                                     sharey=True)
+            for ax, col in zip(numpy.atleast_1d(axes), cols):
+                counts = df[col].value_counts().reindex(value_range, fill_value=0)
+                ax.bar(counts.index, counts.values, edgecolor="black")
+                ax.set_xticks(list(value_range))
+                ax.set_title(col)
+                ax.set_xlabel(name.replace("_", " "))
+            numpy.atleast_1d(axes)[0].set_ylabel("Number of games")
+            fig.suptitle(f"{name} per game")
+            fig.tight_layout()
+            fig.savefig(f"{prefix}{name}_distribution.png", dpi=120)
+            plt.close(fig)
+            saved.append(f"{prefix}{name}_distribution.png")
+
+    print("\nSaved:", *saved, sep="\n  ")
 
 
 def main(args):
@@ -142,9 +194,9 @@ def main(args):
             critical_discards: list[list[int]] = []
             known_discards: list[list[int]] = []
             known_playable_plays: list[list[int]] = []
-            has_playable_cards: list[list[int]] = []
+            has_playable: list[list[int]] = []
             known_unplayable_plays: list[list[int]] = []
-            has_unplayable_cards: list[list[int]] = []
+            has_unplayable: list[list[int]] = []
 
             print("trial", i + 1)
             for t in treatments:
@@ -169,9 +221,9 @@ def main(args):
                     critical_discards.append(metrics["critical_discards"])
                     known_discards.append(metrics["known_discards"])
                     known_playable_plays.append(metrics["known_playable_plays"])
-                    has_playable_cards.append(metrics["has_playable"])
+                    has_playable.append(metrics["has_playable"])
                     known_unplayable_plays.append(metrics["known_unplayable_plays"])
-                    has_unplayable_cards.append(metrics["has_unplayable"])
+                    has_unplayable.append(metrics["has_unplayable"])
 
                 # TODO: change back or add flag
                 # avg_times.append(times[-1] * 1.0 / g.turn)
@@ -203,19 +255,19 @@ def main(args):
                         known_discards[j][i] for j in range(int(args[1]))
                     ) / int(args[1])
 
-                    if sum(has_playable_cards[j][i] for j in range(int(args[1]))) == 0:
+                    if sum(has_playable[j][i] for j in range(int(args[1]))) == 0:
                         avg_known_playable_plays = 0
                     else:
                         avg_known_playable_plays = sum(
                             known_playable_plays[j][i] for j in range(int(args[1]))
-                        ) / sum(has_playable_cards[j][i] for j in range(int(args[1])))
+                        ) / sum(has_playable[j][i] for j in range(int(args[1])))
 
-                    if sum(has_unplayable_cards[j][i] for j in range(int(args[1]))) == 0:
+                    if sum(has_unplayable[j][i] for j in range(int(args[1]))) == 0:
                         avg_known_unplayable_plays = 0
                     else:
                         avg_known_unplayable_plays = sum(
                             known_unplayable_plays[j][i] for j in range(int(args[1]))
-                        ) / sum(has_unplayable_cards[j][i] for j in range(int(args[1])))
+                        ) / sum(has_unplayable[j][i] for j in range(int(args[1])))
 
                     if avg_ipp is None:
                         print(f"IPP for {player}: No valid data")
@@ -230,6 +282,8 @@ def main(args):
 
         return
 
+
+    # -------- Non-trial Simulations: --------
     players: list[Player] = []
 
     for i, a in enumerate(args):
@@ -242,13 +296,7 @@ def main(args):
         out = sys.stdout
 
     pts = []
-    ipp_lists = []
-    critical_discards = []
-    known_discards = []
-    known_playable_plays = []
-    has_playable_cards = []
-    known_unplayable_plays = []
-    has_unplayable_cards = []
+    all_metrics = {name: [] for name in ["ipp_list"] + POST_MOVE_METRICS}
 
     for i in list(range(n)):
         if (i + 1) % 100 == 0:
@@ -260,66 +308,24 @@ def main(args):
         pts.append(g.run())
 
         if post_move_metrics:
-            metrics = g.metric_dict
-            ipp_lists.append(metrics["ipp_list"])
-            critical_discards.append(metrics["critical_discards"])
-            known_discards.append(metrics["known_discards"])
-            known_playable_plays.append(metrics["known_playable_plays"])
-            has_playable_cards.append(metrics["has_playable"])
-            known_unplayable_plays.append(metrics["known_unplayable_plays"])
-            has_unplayable_cards.append(metrics["has_unplayable"])
-            
+            for name in all_metrics:
+                if name == "ipp_list":
+                    raw = g.metric_dict.get(name, [[] for _ in players])
+                    all_metrics[name].append([raw[p.pnr] for p in players])
+                else:
+                    raw = g.metric_dict.get(name, None)
+                    if raw is None:
+                        all_metrics[name].append([0] * len(players))
+                    else:
+                        all_metrics[name].append([raw[p.pnr] for p in players])
+
     if n < 10:
         print(pts)
 
-    print("average:", numpy.mean(pts))
-    print("stddev:", numpy.std(pts, ddof=1))
-    print("range", min(pts), max(pts))
-    report_metrics(pts, ipp_lists, players, n, "plots/")
+    report_metrics(pts, players, n,
+                   post_move_metrics=post_move_metrics,
+                   metrics=all_metrics if post_move_metrics else None)
 
-    if post_move_metrics:
-        for i in range(len(players)):
-
-            total_valid_ipp = 0
-            sum_ipp = 0
-            for j in range(n):
-                if  len(ipp_lists[j][i]) > 0:
-                    total_valid_ipp += 1
-                    sum_ipp += numpy.mean(ipp_lists[j][i])
-
-            avg_ipp = sum_ipp / total_valid_ipp if total_valid_ipp > 0 else None
-
-            avg_critical_discards = sum(
-                critical_discards[j][i] for j in range(n)
-            ) / n
-
-            avg_known_discards = sum(
-                known_discards[j][i] for j in range(n)
-            ) / n
-
-            if sum(has_playable_cards[j][i] for j in range(n)) == 0:
-                avg_known_playable_plays = 0
-            else:
-                avg_known_playable_plays = sum(
-                    known_playable_plays[j][i] for j in range(n)
-                ) / sum(has_playable_cards[j][i] for j in range(n))
-            
-            if sum(has_unplayable_cards[j][i] for j in range(n)) == 0:
-                avg_known_unplayable_plays = 0
-            else:
-                avg_known_unplayable_plays = sum(
-                    known_unplayable_plays[j][i] for j in range(n)
-                ) / sum(has_unplayable_cards[j][i] for j in range(n))
-
-            if avg_ipp is None:
-                print(f"IPP for Player {players[i].pnr}: No valid data")
-            else:
-                print(f"Average valid IPP count for Player {players[i].pnr}: {total_valid_ipp} out of {n}")
-                print(f"IPP for Player {players[i].pnr}: {avg_ipp}")
-            print(f"Average critical discards for {players[i].pnr}: {avg_critical_discards}")
-            print(f"Average known discards for {players[i].pnr}: {avg_known_discards}")
-            print(f"Average known playable plays for {players[i].pnr}: {avg_known_playable_plays}")
-            print(f"Average known unplayable plays for Player {players[i].pnr}: {avg_known_unplayable_plays}")
 
 if __name__ == "__main__":
     main(sys.argv[1:])
