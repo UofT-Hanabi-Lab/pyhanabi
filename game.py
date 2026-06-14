@@ -175,8 +175,19 @@ class HanasimGame(AbstractGame):
             if step_result.done:
                 break
 
+        board = self._convert_board(self._obs.fireworks)
+        points = self._score(board)
+
+        # Classify why the game ended
+        if self._obs.lives_remaining == 0:
+            end_reason = "out of lives"
+        elif all(num == 5 for _, num in board):
+            end_reason = "board completed"
+        else:
+            end_reason = "deck exhausted"
+
         print("Game done, hits left:", self._obs.lives_remaining, file=self.log)
-        points = self._score(self._convert_board(self._obs.fireworks))
+        print("End reason:", end_reason, file=self.log)
         print("Final Score:", points, file=self.log)
 
         if self._post_move_metrics:
