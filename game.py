@@ -135,7 +135,7 @@ class HanasimGame(AbstractGame):
                     HanasimGame._convert_valid_actions(self._obs.legal_actions),
                     self._obs.hint_tokens,
                 )
-                
+
                 step_result = self._env.step(self._convert_action(action))
             else:
                 step_result = self._env.step(None)
@@ -145,13 +145,13 @@ class HanasimGame(AbstractGame):
             if self._post_move_metrics:
                 # Critical discards per play
                 critical_discards[acting_player_id] += self._discarding_critical_card(action, acting_player_id)
-                
+
                 # Known playable discards per play
                 known_playable_discards[acting_player_id] += self._discarding_known_playable_card(action, acting_player_id)
 
                 # Known playable plays per play
                 known_playable_plays[acting_player_id] += self._playing_known_playable_card(action, acting_player_id)
-                
+
                 # Has playable card in hand per turn
                 has_playable[acting_player_id] += self._has_playable_card(acting_player_id)
 
@@ -164,6 +164,7 @@ class HanasimGame(AbstractGame):
                 if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
                     ipp_list[acting_player_id].append(self._information_per_play(action, acting_player_id))
 
+            self._log_move(action, acting_player_id, self._obs, step_result.observation)
             self._obs = step_result.observation
             self._update_knowledge(
                 action,
@@ -176,7 +177,7 @@ class HanasimGame(AbstractGame):
 
         print("Game done, hits left:", self._obs.lives_remaining, file=self.log)
         points = self._score(self._convert_board(self._obs.fireworks))
-        print("Points:", points, file=self.log)
+        print("Final Score:", points, file=self.log)
 
         if self._post_move_metrics:
             for i in range(len(self.players)):
@@ -200,6 +201,39 @@ class HanasimGame(AbstractGame):
             self._metric_dict["has_unplayable"] = has_unplayable
 
         return points
+
+    def _log_move(self, action, acting_player_id, pre_obs, post_obs):
+        if action.action_type == Action.ActionType.HINT_COLOR:
+            print(f"Player {acting_player_id} hints Player {action.pnr} about all their "
+                  f"{action.col.display_name} cards hints remaining: {post_obs.hint_tokens}",
+                  file=self.log)
+            hand = [self._convert_card(c) for c in pre_obs.hands[action.pnr]]
+            print(f"Player {action.pnr} has {format_hand(hand)}", file=self.log)
+
+        elif action.action_type == Action.ActionType.HINT_NUMBER:
+            print(f"Player {acting_player_id} hints Player {action.pnr} about all their "
+                  f"{action.num} hints remaining: {post_obs.hint_tokens}", file=self.log)
+            hand = [self._convert_card(c) for c in pre_obs.hands[action.pnr]]
+            print(f"Player {action.pnr} has {format_hand(hand)}", file=self.log)
+
+        elif action.action_type == Action.ActionType.PLAY:
+            card = self._convert_card(pre_obs.hands[acting_player_id][action.cnr])
+            print(f"Player {acting_player_id} plays {format_card(card)}", file=self.log)
+            board = self._convert_board(post_obs.fireworks)
+            if post_obs.lives_remaining < pre_obs.lives_remaining:
+                print(f"and fails. Board was {format_hand(board)}", file=self.log)
+            else:
+                print(f"successfully! Board is now {format_hand(board)}", file=self.log)
+            new_hand = [self._convert_card(c) for c in post_obs.hands[acting_player_id]]
+            print(f"Player {acting_player_id} now has {format_hand(new_hand)}", file=self.log)
+
+        else:  # DISCARD
+            card = self._convert_card(pre_obs.hands[acting_player_id][action.cnr])
+            print(f"Player {acting_player_id} discards {format_card(card)}", file=self.log)
+            trash = self._convert_trash(post_obs.discards)
+            print(f"trash is now {format_hand(trash)}", file=self.log)
+            new_hand = [self._convert_card(c) for c in post_obs.hands[acting_player_id]]
+            print(f"Player {acting_player_id} now has {format_hand(new_hand)}", file=self.log)
 
     def _update_knowledge(
         self, action: Action, acting_player: int, hands: list[list[NativeCard]]
@@ -421,11 +455,11 @@ class HanasimGame(AbstractGame):
                 self._convert_hands(self._obs.hands, self._obs.current_player_id),
             )
 
-    def _discarding_critical_card(self, action: Action, acting_player_id: int) -> bool:  
+    def _discarding_critical_card(self, action: Action, acting_player_id: int) -> bool:
         """
         This returns True if a player has discarded a critical card
         """
-        
+
         # If action is not a discard, it is irrelevant to the calculation
         if action.action_type != Action.ActionType.DISCARD:
             return False
@@ -445,15 +479,15 @@ class HanasimGame(AbstractGame):
         for card in trash:
             if card[0] == col and card[1] == num:
                 count += 1
-        
+
         # Determine if discard is critical based on card number
         if num == 1 and count == 2:
             return True
         if (num == 2 or num == 3 or num == 4) and count == 1:
             return True
-        
+
         return False
-    
+
     def _discarding_known_playable_card(self, action: Action, acting_player_id: int) -> bool:
         """
         This returns True if a player has discarded a known-to-be-playable card
@@ -465,7 +499,7 @@ class HanasimGame(AbstractGame):
         # Check if the card is playable
         possible_cards = get_possible(self.knowledge[acting_player_id][action.cnr])
         return playable(possible_cards, self._convert_board(self._obs.fireworks))
-    
+
     def _playing_known_playable_card(self, action: Action, acting_player_id: int) -> bool:
         """
         This returns True if a player has played a known-to-be-playable card
@@ -473,11 +507,11 @@ class HanasimGame(AbstractGame):
         # If action is not a play, it is irrelevant to the calculation
         if action.action_type != Action.ActionType.PLAY:
             return False
-        
+
         # Check if the card is playable
         possible_cards = get_possible(self.knowledge[acting_player_id][action.cnr])
         return playable(possible_cards, self._convert_board(self._obs.fireworks))
-    
+
     def _has_playable_card(self, acting_player_id: int) -> bool:
         """
         This returns True if a player has at least one playable card in their
@@ -489,7 +523,7 @@ class HanasimGame(AbstractGame):
             if playable(possible_cards, self._convert_board(self._obs.fireworks)):
                 return True
         return False
-    
+
     def _playing_known_unplayable_card(self, action: Action, acting_player_id: int) -> bool:
         """
         This returns True if a player has played a known-to-be-unplayable card
@@ -497,11 +531,11 @@ class HanasimGame(AbstractGame):
         # If action is not a play, it is irrelevant to the calculation
         if action.action_type != Action.ActionType.PLAY:
             return False
-        
+
         # Check if the card is unplayable
         possible_cards = get_possible(self.knowledge[acting_player_id][action.cnr])
         return not playable(possible_cards, self._convert_board(self._obs.fireworks))
-    
+
     def _has_unplayable_card(self, acting_player_id: int) -> bool:
         """
         This returns True if a player has at least one unplayable card in their
@@ -534,15 +568,15 @@ class HanasimGame(AbstractGame):
                 if possible_cards[i][1] != possible_cards[i - 1][1]:
                     rank = False
                     break
-            
+
             if colour:
                 total_info += 1
-            
+
             if rank:
                 total_info += 1
-        
+
         return total_info / 2
-    
+
     @property
     def metric_dict(self) -> dict[str, list]:
         "Retrieve a dict of metrics to display results once the game has finished"

@@ -50,7 +50,7 @@ class Action:
     def __init__(
         self,
         action_type: ActionType,
-        pnr: int | None = None,
+        pnr: int | None = None,  # The hint recipient
         col: Color | None = None,
         num: int | None = None,
         cnr: int | None = None,

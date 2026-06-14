@@ -4,6 +4,14 @@ import sys
 import time
 from typing import Any
 import numpy
+import io
+
+LOG_DIR = "log"
+LOW_MARKS_DIR = os.path.join(LOG_DIR, "low_scores")
+LOW_MARK_THRESHOLD = 5
+
+os.makedirs(LOG_DIR, exist_ok=True)
+os.makedirs(LOW_MARKS_DIR, exist_ok=True)
 
 import pandas as pd
 import matplotlib
@@ -12,7 +20,7 @@ import matplotlib.pyplot as plt
 
 from hana_sim import PlayerName  # type: ignore
 
-from game import HanasimGame
+from game import HanasimGame, Game
 from players import (
     Player,
     SelfIntentionalPlayerWithMemory,
@@ -48,6 +56,7 @@ player_types = {
 names = ["Shangdi", "Yu Di", "Tian", "Nu Wa", "Pangu"]
 
 # Per-game, per-player count metrics collected by HanasimGame when post_move_metrics is on.
+# Key should exactly the same as in game.py
 POST_MOVE_METRICS = [
     "critical_discards",
     "known_discards",
@@ -175,7 +184,7 @@ def report_metrics(pts: list[int], players: list[Player], n: int,
 
 
 def main(args):
-    post_move_metrics = True
+    post_move_metrics = False
     if not args:
         args = ["random"] * 3
     if args[0] == "trial":
@@ -289,11 +298,7 @@ def main(args):
     for i, a in enumerate(args):
         players.append(make_player(a, i))
 
-    n = 1000
-
-    out: Any = NullStream()
-    if n < 3:
-        out = sys.stdout
+    n = 100
 
     pts = []
     all_metrics = {name: [] for name in ["ipp_list"] + POST_MOVE_METRICS}
@@ -302,10 +307,20 @@ def main(args):
         if (i + 1) % 100 == 0:
             print("Starting game", i + 1)
         random.seed(i + 1)
+
+        game_log = io.StringIO()     # empty buffer for this game
         # TODO: change back or add flag
-        # g = Game(players, out)
-        g = HanasimGame(players, out, post_move_metrics)
-        pts.append(g.run())
+        # g = Game(players, game_log)
+        g = HanasimGame(players, game_log, post_move_metrics)
+        score = g.run()
+
+        target_dir = LOW_MARKS_DIR if score <= LOW_MARK_THRESHOLD else LOG_DIR
+        log_path = os.path.join(target_dir, f"game_{i + 1:04d}.txt")
+        with open(log_path, "w") as f:
+            f.write(game_log.getvalue())
+        game_log.close()
+
+        pts.append(score)
 
         if post_move_metrics:
             for name in all_metrics:
