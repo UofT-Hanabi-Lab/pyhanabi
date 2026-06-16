@@ -110,6 +110,13 @@ class HanasimGame(AbstractGame):
 
         self._reset()
 
+        # God's-eye starting hands, for tracing the game state.
+        print("Starting hands:", file=self.log)
+        for i in range(len(self.players)):
+            hand = [self._convert_card(c) for c in self._obs.hands[i]]
+            print(f"Player {i}: {format_hand(hand)}", file=self.log)
+        print("==========================================================", file=self.log)
+
         if self._post_move_metrics:
             # These structures track post-move metrics for each player
             ipp_list = [[] for _ in range(len(self.players))] # list of ipp scores per player for each turn they play/discard

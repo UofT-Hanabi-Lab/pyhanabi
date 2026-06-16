@@ -298,7 +298,7 @@ def main(args):
     for i, a in enumerate(args):
         players.append(make_player(a, i))
 
-    n = 100
+    n = 1000
 
     pts = []
     all_metrics = {name: [] for name in ["ipp_list"] + POST_MOVE_METRICS}
