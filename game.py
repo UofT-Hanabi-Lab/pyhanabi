@@ -1,4 +1,5 @@
 import sys
+import json
 from abc import ABCMeta, abstractmethod
 from typing import Sequence, override, Final, Any
 from collections import Counter
@@ -65,6 +66,7 @@ class HanasimGame(AbstractGame):
     _obs: hana_sim.Observation
     knowledge: list[list[list[list[int]]]]
     _metric_dict: dict[str, Any]
+    jlog: dict[str, Any]
 
     hanasim_colour_map: Final[dict[str, Color]] = {
         "red": Color.RED,
@@ -80,6 +82,10 @@ class HanasimGame(AbstractGame):
         self._env = hana_sim.HanabiEnv(num_players=len(players))
         self._post_move_metrics = post_move_metrics
         self._metric_dict = {}
+        self.jlog = {
+            "starting_hands": {},
+            "actions": [],
+        }
 
         for player in self.players:
             if isinstance(player, HanaSimPlayer):
@@ -114,8 +120,11 @@ class HanasimGame(AbstractGame):
         print("Starting hands:", file=self.log)
         for i in range(len(self.players)):
             hand = [self._convert_card(c) for c in self._obs.hands[i]]
+            self.jlog["starting_hands"][f"player_{i}"] = [
+                {"colour": card[0].display_name, "rank": card[1]} for card in hand]
             print(f"Player {i}: {format_hand(hand)}", file=self.log)
         print("==========================================================", file=self.log)
+
 
         if self._post_move_metrics:
             # These structures track post-move metrics for each player
@@ -126,6 +135,8 @@ class HanasimGame(AbstractGame):
             has_playable = Counter() # count of turns where player had at least one playable card in hand
             known_unplayable_plays = Counter() # count of known unplayable plays per player
             has_unplayable = Counter() # count of turns where player had at least one unplayable card in hand
+        
+        turn = 1
 
         while True:
             acting_player_id: int = self._obs.current_player_id
@@ -172,13 +183,40 @@ class HanasimGame(AbstractGame):
                     ipp_list[acting_player_id].append(self._information_per_play(action, acting_player_id))
 
             self._log_move(action, acting_player_id, self._obs, step_result.observation)
+
+            card = self._convert_card(self._obs.hands[acting_player_id][action.cnr]) if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD] else None
+            self.jlog["actions"].append({f"turn_{turn}": {
+                "player": acting_player_id,
+                "action": {
+                    "type": action.action_type.name,
+                    "card": {"color": card[0].display_name, "rank": card[1]} if card else None,
+                    "hint_color": action.col.display_name if action.col else None,
+                    "hint_num": action.num if action.num else None,
+                    "hinted_player": action.pnr if action.pnr is not None else None
+                },
+                "resulting_state": {
+                    "board": [
+                        {"color": c[0].display_name, "rank": c[1]} for c in self._convert_board(step_result.observation.fireworks)
+                    ],
+                    "discard_pile": [
+                        {"color": c[0].display_name, "rank": c[1]} for c in self._convert_trash(step_result.observation.discards)
+                    ],
+                    "players_hands": {
+                        f"player_{i}": [
+                        {"color": c[0].display_name, "rank": c[1]} for c in self._get_resulting_hands(step_result.observation)[i]
+                        ] for i in range(len(self.players))
+                    },
+                    "hint_tokens": step_result.observation.hint_tokens,
+                    "lives_remaining": step_result.observation.lives_remaining
+                }
+            }})
             self._obs = step_result.observation
             self._update_knowledge(
                 action,
                 acting_player_id,
                 self._convert_hands(self._obs.hands, acting_player_id),
             )
-
+            turn += 1
             if step_result.done:
                 break
 
@@ -218,6 +256,9 @@ class HanasimGame(AbstractGame):
             self._metric_dict["known_unplayable_plays"] = known_unplayable_plays
             self._metric_dict["has_unplayable"] = has_unplayable
 
+        with open("hanasim_game_log.json", "w") as f:
+            json.dump(self.jlog, f, indent=4, separators=(",", ":"))
+
         return points
 
     def _log_move(self, action, acting_player_id, pre_obs, post_obs):
@@ -252,6 +293,13 @@ class HanasimGame(AbstractGame):
             print(f"trash is now {format_hand(trash)}", file=self.log)
             new_hand = [self._convert_card(c) for c in post_obs.hands[acting_player_id]]
             print(f"Player {acting_player_id} now has {format_hand(new_hand)}", file=self.log)
+
+    def _get_resulting_hands(self, post_obs):
+        resulting_hands = []
+        for i in range(len(self.players)):
+            new_hand = [self._convert_card(c) for c in post_obs.hands[i]]
+            resulting_hands.append(new_hand)
+        return resulting_hands
 
     def _update_knowledge(
         self, action: Action, acting_player: int, hands: list[list[NativeCard]]
