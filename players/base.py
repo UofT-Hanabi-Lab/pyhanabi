@@ -24,6 +24,10 @@ class Player:
         a game.
         """
         pass
+    def get_valid_hints(self):
+        return []
+    def get_redundant_hints(self):
+        return []
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints

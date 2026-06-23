@@ -1,3 +1,4 @@
+import pdb
 import random
 from typing import override, Final
 
@@ -23,6 +24,8 @@ class SelfIntentionalPlayer(Player):
     def __init__(self, name, pnr):
         super().__init__(name, pnr)
         self.got_hint = None
+        self.valid_hints = []
+        self.redun_hints = []
 
         self._next_pnr: Final[int] = (self.pnr + 1) % 3
         """Player ID of the next player in 3P"""
@@ -33,6 +36,13 @@ class SelfIntentionalPlayer(Player):
     @override
     def reset(self) -> None:
         self.got_hint = None
+        self.valid_hints = []
+        self.redun_hints = []
+    def get_valid_hints(self):
+        return self.valid_hints
+    
+    def get_redundant_hints(self):
+        return self.redun_hints
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
@@ -43,6 +53,8 @@ class SelfIntentionalPlayer(Player):
         self.explanation = []
         self.explanation.append(["Your Hand:"] + list(map(f, hands[1 - nr])))
         action = []
+        self.valid_hints = []
+        self.redun_hints = []
         if self.got_hint:
             (act, plr) = self.got_hint
             if act.action_type == Action.ActionType.HINT_COLOR:
@@ -68,7 +80,7 @@ class SelfIntentionalPlayer(Player):
                     not result or result.action_type == Action.ActionType.DISCARD
                 ):
                     result = Action(Action.ActionType.PLAY, cnr=i)
-                elif a == Action.ActionType.DISCARD and not result:
+                elif a == Action.ActionType.DISCARD and not result and hints < MAX_HINT_TOKENS:
                     result = Action(Action.ActionType.DISCARD, cnr=i)
 
         self.got_hint = None
@@ -141,8 +153,10 @@ class SelfIntentionalPlayer(Player):
                     )
                     if isvalid:
                         valid.append((hint_action, score, hintee_id))
+                        self.valid_hints.append((hint_action[1].display_name, hintee_id, score))
                     if expl == ["No new information"]:
                         redundant_hints.append((hint_action, hintee_id))
+                        self.redun_hints.append((hint_action[1], hintee_id, score))
 
                 for r in range(5):
                     r += 1
@@ -161,8 +175,10 @@ class SelfIntentionalPlayer(Player):
                     )
                     if isvalid:
                         valid.append((hint_action, score, hintee_id))
+                        self.valid_hints.append((hint_action[1], hintee_id, score))
                     if expl == ["No new information"]:
                         redundant_hints.append((hint_action, hintee_id))
+                        self.redun_hints.append((hint_action[1], hintee_id, score))
 
             if valid and not result:
                 # sort descending by hint score
@@ -182,7 +198,7 @@ class SelfIntentionalPlayer(Player):
                         num=selected_action[1],
                     )
 
-        if hints == MAX_HINT_TOKENS:
+        if hints == MAX_HINT_TOKENS and not result:
             # then I cannot discard
 
             # first, try to give a redundant hint
