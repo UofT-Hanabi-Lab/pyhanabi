@@ -7,6 +7,7 @@ from collections import Counter
 import hana_sim  # type: ignore
 
 from players import Player, HanaSimPlayer
+from players.self_intentional import SelfIntentionalPlayer
 from utils import (
     Action,
     Color,
@@ -17,7 +18,7 @@ from utils import (
     COUNTS,
     format_card,
     MAX_HINT_TOKENS,
-    playable
+    playable,
 )
 
 MAX_PLAYERS: Final[int] = 5
@@ -84,7 +85,10 @@ class HanasimGame(AbstractGame):
         self._metric_dict = {}
         self.jlog = {
             "starting_hands": {},
+            "initial_mental_states": {},
+            "deck": [],
             "actions": [],
+            "result": {},
         }
 
         for player in self.players:
@@ -113,7 +117,7 @@ class HanasimGame(AbstractGame):
             raise RuntimeError(
                 f"Number of players must be between {MIN_PLAYERS} and {MAX_PLAYERS}"
             )
-
+        
         self._reset()
 
         # God's-eye starting hands, for tracing the game state.
@@ -121,21 +125,45 @@ class HanasimGame(AbstractGame):
         for i in range(len(self.players)):
             hand = [self._convert_card(c) for c in self._obs.hands[i]]
             self.jlog["starting_hands"][f"player_{i}"] = [
-                {"colour": card[0].display_name, "rank": card[1]} for card in hand]
+                {"colour": card[0].display_name, "rank": card[1]} for card in hand
+            ]
             print(f"Player {i}: {format_hand(hand)}", file=self.log)
-        print("==========================================================", file=self.log)
+        print(
+            "==========================================================", file=self.log
+        )
 
+        for i in range(len(self.players)):
+            self.jlog["initial_mental_states"][f"player_{i}"] = []
+            for card in self.knowledge[i]:
+                self.jlog["initial_mental_states"][f"player_{i}"].append({"green": card[0][:], 
+                                                                          "yellow": card[1][:], 
+                                                                          "white": card[2][:], 
+                                                                          "blue": card[3][:], 
+                                                                     "red": card[4][:]})
+        
+        self.jlog["deck"] = [{"color": c[0].display_name, "rank": c[1]} for c in self._convert_trash(self._env.deck[:])]
+            
 
         if self._post_move_metrics:
             # These structures track post-move metrics for each player
-            ipp_list = [[] for _ in range(len(self.players))] # list of ipp scores per player for each turn they play/discard
-            critical_discards = Counter() # count of critical discards per player
-            known_playable_discards = Counter() # count of known playable discards per player
-            known_playable_plays = Counter() # count of known playable plays per player
-            has_playable = Counter() # count of turns where player had at least one playable card in hand
-            known_unplayable_plays = Counter() # count of known unplayable plays per player
-            has_unplayable = Counter() # count of turns where player had at least one unplayable card in hand
-        
+            ipp_list = [
+                [] for _ in range(len(self.players))
+            ]  # list of ipp scores per player for each turn they play/discard
+            critical_discards = Counter()  # count of critical discards per player
+            known_playable_discards = (
+                Counter()
+            )  # count of known playable discards per player
+            known_playable_plays = Counter()  # count of known playable plays per player
+            has_playable = (
+                Counter()
+            )  # count of turns where player had at least one playable card in hand
+            known_unplayable_plays = (
+                Counter()
+            )  # count of known unplayable plays per player
+            has_unplayable = (
+                Counter()
+            )  # count of turns where player had at least one unplayable card in hand
+
         turn = 1
 
         while True:
@@ -162,60 +190,62 @@ class HanasimGame(AbstractGame):
             # Collect post-move metrics if enabled
             if self._post_move_metrics:
                 # Critical discards per play
-                critical_discards[acting_player_id] += self._discarding_critical_card(action, acting_player_id)
+                critical_discards[acting_player_id] += self._discarding_critical_card(
+                    action, acting_player_id
+                )
 
                 # Known playable discards per play
-                known_playable_discards[acting_player_id] += self._discarding_known_playable_card(action, acting_player_id)
+                known_playable_discards[acting_player_id] += (
+                    self._discarding_known_playable_card(action, acting_player_id)
+                )
 
                 # Known playable plays per play
-                known_playable_plays[acting_player_id] += self._playing_known_playable_card(action, acting_player_id)
+                known_playable_plays[acting_player_id] += (
+                    self._playing_known_playable_card(action, acting_player_id)
+                )
 
                 # Has playable card in hand per turn
-                has_playable[acting_player_id] += self._has_playable_card(acting_player_id)
+                has_playable[acting_player_id] += self._has_playable_card(
+                    acting_player_id
+                )
 
                 # Known unplayable plays per play
-                known_unplayable_plays[acting_player_id] += self._playing_known_unplayable_card(action, acting_player_id)
+                known_unplayable_plays[acting_player_id] += (
+                    self._playing_known_unplayable_card(action, acting_player_id)
+                )
                 # Has unplayable card in hand per turn
-                has_unplayable[acting_player_id] += self._has_unplayable_card(acting_player_id)
+                has_unplayable[acting_player_id] += self._has_unplayable_card(
+                    acting_player_id
+                )
 
                 # Information per play
-                if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]:
-                    ipp_list[acting_player_id].append(self._information_per_play(action, acting_player_id))
+                if action.action_type in [
+                    Action.ActionType.PLAY,
+                    Action.ActionType.DISCARD,
+                ]:
+                    ipp_list[acting_player_id].append(
+                        self._information_per_play(action, acting_player_id)
+                    )
 
             self._log_move(action, acting_player_id, self._obs, step_result.observation)
-
-            card = self._convert_card(self._obs.hands[acting_player_id][action.cnr]) if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD] else None
-            self.jlog["actions"].append({f"turn_{turn}": {
-                "player": acting_player_id,
-                "action": {
-                    "type": action.action_type.name,
-                    "card": {"color": card[0].display_name, "rank": card[1]} if card else None,
-                    "hint_color": action.col.display_name if action.col else None,
-                    "hint_num": action.num if action.num else None,
-                    "hinted_player": action.pnr if action.pnr is not None else None
-                },
-                "resulting_state": {
-                    "board": [
-                        {"color": c[0].display_name, "rank": c[1]} for c in self._convert_board(step_result.observation.fireworks)
-                    ],
-                    "discard_pile": [
-                        {"color": c[0].display_name, "rank": c[1]} for c in self._convert_trash(step_result.observation.discards)
-                    ],
-                    "players_hands": {
-                        f"player_{i}": [
-                        {"color": c[0].display_name, "rank": c[1]} for c in self._get_resulting_hands(step_result.observation)[i]
-                        ] for i in range(len(self.players))
-                    },
-                    "hint_tokens": step_result.observation.hint_tokens,
-                    "lives_remaining": step_result.observation.lives_remaining
-                }
-            }})
+            self._jlog_action(turn, action, acting_player_id, self._obs, step_result.observation)
             self._obs = step_result.observation
             self._update_knowledge(
                 action,
                 acting_player_id,
                 self._convert_hands(self._obs.hands, acting_player_id),
             )
+
+            updated_knowledge = {}
+
+            for i in range(len(self.players)):
+                updated_knowledge[f"player_{i}"] = []
+                for card in self.knowledge[i]:
+                    updated_knowledge[f"player_{i}"].append({"green": card[0][:], 
+                        "yellow": card[1][:], "white": card[2][:], 
+                        "blue": card[3][:], "red": card[4][:]})   
+            
+            self.jlog["actions"][-1][f"turn_{turn}"]["resulting_state"]["mental_states"] = updated_knowledge
             turn += 1
             if step_result.done:
                 break
@@ -235,18 +265,46 @@ class HanasimGame(AbstractGame):
         print("End reason:", end_reason, file=self.log)
         print("Final Score:", points, file=self.log)
 
+        self.jlog["result"] = {"score" : points, 
+                               "end_reason": end_reason, 
+                               "lives_remaining": self._obs.lives_remaining}
+
         if self._post_move_metrics:
             for i in range(len(self.players)):
                 if len(ipp_list[i]) == 0:
-                    print(f"Player {i} ({self.players[i].name}) IPP: n/a (did not play or discard card)", file=self.log)
+                    print(
+                        f"Player {i} ({self.players[i].name}) IPP: n/a (did not play or discard card)",
+                        file=self.log,
+                    )
                 else:
-                    print(f"Player {i} ({self.players[i].name}) IPP: {sum(ipp_list[i]) / len(ipp_list[i]) if ipp_list[i] else 0:.2f}", file=self.log)
-                print(f"Player {i} ({self.players[i].name}) Critical Discards: {critical_discards[i]}", file=self.log)
-                print(f"Player {i} ({self.players[i].name}) Known Playable Discards: {known_playable_discards[i]}", file=self.log)
-                print(f"Player {i} ({self.players[i].name}) Known Playable Plays: {known_playable_plays[i]}", file=self.log)
-                print(f"Player {i} ({self.players[i].name}) Has Playable Cards: {has_playable[i]}", file=self.log)
-                print(f"Player {i} ({self.players[i].name}) Known Unplayable Plays: {known_unplayable_plays[i]}", file=self.log)
-                print(f"Player {i} ({self.players[i].name}) Has Unplayable Cards: {has_unplayable[i]}", file=self.log)
+                    print(
+                        f"Player {i} ({self.players[i].name}) IPP: {sum(ipp_list[i]) / len(ipp_list[i]) if ipp_list[i] else 0:.2f}",
+                        file=self.log,
+                    )
+                print(
+                    f"Player {i} ({self.players[i].name}) Critical Discards: {critical_discards[i]}",
+                    file=self.log,
+                )
+                print(
+                    f"Player {i} ({self.players[i].name}) Known Playable Discards: {known_playable_discards[i]}",
+                    file=self.log,
+                )
+                print(
+                    f"Player {i} ({self.players[i].name}) Known Playable Plays: {known_playable_plays[i]}",
+                    file=self.log,
+                )
+                print(
+                    f"Player {i} ({self.players[i].name}) Has Playable Cards: {has_playable[i]}",
+                    file=self.log,
+                )
+                print(
+                    f"Player {i} ({self.players[i].name}) Known Unplayable Plays: {known_unplayable_plays[i]}",
+                    file=self.log,
+                )
+                print(
+                    f"Player {i} ({self.players[i].name}) Has Unplayable Cards: {has_unplayable[i]}",
+                    file=self.log,
+                )
 
             self._metric_dict["ipp_list"] = ipp_list
             self._metric_dict["critical_discards"] = critical_discards
@@ -256,22 +314,25 @@ class HanasimGame(AbstractGame):
             self._metric_dict["known_unplayable_plays"] = known_unplayable_plays
             self._metric_dict["has_unplayable"] = has_unplayable
 
-        with open("hanasim_game_log.json", "w") as f:
-            json.dump(self.jlog, f, indent=4, separators=(",", ":"))
 
         return points
 
     def _log_move(self, action, acting_player_id, pre_obs, post_obs):
         if action.action_type == Action.ActionType.HINT_COLOR:
-            print(f"Player {acting_player_id} hints Player {action.pnr} about all their "
-                  f"{action.col.display_name} cards hints remaining: {post_obs.hint_tokens}",
-                  file=self.log)
+            print(
+                f"Player {acting_player_id} hints Player {action.pnr} about all their "
+                f"{action.col.display_name} cards hints remaining: {post_obs.hint_tokens}",
+                file=self.log,
+            )
             hand = [self._convert_card(c) for c in pre_obs.hands[action.pnr]]
             print(f"Player {action.pnr} has {format_hand(hand)}", file=self.log)
 
         elif action.action_type == Action.ActionType.HINT_NUMBER:
-            print(f"Player {acting_player_id} hints Player {action.pnr} about all their "
-                  f"{action.num} hints remaining: {post_obs.hint_tokens}", file=self.log)
+            print(
+                f"Player {acting_player_id} hints Player {action.pnr} about all their "
+                f"{action.num} hints remaining: {post_obs.hint_tokens}",
+                file=self.log,
+            )
             hand = [self._convert_card(c) for c in pre_obs.hands[action.pnr]]
             print(f"Player {action.pnr} has {format_hand(hand)}", file=self.log)
 
@@ -284,15 +345,78 @@ class HanasimGame(AbstractGame):
             else:
                 print(f"successfully! Board is now {format_hand(board)}", file=self.log)
             new_hand = [self._convert_card(c) for c in post_obs.hands[acting_player_id]]
-            print(f"Player {acting_player_id} now has {format_hand(new_hand)}", file=self.log)
+            print(
+                f"Player {acting_player_id} now has {format_hand(new_hand)}",
+                file=self.log,
+            )
 
         else:  # DISCARD
             card = self._convert_card(pre_obs.hands[acting_player_id][action.cnr])
-            print(f"Player {acting_player_id} discards {format_card(card)}", file=self.log)
+            print(
+                f"Player {acting_player_id} discards {format_card(card)}", file=self.log
+            )
             trash = self._convert_trash(post_obs.discards)
             print(f"trash is now {format_hand(trash)}", file=self.log)
             new_hand = [self._convert_card(c) for c in post_obs.hands[acting_player_id]]
-            print(f"Player {acting_player_id} now has {format_hand(new_hand)}", file=self.log)
+            print(
+                f"Player {acting_player_id} now has {format_hand(new_hand)}",
+                file=self.log,
+            )
+    
+    def _jlog_action(self, turn, action, acting_player_id, pre_obs, post_obs):
+        p_card = (
+                self._convert_card(pre_obs.hands[acting_player_id][action.cnr]) if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD] else None
+            )
+        self.jlog["actions"].append(
+                {
+                    f"turn_{turn}": {
+                        "player": acting_player_id,
+                        "action": {
+                            "type": action.action_type.name,
+                            "chosen_card": {"color": p_card[0].display_name, "rank": p_card[1]}
+                            if p_card
+                            else None,
+                            "successful": "no" if post_obs.lives_remaining < pre_obs.lives_remaining else "yes" if action.action_type == Action.ActionType.PLAY else None,
+                            "valid_hints": [{ "hint": h[0], "hinted_player": h[1], "score": h[2] } for h in self.players[acting_player_id].get_valid_hints()],
+                            "redundant_hints": [{ "hint": h[0], "hinted_player": h[1], "score": h[2] } for h in self.players[acting_player_id].get_redundant_hints()],
+                            "hint": {
+                            "hint_color": action.col.display_name
+                            if action.col
+                            else None,
+                            "hint_num": action.num if action.num else None,
+                            "hinted_player": action.pnr
+                            if action.pnr is not None
+                            else None},
+                        },
+                        "resulting_state": {
+                            "board": [
+                                {"color": c[0].display_name, "rank": c[1]}
+                                for c in self._convert_board(
+                                    post_obs.fireworks
+                                )
+                            ],
+                            "discard_pile": [
+                                {"color": c[0].display_name, "rank": c[1]}
+                                for c in self._convert_trash(
+                                    post_obs.discards
+                                )
+                            ],
+                            "players_hands": {
+                                f"player_{i}": [
+                                    {"color": c[0].display_name, "rank": c[1]}
+                                    for c in self._get_resulting_hands(
+                                        post_obs
+                                    )[i]
+                                ]
+                                for i in range(len(self.players))
+                            },
+                            "mental_states": {},
+                            "hint_tokens": post_obs.hint_tokens,
+                            "lives_remaining": post_obs.lives_remaining,
+                        },
+                    }
+                }
+            )
 
     def _get_resulting_hands(self, post_obs):
         resulting_hands = []
@@ -531,9 +655,7 @@ class HanasimGame(AbstractGame):
             return False
 
         # Identify card number and colour
-        (col, num) = self._convert_card(
-            self._obs.hands[acting_player_id][action.cnr]
-        )
+        (col, num) = self._convert_card(self._obs.hands[acting_player_id][action.cnr])
 
         # a 5 card is always critical
         if num == 5:
@@ -554,7 +676,9 @@ class HanasimGame(AbstractGame):
 
         return False
 
-    def _discarding_known_playable_card(self, action: Action, acting_player_id: int) -> bool:
+    def _discarding_known_playable_card(
+        self, action: Action, acting_player_id: int
+    ) -> bool:
         """
         This returns True if a player has discarded a known-to-be-playable card
         """
@@ -566,7 +690,9 @@ class HanasimGame(AbstractGame):
         possible_cards = get_possible(self.knowledge[acting_player_id][action.cnr])
         return playable(possible_cards, self._convert_board(self._obs.fireworks))
 
-    def _playing_known_playable_card(self, action: Action, acting_player_id: int) -> bool:
+    def _playing_known_playable_card(
+        self, action: Action, acting_player_id: int
+    ) -> bool:
         """
         This returns True if a player has played a known-to-be-playable card
         """
@@ -590,7 +716,9 @@ class HanasimGame(AbstractGame):
                 return True
         return False
 
-    def _playing_known_unplayable_card(self, action: Action, acting_player_id: int) -> bool:
+    def _playing_known_unplayable_card(
+        self, action: Action, acting_player_id: int
+    ) -> bool:
         """
         This returns True if a player has played a known-to-be-unplayable card
         """
@@ -647,7 +775,6 @@ class HanasimGame(AbstractGame):
     def metric_dict(self) -> dict[str, list]:
         "Retrieve a dict of metrics to display results once the game has finished"
         return self._metric_dict
-
 
 
 class Game(AbstractGame):

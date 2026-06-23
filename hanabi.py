@@ -1,3 +1,4 @@
+import json
 import random
 import os
 import sys
@@ -7,6 +8,7 @@ import numpy
 import io
 
 LOG_DIR = "log"
+LOG_JSON_DIR = "json"
 LOW_MARKS_DIR = os.path.join(LOG_DIR, "low_scores")
 LOW_MARK_THRESHOLD = 5
 
@@ -298,7 +300,7 @@ def main(args):
     for i, a in enumerate(args):
         players.append(make_player(a, i))
 
-    n = 1000
+    n = 1
 
     pts = []
     all_metrics = {name: [] for name in ["ipp_list"] + POST_MOVE_METRICS}
@@ -319,6 +321,11 @@ def main(args):
         with open(log_path, "w") as f:
             f.write(game_log.getvalue())
         game_log.close()
+        
+        json_path = os.path.join(LOG_JSON_DIR, f"game_{i + 1:04d}.json")
+        with open(json_path, "w") as f:
+            json.dump(g.jlog, f, indent=2)
+        
 
         pts.append(score)
 
