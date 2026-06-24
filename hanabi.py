@@ -314,7 +314,7 @@ def main(args):
         random.seed(i + 1)
 
         game_log = io.StringIO()     # empty buffer for this game
-        print(f"Simulation setting - {len(players)} players: {', '.join(args)}",
+        print(f"{len(players)} players: {', '.join(args)}",
               file=game_log)
         print(file=game_log)
         # TODO: change back or add flag
