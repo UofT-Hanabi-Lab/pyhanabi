@@ -117,7 +117,7 @@ class HanasimGame(AbstractGame):
             raise RuntimeError(
                 f"Number of players must be between {MIN_PLAYERS} and {MAX_PLAYERS}"
             )
-        
+
         self._reset()
 
         # God's-eye starting hands, for tracing the game state.
@@ -131,18 +131,19 @@ class HanasimGame(AbstractGame):
         print(
             "==========================================================", file=self.log
         )
+        print(file=self.log)  # blank line — paragraph separator
+
 
         for i in range(len(self.players)):
             self.jlog["initial_mental_states"][f"player_{i}"] = []
             for card in self.knowledge[i]:
-                self.jlog["initial_mental_states"][f"player_{i}"].append({"green": card[0][:], 
-                                                                          "yellow": card[1][:], 
-                                                                          "white": card[2][:], 
-                                                                          "blue": card[3][:], 
+                self.jlog["initial_mental_states"][f"player_{i}"].append({"green": card[0][:],
+                                                                          "yellow": card[1][:],
+                                                                          "white": card[2][:],
+                                                                          "blue": card[3][:],
                                                                      "red": card[4][:]})
-        
+
         self.jlog["deck"] = [{"color": c[0].display_name, "rank": c[1]} for c in self._convert_trash(self._env.deck[:])]
-            
 
         if self._post_move_metrics:
             # These structures track post-move metrics for each player
@@ -227,24 +228,26 @@ class HanasimGame(AbstractGame):
                         self._information_per_play(action, acting_player_id)
                     )
 
-            self._log_move(action, acting_player_id, self._obs, step_result.observation)
             self._jlog_action(turn, action, acting_player_id, self._obs, step_result.observation)
+
+            prev_obs = self._obs
             self._obs = step_result.observation
             self._update_knowledge(
                 action,
                 acting_player_id,
                 self._convert_hands(self._obs.hands, acting_player_id),
             )
+            self._log_move(turn, action, acting_player_id, prev_obs)
+
 
             updated_knowledge = {}
-
             for i in range(len(self.players)):
                 updated_knowledge[f"player_{i}"] = []
                 for card in self.knowledge[i]:
-                    updated_knowledge[f"player_{i}"].append({"green": card[0][:], 
-                        "yellow": card[1][:], "white": card[2][:], 
-                        "blue": card[3][:], "red": card[4][:]})   
-            
+                    updated_knowledge[f"player_{i}"].append({"green": card[0][:],
+                        "yellow": card[1][:], "white": card[2][:],
+                        "blue": card[3][:], "red": card[4][:]})
+
             self.jlog["actions"][-1][f"turn_{turn}"]["resulting_state"]["mental_states"] = updated_knowledge
             turn += 1
             if step_result.done:
@@ -261,12 +264,12 @@ class HanasimGame(AbstractGame):
         else:
             end_reason = "deck exhausted"
 
-        print("Game done, hits left:", self._obs.lives_remaining, file=self.log)
-        print("End reason:", end_reason, file=self.log)
-        print("Final Score:", points, file=self.log)
+            print("Game done, hits left:", self._obs.lives_remaining, file=self.log)
+            print("End reason:", end_reason, file=self.log)
+            print("Final Score:", points, file=self.log)
 
-        self.jlog["result"] = {"score" : points, 
-                               "end_reason": end_reason, 
+        self.jlog["result"] = {"score" : points,
+                               "end_reason": end_reason,
                                "lives_remaining": self._obs.lives_remaining}
 
         if self._post_move_metrics:
@@ -317,52 +320,74 @@ class HanasimGame(AbstractGame):
 
         return points
 
-    def _log_move(self, action, acting_player_id, pre_obs, post_obs):
+
+    def _summarize_knowledge(self, card_knowledge) -> str:
+        """Collapse one card's 5x5 possibility grid into the colors and numbers
+        still possible for it — i.e. what its owner knows about it."""
+        possible_colors = [
+            col.display_name
+            for col in Color
+            if any(cnt > 0 for cnt in card_knowledge[col])
+        ]
+        possible_ranks = sorted({
+            i + 1
+            for col in Color
+            for i, cnt in enumerate(card_knowledge[col])
+            if cnt > 0
+        })
+        color = "any" if len(possible_colors) == len(Color) else "/".join(possible_colors)
+        rank = "any" if len(possible_ranks) == len(COUNTS) else "/".join(map(str, possible_ranks))
+        return f"color: {color}; number: {rank}"
+
+
+    def _log_move(self, move_number, action, acting_player_id, prev_obs) -> None:
+        """Write one move as a full paragraph: what happened, then the complete
+        post-move state (board, trash, tokens, all hands, all mental states)."""
+        # What happened this move
         if action.action_type == Action.ActionType.HINT_COLOR:
-            print(
-                f"Player {acting_player_id} hints Player {action.pnr} about all their "
-                f"{action.col.display_name} cards hints remaining: {post_obs.hint_tokens}",
-                file=self.log,
-            )
-            hand = [self._convert_card(c) for c in pre_obs.hands[action.pnr]]
-            print(f"Player {action.pnr} has {format_hand(hand)}", file=self.log)
-
+            print(f"Move {move_number}: Player {acting_player_id} hints Player "
+                  f"{action.pnr}: {action.col.display_name} cards",
+                  file=self.log)
         elif action.action_type == Action.ActionType.HINT_NUMBER:
-            print(
-                f"Player {acting_player_id} hints Player {action.pnr} about all their "
-                f"{action.num} hints remaining: {post_obs.hint_tokens}",
-                file=self.log,
-            )
-            hand = [self._convert_card(c) for c in pre_obs.hands[action.pnr]]
-            print(f"Player {action.pnr} has {format_hand(hand)}", file=self.log)
-
+            print(f"Move {move_number}: Player {acting_player_id} hints Player "
+                  f"{action.pnr}: {action.num}s", file=self.log)
         elif action.action_type == Action.ActionType.PLAY:
-            card = self._convert_card(pre_obs.hands[acting_player_id][action.cnr])
-            print(f"Player {acting_player_id} plays {format_card(card)}", file=self.log)
-            board = self._convert_board(post_obs.fireworks)
-            if post_obs.lives_remaining < pre_obs.lives_remaining:
-                print(f"and fails. Board was {format_hand(board)}", file=self.log)
-            else:
-                print(f"successfully! Board is now {format_hand(board)}", file=self.log)
-            new_hand = [self._convert_card(c) for c in post_obs.hands[acting_player_id]]
-            print(
-                f"Player {acting_player_id} now has {format_hand(new_hand)}",
-                file=self.log,
-            )
-
+            card = self._convert_card(prev_obs.hands[acting_player_id][action.cnr])
+            ok = self._obs.lives_remaining == prev_obs.lives_remaining
+            print(f"Move {move_number}: Player {acting_player_id} plays "
+                  f"{format_card(card)} — {'successfully' if ok else 'and it failed'}",
+                  file=self.log)
         else:  # DISCARD
-            card = self._convert_card(pre_obs.hands[acting_player_id][action.cnr])
-            print(
-                f"Player {acting_player_id} discards {format_card(card)}", file=self.log
-            )
-            trash = self._convert_trash(post_obs.discards)
-            print(f"trash is now {format_hand(trash)}", file=self.log)
-            new_hand = [self._convert_card(c) for c in post_obs.hands[acting_player_id]]
-            print(
-                f"Player {acting_player_id} now has {format_hand(new_hand)}",
-                file=self.log,
-            )
-    
+            card = self._convert_card(prev_obs.hands[acting_player_id][action.cnr])
+            print(f"Move {move_number}: Player {acting_player_id} discards "
+                  f"{format_card(card)}", file=self.log)
+
+        # Shared board state after the move
+        board = self._convert_board(self._obs.fireworks)
+        trash = self._convert_trash(self._obs.discards)
+        print(f"Board: {format_hand(board)}", file=self.log)
+        print(f"Trash: {format_hand(trash) if trash else '(empty)'}", file=self.log)
+        print(f"Lives: {self._obs.lives_remaining} | Hints: {self._obs.hint_tokens}",
+              file=self.log)
+
+        # print("Hands:", file=self.log)
+        # for i in range(len(self.players)):
+        #     hand = [self._convert_card(c) for c in self._obs.hands[i]]
+        #     print(f"  Player {i}: {format_hand(hand)}", file=self.log)
+
+        # Every player's hand and mental state
+        print("Hands & Knowledge:", file=self.log)
+        for i in range(len(self.players)):
+            print(f"  Player {i}:", file=self.log)
+            for idx, (card, k) in enumerate(zip(self._obs.hands[i], self.knowledge[i])):
+                native = self._convert_card(card)
+                print(f"    [{idx}] {format_card(native)} -> "
+                      f"{self._summarize_knowledge(k)}", file=self.log)
+
+        print(file=self.log)  # blank line — paragraph separator
+        print(file=self.log)  # blank line — paragraph separator
+
+
     def _jlog_action(self, turn, action, acting_player_id, pre_obs, post_obs):
         p_card = (
                 self._convert_card(pre_obs.hands[acting_player_id][action.cnr]) if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD] else None
