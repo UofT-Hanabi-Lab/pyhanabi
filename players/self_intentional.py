@@ -153,10 +153,16 @@ class SelfIntentionalPlayer(Player):
                     )
                     if isvalid:
                         valid.append((hint_action, score, hintee_id))
-                        self.valid_hints.append((hint_action[1].display_name, hintee_id, score))
+                        if hint_action[0] == Action.ActionType.HINT_NUMBER:
+                            self.valid_hints.append((hint_action[1], hintee_id, score))
+                        else:
+                            self.valid_hints.append((hint_action[1].display_name, hintee_id, score))
                     if expl == ["No new information"]:
                         redundant_hints.append((hint_action, hintee_id))
-                        self.redun_hints.append((hint_action[1], hintee_id, score))
+                        if hint_action[0] == Action.ActionType.HINT_NUMBER:
+                            self.redun_hints.append((hint_action[1], hintee_id, score))
+                        else:
+                            self.redun_hints.append((hint_action[1].display_name, hintee_id, score))
 
                 for r in range(5):
                     r += 1
@@ -175,10 +181,17 @@ class SelfIntentionalPlayer(Player):
                     )
                     if isvalid:
                         valid.append((hint_action, score, hintee_id))
-                        self.valid_hints.append((hint_action[1], hintee_id, score))
+                        if hint_action[0] == Action.ActionType.HINT_NUMBER:
+                            self.valid_hints.append((hint_action[1], hintee_id, score))
+                        else:
+                            self.valid_hints.append((hint_action[1].display_name, hintee_id, score))
                     if expl == ["No new information"]:
                         redundant_hints.append((hint_action, hintee_id))
-                        self.redun_hints.append((hint_action[1], hintee_id, score))
+                        if hint_action[0] == Action.ActionType.HINT_NUMBER:
+                            self.redun_hints.append((hint_action[1], hintee_id, score))
+                        else:
+                            self.redun_hints.append((hint_action[1].display_name, hintee_id, score))
+
 
             if valid and not result:
                 # sort descending by hint score
