@@ -376,7 +376,6 @@ class HanasimGame(AbstractGame):
         #     print(f"  Player {i}: {format_hand(hand)}", file=self.log)
 
         # Every player's hand and mental state
-        print("Hands & Knowledge:", file=self.log)
         for i in range(len(self.players)):
             print(f"  Player {i}:", file=self.log)
             for idx, (card, k) in enumerate(zip(self._obs.hands[i], self.knowledge[i])):

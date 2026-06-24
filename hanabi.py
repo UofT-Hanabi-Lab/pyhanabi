@@ -104,7 +104,8 @@ def make_player(player_type: str, player_id: int) -> Player:
 
 
 def report_metrics(pts: list[int], players: list[Player], n: int,
-                   post_move_metrics: bool=False, metrics:dict=None, prefix="plots/"):
+                   post_move_metrics: bool=False, metrics:dict=None, prefix="plots/",
+                   suffix = ""):
     """All end-of-run evaluation: summary statistics + histograms"""
     # If plots/ doesn't exist, create one
     if os.path.dirname(prefix):
@@ -123,9 +124,9 @@ def report_metrics(pts: list[int], players: list[Player], n: int,
     ax.set_ylabel("Number of games")
     ax.set_title(f"Score distribution over {n} games")
     fig.tight_layout()
-    fig.savefig(f"{prefix}score_distribution.png", dpi=120)
+    fig.savefig(f"{prefix}score_{suffix}.png", dpi=120)
     plt.close(fig)
-    saved.append(f"{prefix}score_distribution.png")
+    saved.append(f"{prefix}score_{suffix}.png")
 
     # Post-move metrics: summarized and plotted iff enabled
     if post_move_metrics and metrics is not None:
@@ -150,9 +151,9 @@ def report_metrics(pts: list[int], players: list[Player], n: int,
             ax.set_xlabel("Mean IPP per game")
             ax.set_ylabel("Number of games")
         plt.tight_layout()
-        plt.savefig(f"{prefix}ipp_distribution.png", dpi=120)
+        plt.savefig(f"{prefix}ipp_{suffix}.png", dpi=120)
         plt.close("all")
-        saved.append(f"{prefix}ipp_distribution.png")
+        saved.append(f"{prefix}ipp_{suffix}.png")
 
         # Post-move metrics: one DataFrame per metric
         # rows = games, columns = players
@@ -178,15 +179,15 @@ def report_metrics(pts: list[int], players: list[Player], n: int,
             numpy.atleast_1d(axes)[0].set_ylabel("Number of games")
             fig.suptitle(f"{name} per game")
             fig.tight_layout()
-            fig.savefig(f"{prefix}{name}_distribution.png", dpi=120)
+            fig.savefig(f"{prefix}{name}_distribution_{suffix}.png", dpi=120)
             plt.close(fig)
-            saved.append(f"{prefix}{name}_distribution.png")
+            saved.append(f"{prefix}{name}_distribution_{suffix}.png")
 
     print("\nSaved:", *saved, sep="\n  ")
 
 
 def main(args):
-    post_move_metrics = False
+    post_move_metrics = True
     if not args:
         args = ["random"] * 3
     if args[0] == "trial":
@@ -301,31 +302,36 @@ def main(args):
         players.append(make_player(a, i))
 
     n = 1000
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
 
     pts = []
     all_metrics = {name: [] for name in ["ipp_list"] + POST_MOVE_METRICS}
 
     for i in list(range(n)):
+        # Display in terminal every 100 game
         if (i + 1) % 100 == 0:
             print("Starting game", i + 1)
         random.seed(i + 1)
 
         game_log = io.StringIO()     # empty buffer for this game
+        print(f"Simulation setting - {len(players)} players: {', '.join(args)}",
+              file=game_log)
+        print(file=game_log)
         # TODO: change back or add flag
         # g = Game(players, game_log)
         g = HanasimGame(players, game_log, post_move_metrics)
         score = g.run()
 
         target_dir = LOW_MARKS_DIR if score <= LOW_MARK_THRESHOLD else LOG_DIR
-        log_path = os.path.join(target_dir, f"game_{i + 1:04d}.txt")
+        log_path = os.path.join(target_dir, f"{len(players)}p{i + 1:04d}_{timestamp}.txt")
         with open(log_path, "w") as f:
             f.write(game_log.getvalue())
         game_log.close()
-        
-        json_path = os.path.join(LOG_JSON_DIR, f"game_{i + 1:04d}.json")
+
+        json_path = os.path.join(LOG_JSON_DIR, f"{len(players)}p{i + 1:04d}_{timestamp}.json")
         with open(json_path, "w") as f:
             json.dump(g.jlog, f, indent=2)
-        
+
 
         pts.append(score)
 
@@ -346,7 +352,8 @@ def main(args):
 
     report_metrics(pts, players, n,
                    post_move_metrics=post_move_metrics,
-                   metrics=all_metrics if post_move_metrics else None)
+                   metrics=all_metrics if post_move_metrics else None,
+                   suffix=f"{timestamp}")
 
 
 if __name__ == "__main__":
