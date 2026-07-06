@@ -21,11 +21,12 @@ from utils import (
 
 
 class SelfIntentionalPlayer(Player):
-    def __init__(self, name, pnr):
+    def __init__(self, name, pnr, version=0):
         super().__init__(name, pnr)
         self.got_hint = None
         self.valid_hints = []
         self.redun_hints = []
+        self.version = version
 
         self._next_pnr: Final[int] = (self.pnr + 1) % 3
         """Player ID of the next player in 3P"""
@@ -55,50 +56,105 @@ class SelfIntentionalPlayer(Player):
         action = []
         self.valid_hints = []
         self.redun_hints = []
-        if self.got_hint:
-            (act, plr) = self.got_hint
-            if act.action_type == Action.ActionType.HINT_COLOR:
-                for k in knowledge[nr]:
-                    action.append(whattodo(k, sum(k[act.col]) > 0, board))
-            elif act.action_type == Action.ActionType.HINT_NUMBER:
-                for k in knowledge[nr]:
-                    cnt = 0
-                    for c in Color:
-                        cnt += k[c][act.num - 1]
-                    action.append(whattodo(k, cnt > 0, board))
 
-        if action:
-            self.explanation.append(
-                ["What you want me to do"]
-                + [
-                    x.display_name if isinstance(x, Action.ActionType) else "Keep"
-                    for x in action
-                ]
-            )
-            for i, a in enumerate(action):
-                if a == Action.ActionType.PLAY and (
-                    not result or result.action_type == Action.ActionType.DISCARD
-                ):
-                    result = Action(Action.ActionType.PLAY, cnr=i)
-                elif a == Action.ActionType.DISCARD and not result and hints < MAX_HINT_TOKENS:
-                    result = Action(Action.ActionType.DISCARD, cnr=i)
+        if self.version == 0:
+            # Interpret recieved hint
+            if self.got_hint:
+                result = self.received_hint(nr, knowledge, board, hints, result, action)
 
-        self.got_hint = None
-        for k in knowledge[nr]:
-            possible.append(get_possible(k))
+            # play or discard
+            if not result:
+                result = self.play_or_discard(nr, knowledge, board, hints, possible, result)
 
-        discardable_idx = []
-        for i, p in enumerate(possible):
-            if playable(p, board) and not result:
-                result = Action(Action.ActionType.PLAY, cnr=i)
-            if discardable(p, board):
-                discardable_idx.append(i)
+            # give intentional hint
+            if not result:
+                result, redundant_hints = self.give_intentional_hint(nr, hands, knowledge, trash, board, hints, num_players, result)
 
-        if discardable_idx and hints < MAX_HINT_TOKENS and not result:
+            # give redundant hint
+            if hints == MAX_HINT_TOKENS and not result:
+                # then I cannot discard
+
+                # first, try to give a redundant hint
+                if redundant_hints:
+                    result = self.give_redundant_hint(redundant_hints)
+
+                # give random hint
+                else:
+                    # if there are no redundant hints to give, give a random hint
+                    result = self.give_random_hint(valid_actions)
+
+            # discard
+            scores = self.discard_card(nr, knowledge, trash, board)
+
+        if result:
+            assert result in valid_actions
+            return result
+        assert scores[0][0] in valid_actions
+        return scores[0][0]
+
+    def give_redundant_hint(self, redundant_hints):
+        selected_action, hintee_id = random.choice(redundant_hints)
+        if selected_action[0] is Action.ActionType.HINT_COLOR:
             result = Action(
-                Action.ActionType.DISCARD, cnr=random.choice(discardable_idx)
+                            Action.ActionType.HINT_COLOR,
+                            pnr=hintee_id,
+                            col=Color(selected_action[1]),
+                        )
+        else:
+            result = Action(
+                            Action.ActionType.HINT_NUMBER,
+                            pnr=hintee_id,
+                            num=selected_action[1],
+                        )
+        return result
+
+    def discard_card(self, nr, knowledge, trash, board):
+        self.explanation.append(
+            ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
+        )
+        possible = [
+            Action(Action.ActionType.DISCARD, cnr=i) for i in range(self._hand_size)
+        ]
+
+        scores = list(
+            map(lambda p: pretend_discard(p, knowledge[nr], board, trash), possible)
+        )
+
+        def format_term(x):
+            (col, rank, _, prob, val) = x
+            return (
+                col.display_name
+                + " "
+                + str(rank)
+                + " ({:.2f}%): {:.2f}".format(prob * 100, val)
             )
 
+        self.explanation.append(
+            ["Discard Scores"]
+            + list(
+                map(
+                    lambda x: "\n".join(map(format_term, x[2])) + "\n%.2f" % (x[1]),
+                    scores,
+                )
+            )
+        )
+        scores.sort(key=lambda x: -x[1])
+        return scores
+
+    def give_random_hint(self, valid_actions):
+        result = random.choice(
+                    [
+                        action
+                        for action in valid_actions
+                        if action.action_type
+                        in {Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER}
+                    ]
+                )
+        
+        return result
+
+    def give_intentional_hint(self, nr, hands, knowledge, trash, board, hints, num_players, result):
+        redundant_hints = []
         if num_players == 2:
             intents_for_next = self._create_intents(
                 hands[(self.pnr + 1) % 2], board, trash
@@ -210,72 +266,57 @@ class SelfIntentionalPlayer(Player):
                         pnr=hintee_id,
                         num=selected_action[1],
                     )
+                    
+        return result, redundant_hints
 
-        if hints == MAX_HINT_TOKENS and not result:
-            # then I cannot discard
+    def play_or_discard(self, nr, knowledge, board, hints, possible, result):
+        for k in knowledge[nr]:
+            possible.append(get_possible(k))
 
-            # first, try to give a redundant hint
-            if redundant_hints:
-                selected_action, hintee_id = random.choice(redundant_hints)
-                if selected_action[0] is Action.ActionType.HINT_COLOR:
-                    result = Action(
-                        Action.ActionType.HINT_COLOR,
-                        pnr=hintee_id,
-                        col=Color(selected_action[1]),
-                    )
-                else:
-                    result = Action(
-                        Action.ActionType.HINT_NUMBER,
-                        pnr=hintee_id,
-                        num=selected_action[1],
-                    )
+        discardable_idx = []
+        for i, p in enumerate(possible):
+            if playable(p, board) and not result:
+                result = Action(Action.ActionType.PLAY, cnr=i)
+            if discardable(p, board):
+                discardable_idx.append(i)
 
-            else:
-                # if there are no redundant hints to give, give a random hint
-                result = random.choice(
-                    [
-                        action
-                        for action in valid_actions
-                        if action.action_type
-                        in {Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER}
-                    ]
-                )
-
-        self.explanation.append(
-            ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
-        )
-        possible = [
-            Action(Action.ActionType.DISCARD, cnr=i) for i in range(self._hand_size)
-        ]
-
-        scores = list(
-            map(lambda p: pretend_discard(p, knowledge[nr], board, trash), possible)
-        )
-
-        def format_term(x):
-            (col, rank, _, prob, val) = x
-            return (
-                col.display_name
-                + " "
-                + str(rank)
-                + " ({:.2f}%): {:.2f}".format(prob * 100, val)
+        if discardable_idx and hints < MAX_HINT_TOKENS and not result:
+            result = Action(
+                Action.ActionType.DISCARD, cnr=random.choice(discardable_idx)
             )
+            
+        return result
 
-        self.explanation.append(
-            ["Discard Scores"]
-            + list(
-                map(
-                    lambda x: "\n".join(map(format_term, x[2])) + "\n%.2f" % (x[1]),
-                    scores,
-                )
+    def received_hint(self, nr, knowledge, board, hints, result, action):
+        (act, plr) = self.got_hint
+        if act.action_type == Action.ActionType.HINT_COLOR:
+            for k in knowledge[nr]:
+                action.append(whattodo(k, sum(k[act.col]) > 0, board))
+        elif act.action_type == Action.ActionType.HINT_NUMBER:
+            for k in knowledge[nr]:
+                cnt = 0
+                for c in Color:
+                    cnt += k[c][act.num - 1]
+                action.append(whattodo(k, cnt > 0, board))
+
+        if action:
+            self.explanation.append(
+                ["What you want me to do"]
+                + [
+                    x.display_name if isinstance(x, Action.ActionType) else "Keep"
+                    for x in action
+                ]
             )
-        )
-        scores.sort(key=lambda x: -x[1])
-        if result:
-            assert result in valid_actions
-            return result
-        assert scores[0][0] in valid_actions
-        return scores[0][0]
+            for i, a in enumerate(action):
+                if a == Action.ActionType.PLAY and (
+                    not result or result.action_type == Action.ActionType.DISCARD
+                ):
+                    result = Action(Action.ActionType.PLAY, cnr=i)
+                elif a == Action.ActionType.DISCARD and not result and hints < MAX_HINT_TOKENS:
+                    result = Action(Action.ActionType.DISCARD, cnr=i)
+
+        self.got_hint = None
+        return result
 
     def _create_intents(
         self,

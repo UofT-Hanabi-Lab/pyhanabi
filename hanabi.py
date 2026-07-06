@@ -69,8 +69,10 @@ POST_MOVE_METRICS = [
 ]
 
 
-def make_player(player_type: str, player_id: int) -> Player:
+def make_player(player_type: str, player_id: int, version: int = 0 ) -> Player:
     if player_type in player_types:
+        if version > 0 and player_type == "full":
+            return player_types[player_type](names[player_id], player_id, version=version)
         return player_types[player_type](names[player_id], player_id)
 
     elif player_type.startswith("self("):
@@ -299,7 +301,12 @@ def main(args):
     players: list[Player] = []
 
     for i, a in enumerate(args):
-        players.append(make_player(a, i))
+        if a.startswith("full/"):
+            agent = a.split("/")
+            v = int(agent[1]) if len(agent) > 1 else 0
+            players.append(make_player(agent[0], i, v))
+        else: 
+            players.append(make_player(a, i))
 
     n = 1000
     timestamp = time.strftime("%Y%m%d_%H%M%S")
