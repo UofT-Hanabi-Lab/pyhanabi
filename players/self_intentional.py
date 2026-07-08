@@ -43,7 +43,7 @@ class SelfIntentionalPlayer(Player):
         self.redun_hints = []
     def get_valid_hints(self):
         return self.valid_hints
-    
+
     def get_redundant_hints(self):
         return self.redun_hints
 
@@ -87,7 +87,7 @@ class SelfIntentionalPlayer(Player):
 
             # discard
             scores = self.discard_card(nr, knowledge, trash, board)
-        
+
         if self.version == 1:
             # Interpret recieved hint
             if self.got_hint:
@@ -109,7 +109,7 @@ class SelfIntentionalPlayer(Player):
                 # result = self.give_hint_v1(nr, hands, knowledge, trash, board, hints, num_players, result)
                 if redundant_hints and not result:
                     result = self.give_redundant_hint(redundant_hints)
-                
+
                 result = self.give_hint_v1(nr, hands, knowledge, trash, board, hints, num_players, result)
 
                 # give random hint
@@ -119,7 +119,32 @@ class SelfIntentionalPlayer(Player):
 
             # discard
             scores = self.discard_card(nr, knowledge, trash, board)
-        
+
+        if self.version == 2:
+            # play a certainly playable card, or discard a certainly useless one
+            result = self.play_or_discard(nr, knowledge, board, hints, possible, result)
+
+            # interpret received hint only if no safe action was found
+            if self.got_hint:
+                if not result:
+                    result = self.received_hint(nr, knowledge, board, hints, result, action)
+                else:
+                    self.got_hint = None
+
+            # give intentional hint
+            if not result:
+                result, redundant_hints = self.give_intentional_hint(nr, hands, knowledge, trash, board, hints, num_players, result)
+
+            # At max tokens cannot discard: redundant hint, else random hint
+            if hints == MAX_HINT_TOKENS and not result:
+                if redundant_hints:
+                    result = self.give_redundant_hint(redundant_hints)
+                else:
+                    result = self.give_random_hint(valid_actions)
+
+            # Fallback: discard the card with the lowest expected loss
+            scores = self.discard_card(nr, knowledge, trash, board)
+
         if self.version == 3:
             # Interpret recieved hint
             if self.got_hint:
@@ -140,7 +165,7 @@ class SelfIntentionalPlayer(Player):
                 # first, try to give a redundant hint
                 if redundant_hints and not result:
                     result = self.give_redundant_hint(redundant_hints)
-                
+
                 # result = self.give_hint_v3(nr, hands, knowledge, trash, board, hints, num_players, result)
 
                 # give random hint
@@ -150,7 +175,7 @@ class SelfIntentionalPlayer(Player):
 
             # discard
             scores = self.discard_card(nr, knowledge, trash, board)
-        
+
 
         if result:
             assert result in valid_actions
@@ -216,7 +241,7 @@ class SelfIntentionalPlayer(Player):
                         in {Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER}
                     ]
                 )
-        
+
         return result
 
     def give_intentional_hint(self, nr, hands, knowledge, trash, board, hints, num_players, result):
@@ -332,9 +357,9 @@ class SelfIntentionalPlayer(Player):
                         pnr=hintee_id,
                         num=selected_action[1],
                     )
-                    
+
         return result, redundant_hints
-    
+
     def give_hint_v1(self, nr, hands, knowledge, trash, board, hints, num_players, result):
         if num_players == 2:
             intents_for_next = self._create_intents(
@@ -434,9 +459,9 @@ class SelfIntentionalPlayer(Player):
                         pnr=hintee_id,
                         num=selected_action[1],
                     )
-                    
+
         return result
-    
+
     def give_hint_v3(self, nr, hands, knowledge, trash, board, hints, num_players, result):
         if num_players == 2:
             intents_for_next = self._create_intents(
@@ -528,7 +553,7 @@ class SelfIntentionalPlayer(Player):
                         pnr=hintee_id,
                         num=selected_action[1],
                     )
-                    
+
         return result
 
     def play_or_discard(self, nr, knowledge, board, hints, possible, result):
@@ -546,7 +571,7 @@ class SelfIntentionalPlayer(Player):
             result = Action(
                 Action.ActionType.DISCARD, cnr=random.choice(discardable_idx)
             )
-            
+
         return result
 
     def received_hint(self, nr, knowledge, board, hints, result, action):

@@ -264,9 +264,9 @@ class HanasimGame(AbstractGame):
         else:
             end_reason = "deck exhausted"
 
-            print("Game done, hits left:", self._obs.lives_remaining, file=self.log)
-            print("End reason:", end_reason, file=self.log)
-            print("Final Score:", points, file=self.log)
+        print("Game done, hits left:", self._obs.lives_remaining, file=self.log)
+        print("End reason:", end_reason, file=self.log)
+        print("Final Score:", points, file=self.log)
 
         self.jlog["result"] = {"score" : points,
                                "end_reason": end_reason,
