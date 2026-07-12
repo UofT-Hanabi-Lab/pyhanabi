@@ -164,7 +164,8 @@ class HanasimGame(AbstractGame):
             has_unplayable = (
                 Counter()
             )  # count of turns where player had at least one unplayable card in hand
-
+            hint_frequency = Counter()  # count of hints given per player
+            hint_possible = Counter()  # count of turns where a hint could be given
         turn = 1
 
         while True:
@@ -218,6 +219,13 @@ class HanasimGame(AbstractGame):
                 has_unplayable[acting_player_id] += self._has_unplayable_card(
                     acting_player_id
                 )
+                # Hints given per player
+                hint_frequency[acting_player_id] += 1 if action.action_type in [
+                    Action.ActionType.HINT_COLOR,
+                    Action.ActionType.HINT_NUMBER,
+                ] else 0
+
+                hint_possible[acting_player_id] += 1 if self._obs.hint_tokens > 0 else 0
 
                 # Information per play
                 if action.action_type in [
@@ -308,6 +316,10 @@ class HanasimGame(AbstractGame):
                     f"Player {i} ({self.players[i].name}) Has Unplayable Cards: {has_unplayable[i]}",
                     file=self.log,
                 )
+                print(
+                    f"Player {i} ({self.players[i].name}) Hints Given: {hint_frequency[i]}",
+                    file=self.log,
+                )
 
             self._metric_dict["ipp_list"] = ipp_list
             self._metric_dict["critical_discards"] = critical_discards
@@ -316,6 +328,8 @@ class HanasimGame(AbstractGame):
             self._metric_dict["has_playable"] = has_playable
             self._metric_dict["known_unplayable_plays"] = known_unplayable_plays
             self._metric_dict["has_unplayable"] = has_unplayable
+            self._metric_dict["hint_frequency"] = hint_frequency
+            self._metric_dict["hint_possible"] = hint_possible
 
 
         return points

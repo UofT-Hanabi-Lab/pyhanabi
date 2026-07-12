@@ -66,6 +66,7 @@ POST_MOVE_METRICS = [
     "has_playable",
     "known_unplayable_plays",
     "has_unplayable",
+    "hint_frequency",
 ]
 
 
@@ -211,7 +212,8 @@ def main(args):
             has_playable: list[list[int]] = []
             known_unplayable_plays: list[list[int]] = []
             has_unplayable: list[list[int]] = []
-
+            hint_frequencies: list[list[int]] = []
+            hint_possible: list[list[int]] = []
             print("trial", i + 1)
             for t in treatments:
                 random.seed(i)
@@ -238,7 +240,8 @@ def main(args):
                     has_playable.append(metrics["has_playable"])
                     known_unplayable_plays.append(metrics["known_unplayable_plays"])
                     has_unplayable.append(metrics["has_unplayable"])
-
+                    hint_frequencies.append(metrics["hint_frequency"])
+                    hint_possible.append(metrics["hint_possible"])
                 # TODO: change back or add flag
                 # avg_times.append(times[-1] * 1.0 / g.turn)
                 print(
@@ -282,6 +285,13 @@ def main(args):
                         avg_known_unplayable_plays = sum(
                             known_unplayable_plays[j][i] for j in range(int(args[1]))
                         ) / sum(has_unplayable[j][i] for j in range(int(args[1])))
+                    
+                    if sum(hint_possible[j][i] for j in range(int(args[1]))) == 0:
+                        avg_hint_frequency = 0
+                    else:
+                        avg_hint_frequency = sum(
+                            hint_frequencies[j][i] for j in range(int(args[1]))
+                        ) / sum(hint_possible[j][i] for j in range(int(args[1])))
 
                     if avg_ipp is None:
                         print(f"IPP for {player}: No valid data")
@@ -293,6 +303,7 @@ def main(args):
                     print(f"Average known discards for {player}: {avg_known_discards}")
                     print(f"Average known playable plays for {player}: {avg_known_playable_plays}")
                     print(f"Average known unplayable plays for {player}: {avg_known_unplayable_plays}")
+                    print(f"Average hint frequency for {player}: {avg_hint_frequency}")
 
         return
 
@@ -305,6 +316,7 @@ def main(args):
             agent = a.split("/")
             v = int(agent[1]) if len(agent) > 1 else 0
             players.append(make_player(agent[0], i, v))
+            print(f"Player {i}: {agent[0]} (version {v})")
         else: 
             players.append(make_player(a, i))
 
