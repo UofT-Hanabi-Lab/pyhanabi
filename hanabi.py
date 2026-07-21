@@ -131,10 +131,35 @@ def report_metrics(pts: list[int], players: list[Player], n: int,
     plt.close(fig)
     saved.append(f"{prefix}score_{suffix}.png")
 
+    
+    # Hint interpretation accuracy: per-game mean per player; NaN when a player had no hints that game
+    cols = [f"Player {pl.pnr}" for pl in players]
+    hint_accuracy_df = pd.DataFrame({
+            cols[p]: [
+                metrics["hint_interpreted_correctly"][g][p] / metrics["hints_received"][g][p] if metrics["hints_received"][g][p] > 0
+                else numpy.nan
+                for g in range(n)
+            ]
+            for p in range(len(players))
+        })
+    print("\n=== Hint Interpretation Accuracy (per-game mean) ===")
+    print(hint_accuracy_df.describe())
+
+    # Save the hint_accuracy distribution
+    axes = hint_accuracy_df.hist(bins=20, figsize=(5 * len(players), 4),
+                           edgecolor="black", layout=(1, len(players)))
+    for ax in numpy.ravel(axes):
+        ax.set_xlabel("Mean Hint Interpretation Accuracy per game")
+        ax.set_ylabel("Number of games")
+    plt.tight_layout()
+    plt.savefig(f"{prefix}hint__interpretation_accuracy_{suffix}.png", dpi=120)
+    plt.close("all")
+    saved.append(f"{prefix}hint_interpretation_accuracy_{suffix}.png")
+
     # Post-move metrics: summarized and plotted iff enabled
     if post_move_metrics and metrics is not None:
         cols = [f"Player {pl.pnr}" for pl in players]
-
+            
         # IPP: per-game mean per player; NaN when a player had no IPP data that game
         ipp_df = pd.DataFrame({
             cols[p]: [
@@ -214,6 +239,9 @@ def main(args):
             has_unplayable: list[list[int]] = []
             hint_frequencies: list[list[int]] = []
             hint_possible: list[list[int]] = []
+            hint_interpretation_accuracy: list[list[int]] = []
+            hints_received: list[list[int]] = []
+            hints_interpreted_correctly: list[list[int]] = []
             print("trial", i + 1)
             for t in treatments:
                 random.seed(i)
@@ -242,6 +270,9 @@ def main(args):
                     has_unplayable.append(metrics["has_unplayable"])
                     hint_frequencies.append(metrics["hint_frequency"])
                     hint_possible.append(metrics["hint_possible"])
+                    hint_interpretation_accuracy.append(metrics["hint_interpretation_accuracy"])
+                    hints_received.append(metrics["hints_received"])
+                    hints_interpreted_correctly.append(metrics["hints_interpreted_correctly"])
                 # TODO: change back or add flag
                 # avg_times.append(times[-1] * 1.0 / g.turn)
                 print(
@@ -304,6 +335,7 @@ def main(args):
                     print(f"Average known playable plays for {player}: {avg_known_playable_plays}")
                     print(f"Average known unplayable plays for {player}: {avg_known_unplayable_plays}")
                     print(f"Average hint frequency for {player}: {avg_hint_frequency}")
+                    print(f"Average hint interpretation accuracy for {player}: {avg_hint_interpretation}")
 
         return
 
@@ -324,7 +356,7 @@ def main(args):
     timestamp = time.strftime("%Y%m%d_%H%M%S")
 
     pts = []
-    all_metrics = {name: [] for name in ["ipp_list"] + POST_MOVE_METRICS}
+    all_metrics = {name: [] for name in ["ipp_list", "hint_interpreted_correctly", "hints_received"] + POST_MOVE_METRICS}
 
     for i in list(range(n)):
         # Display in terminal every 100 game
