@@ -191,6 +191,33 @@ def playable(possible, board, dead_colors=None):
             return False
     return True
 
+def playable_v2(card_knowledge, board, deck_size, lives, dead_colors=None):
+    """
+    Return True iff there are possibile playable identities above a probabilty threshold
+    """
+    if dead_colors is None:
+        dead_colors = {color: 5 for color in Color}
+
+    total_possibilities = 0
+    playable_possibilities = 0
+
+    for col in Color:
+        for i in range(len(card_knowledge[col])):
+            if card_knowledge[col][i] > 0:
+                total_possibilities += card_knowledge[col][i]
+                if board[col][1] + 1 == i + 1 and i + 1 <= dead_colors[col]:
+                    playable_possibilities += card_knowledge[col][i]
+    
+    if total_possibilities == 0:
+        return False 
+    probability_playable = playable_possibilities / total_possibilities
+    if probability_playable >= 0.5 and deck_size < 10 and lives > 1:
+        return True
+    elif probability_playable >= 0.7:
+        return True
+    
+    return False
+    
 
 def potentially_playable(possible, board, dead_colors=None):
     """
@@ -264,6 +291,94 @@ def whattodo(knowledge, pointed: bool, board, dead_colors=None) -> Action.Action
     if discard and pointed:
         return Action.ActionType.DISCARD
     return None
+
+def evaluate(action, knowledge, intentions, hand, board, trash, ignore_dead=False):
+    """
+    Evaluate the current state of the game and return a score based on the
+    alignment of intentions and predicted actions.
+    critical cards, alignment, new info, number of hinted cards, 
+    """
+    if ignore_dead:
+        dead_colors = highest_playable_cards(board, trash)
+    else:
+        dead_colors = None
+    # check for alignments
+    (isvalid, score, predictions) = pretend_v1(action, knowledge, intentions, hand, board, trash, ignore_dead)
+
+    (action_type, value) = action
+    positive = []
+    haspositive = False
+    change = False
+    new_info = 0
+    if action_type == Action.ActionType.HINT_COLOR:
+        newknowledge = []
+        for i, (col, num) in enumerate(hand):
+            positive.append(value == col)
+            newknowledge.append(hint_color(knowledge[i], value, value == col))
+            if value == col:
+                haspositive = True
+                if num == 5:
+                    score += 3  # Bonus for hinting a 5
+                count = 0
+                for card in trash:
+                    if card[0] == col and card[1] == num:
+                        count += 1
+
+                # Determine if discard is critical based on card number
+                if num == 1 and count == 2:
+                    score += 3  # Bonus for hinting a 1 when two are discarded
+                if (num == 2 or num == 3 or num == 4) and count == 1:
+                    score += 3  # Bonus for hinting a 2, 3, or 4 when one is discarded
+                if newknowledge[-1] != knowledge[i]:
+                    change = True
+                    new_info += 1
+    else:
+        newknowledge = []
+        for i, (col, num) in enumerate(hand):
+            positive.append(value == num)
+
+            newknowledge.append(hint_rank(knowledge[i], value, value == num))
+            if value == num:
+                haspositive = True
+                if num == 5:
+                    score += 3 # bonus for hinting a 5
+                count = 0
+                for card in trash:
+                    if card[0] == col and card[1] == num:
+                        count += 1
+                
+                # Determine if discard is critical based on card number
+                if num == 1 and count == 2:
+                    score += 3  # Bonus for hinting a 1 when two are discarded
+                if (num == 2 or num == 3 or num == 4) and count == 1:
+                    score += 3  # Bonus for hinting a 2, 3, or 4 when one is discarded
+
+                if newknowledge[-1] != knowledge[i]:
+                    change = True
+                    new_info += 1
+    
+    if not haspositive:
+        return False, 0, ["Invalid hint"]
+    if not change:
+        score -= 0  # Penalize for no new information
+
+    seen_playable_card = False
+    for i, c, k, p in zip(intentions, hand, newknowledge, positive):
+        predicted_action = whattodo(k, p, board, dead_colors)
+        if predicted_action == Action.ActionType.PLAY and i == Intent.PLAY:
+            seen_playable_card = True
+            
+        elif predicted_action == Action.ActionType.PLAY and i != Intent.PLAY:
+            if not seen_playable_card:
+                score -= 5  # Penalize for misalignment
+        elif predicted_action == Action.ActionType.DISCARD and i not in {
+            Intent.DISCARD,
+            Intent.CAN_DISCARD,
+        }:
+            score -= 3  # Penalize for misalignment
+
+    score += new_info  # bonus for revelaing new info
+    return True, score, predictions
 
 
 def pretend(action, knowledge, intentions, hand, board, trash, ignore_dead=False):
@@ -424,6 +539,7 @@ def pretend_v1(action, knowledge, intentions, hand, board, trash, ignore_dead=Fa
         return False, score, predictions
     return True, score, predictions
 
+
 def pretend_v3(action, knowledge, intentions, hand, board, trash, ignore_dead=False):
     """
     Pretend to give a hint and evaluates its effect on hand knowledge,
@@ -457,8 +573,8 @@ def pretend_v3(action, knowledge, intentions, hand, board, trash, ignore_dead=Fa
                     change = True
     if not haspositive:
         return False, 0, ["Invalid hint"]
-    if not change:
-        return False, 0, ["No new information"]
+    #if not change:
+    #    return False, 0, ["No new information"]
 
     if ignore_dead:
         dead_colors = highest_playable_cards(board, trash)

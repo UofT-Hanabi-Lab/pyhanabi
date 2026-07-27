@@ -187,7 +187,7 @@ class HanasimGame(AbstractGame):
                     self._convert_played(self._obs.fireworks),
                     self._convert_board(self._obs.fireworks),
                     HanasimGame._convert_valid_actions(self._obs.legal_actions),
-                    self._obs.hint_tokens
+                    self._obs.hint_tokens, self._obs.lives_remaining, len(self._env.deck)
                 )
 
                 step_result = self._env.step(self._convert_action(action))
@@ -854,9 +854,16 @@ class HanasimGame(AbstractGame):
             intention = Intent.PLAY
         elif board[actual_card[0]][1] >= actual_card[1]:
             intention = Intent.DISCARD
-        elif actual_card[1] < 5 and (actual_card[0], actual_card[1]) not in (trash + board):
-                # TODO: this condition doesn't account for there being three 1s of each colour
+        elif actual_card[1] < 5 and actual_card[1] > 1 and (actual_card[0], actual_card[1]) not in (trash + board):
+                # DONE: this condition doesn't account for there being three 1s of each colour
             intention = Intent.CAN_DISCARD
+        elif actual_card[1] == 1:
+            count = 0
+            for c in (trash + board):
+                if actual_card[0] == c[0] and actual_card[1] == c[1]:
+                    count+=1
+            if count < 2:
+                intention = Intent.CAN_DISCARD
 
         if action.action_type == Action.ActionType.PLAY and intention == Intent.PLAY:
             return True
