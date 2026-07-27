@@ -10,10 +10,12 @@ import io
 LOG_DIR = "log"
 LOG_JSON_DIR = "json"
 LOW_MARKS_DIR = os.path.join(LOG_DIR, "low_scores")
+MAX_MARK_DIR = os.path.join(LOG_DIR, "max_score")
 LOW_MARK_THRESHOLD = 5
 
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(LOW_MARKS_DIR, exist_ok=True)
+os.makedirs(MAX_MARK_DIR, exist_ok=True)
 
 import pandas as pd
 import matplotlib
@@ -373,7 +375,14 @@ def main(args):
         g = HanasimGame(players, game_log, post_move_metrics)
         score = g.run()
 
-        target_dir = LOW_MARKS_DIR if score <= LOW_MARK_THRESHOLD else LOG_DIR
+        #target_dir = LOW_MARKS_DIR if score <= LOW_MARK_THRESHOLD else LOG_DIR
+        if score <= LOW_MARK_THRESHOLD:
+            target_dir = LOW_MARKS_DIR
+        elif score == 21:
+            target_dir = MAX_MARK_DIR
+        else:
+            target_dir = LOG_DIR
+
         log_path = os.path.join(target_dir, f"{len(players)}p{i + 1:04d}_{timestamp}.txt")
         with open(log_path, "w") as f:
             f.write(game_log.getvalue())
