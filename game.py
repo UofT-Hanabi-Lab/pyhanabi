@@ -258,7 +258,7 @@ class HanasimGame(AbstractGame):
             self._update_knowledge(
                 action,
                 acting_player_id,
-                self._convert_hands(self._obs.hands, acting_player_id),
+                self._convert_hands(self._obs.hands, acting_player_id), step_result.observation
             )
             self._log_move(turn, action, acting_player_id, prev_obs)
 
@@ -480,7 +480,7 @@ class HanasimGame(AbstractGame):
         return resulting_hands
 
     def _update_knowledge(
-        self, action: Action, acting_player: int, hands: list[list[NativeCard]]
+        self, action: Action, acting_player: int, hands: list[list[NativeCard]], post_obs
     ) -> None:
         for p in self.players:
             p.inform(action, acting_player, self)
@@ -548,6 +548,19 @@ class HanasimGame(AbstractGame):
             assert action.cnr is not None
             del self.knowledge[acting_player][action.cnr]
             self.knowledge[acting_player].append(initial_knowledge())  # draw a new card
+
+            # update knowlege of cooperating players with the new drawn card
+            drawn_card = self._convert_card(post_obs.hands[acting_player][-1])
+            new_col = drawn_card[0]
+            new_rank = drawn_card[1] - 1
+            
+            for p in range(len(self.players)):
+                if p == acting_player:
+                    continue
+                for k in self.knowledge[p]:
+                    if k[new_col][new_rank] > 0:
+                        k[new_col][new_rank] -= 1
+                    
 
     def _convert_hands(
         self, hands: list[list[HanaSimCard]], curr_player: int
