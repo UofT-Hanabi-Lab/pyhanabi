@@ -108,10 +108,15 @@ class HanasimGame(AbstractGame):
         if len(self.players) < 4:
             hand_size = 5
 
-        self.knowledge = [
-            [initial_knowledge() for __ in range(hand_size)]
-            for _ in range(len(self.players))
-        ]
+        self.knowledge = []
+        for i in range(len(self.players)):
+            visible_cards = self._get_visible_cards(i, self._obs.hands)
+            p_knowledge = []
+            for __ in range(hand_size):
+                p_knowledge.append(initial_knowledge(visible_cards))
+
+            self.knowledge.append(p_knowledge)
+            
         self._hinted_cards = {}
 
     @override
@@ -547,7 +552,8 @@ class HanasimGame(AbstractGame):
         else:  # the action is either play or discard
             assert action.cnr is not None
             del self.knowledge[acting_player][action.cnr]
-            self.knowledge[acting_player].append(initial_knowledge())  # draw a new card
+            visible_cards = self._get_visible_cards(acting_player, post_obs.hands)
+            self.knowledge[acting_player].append(initial_knowledge(visible_cards))  # draw a new card
 
             # update knowlege of cooperating players with the new drawn card
             drawn_card = self._convert_card(post_obs.hands[acting_player][-1])
@@ -561,6 +567,26 @@ class HanasimGame(AbstractGame):
                     if k[new_col][new_rank] > 0:
                         k[new_col][new_rank] -= 1
                     
+    def _get_visible_cards(self, player_id, hands: list[list[HanaSimCard]]) -> list[list[NativeCard]]:
+        """
+        Return the cards player_id can see. The cards it can see are the 
+        cooperators' hands, discarded cards, cards on the board.
+        """
+        v = []
+        for i in range(len(self.players)):
+            if i == player_id:
+                continue
+            for c in hands[i]:
+                v.append(self._convert_card(c))
+
+        for card in self._convert_trash(self._obs.discards):
+            v.append(card)
+
+        for c in self._convert_board(self._obs.fireworks):
+            for i in range(c[1]):
+                v.append((c[0], i + 1))
+        
+        return v
 
     def _convert_hands(
         self, hands: list[list[HanaSimCard]], curr_player: int

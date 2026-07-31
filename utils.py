@@ -119,10 +119,16 @@ def format_hand(hand):
     return ", ".join(list(map(format_card, hand)))
 
 
-def initial_knowledge():
+def initial_knowledge(visible_cards):
     knowledge = []
     for _ in Color:
         knowledge.append(COUNTS[:])
+
+    # update based on visible_cards
+    for col, rank in visible_cards:
+        if knowledge[col][rank-1] > 0:
+            knowledge[col][rank-1] -= 1
+
     return knowledge
 
 
@@ -370,12 +376,12 @@ def evaluate(action, knowledge, intentions, hand, board, trash, ignore_dead=Fals
             
         elif predicted_action == Action.ActionType.PLAY and i != Intent.PLAY:
             if not seen_playable_card:
-                score -= 5  # Penalize for misalignment
+                score -= 3  # Penalize for misalignment
         elif predicted_action == Action.ActionType.DISCARD and i not in {
             Intent.DISCARD,
             Intent.CAN_DISCARD,
         }:
-            score -= 3  # Penalize for misalignment
+            score -= 2  # Penalize for misalignment
 
     score += new_info  # bonus for revelaing new info
     return True, score, predictions
