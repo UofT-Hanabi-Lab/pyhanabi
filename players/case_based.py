@@ -1,3 +1,36 @@
+"""Case-based intentional AI agent for 3-player Hanabi.
+
+Implements the Case-based Agent of Section 5.1.2 / the "Case-based Agent"
+subsection of Section 4. When Player A's turn begins, the two preceding turns
+were taken by Player B (two turns ago, acts next) and Player C (immediately
+preceding turn, acts after B). The agent classifies those two turns into six
+exhaustive, mutually exclusive cases and maximizes a case-specific objective
+built from:
+
+  U : (received hint, own action) -> {3, 2, 1, 0}   per-action utility
+  S : (goals for B, predicted actions of B) -> R    alignment score, with
+      "damaging mismatch" -> reject (represented here as ``None``)
+
+Priority structure:
+  Stage 0: play a certainly-playable card (safe action first, as in V2).
+  Stage 1: case dispatch (1a, 1b, 1c, 2a, 2b, 2c).
+  Stage 2: fallback = the remaining baseline stages (certain discard,
+           intentional hint, redundant/random hint at max tokens,
+           lowest-expected-loss discard).
+
+Player naming convention (matches the paper):
+  A = this agent (self.pnr)
+  B = next player            = (self.pnr + 1) % 3   [acts right after A]
+  C = subsequent player      = (self.pnr + 2) % 3   [acted right before A]
+
+This class subclasses ``Player`` directly and sits parallel to
+``SelfIntentionalPlayer`` in the class hierarchy. The hint-giving and
+discarding machinery it shares with the intentional agent family
+(``_create_intents``, ``play_or_discard``, ``give_intentional_hint``,
+``give_redundant_hint``, ``give_random_hint``, ``discard_card``) is copied
+verbatim from ``players/self_intentional.py`` and marked as such below.
+"""
+
 import random
 from typing import override, Final
 
@@ -21,10 +54,17 @@ from utils import (
 )
 
 # Penalty used inside the *expected* alignment score when one possible identity
-# of A's own card would produce a damaging mismatch for B.
+# of A's own card would produce a damaging mismatch for B. The paper "rejects"
+# a hint with any damaging mismatch outright; here the damage depends on the
+# unknown identity of A's own card, so we penalize each damaging branch heavily
+# and weight it by its probability instead of rejecting the whole action.
 DAMAGING_PENALTY = -100.0
 
-# Tolerance for comparing objective values.
+# Tolerance for comparing objective values. The expected alignment score is a
+# probability-weighted float sum, so exact ties with the (integer-valued)
+# baseline can come back as e.g. 6.000000000000001; without this margin the
+# strict-improvement gates in Cases 1b/2b fire on ties and trigger blind
+# discards that only *look* better than the status quo.
 EPSILON = 1e-6
 
 
@@ -69,7 +109,7 @@ class CaseBasedPlayer(Player):
         """Record every partner action; clear the buffer on A's own action.
 
         Unlike SelfIntentionalPlayer.inform, which tracks only the single most
-        recent hint aimed at itself, the case-based agent needs the full pair
+        recent hint aimed at itself, the case-based agent needs the *full* pair
         of preceding actions (hints to itself AND hints between partners).
         """
         if player == self.pnr:
@@ -86,7 +126,7 @@ class CaseBasedPlayer(Player):
         """Is a card positively identified by ``hint``?
 
         The game engine has already applied the hint to the knowledge tables:
-        after a color hint, a pointed card has only that color's row nonzero
+        after a colour hint, a pointed card has only that colour's row nonzero
         while an unpointed card has that row zeroed (symmetrically for ranks).
         So "pointed" reduces to: does any cell consistent with the hint remain?
         (Same convention as SelfIntentionalPlayer.received_hint.)
@@ -138,10 +178,18 @@ class CaseBasedPlayer(Player):
     def _alignment_score(
         self, b_hand, b_knowledge, pending_hint: Action, board, trash
     ) -> float | None:
-        """S(I_B, A_hat_B): how well B's predicted response to pending_hint
+        """S(I_B, A_hat_B): how well B's predicted response to ``pending_hint``
         matches the goals A computes for B's hand, in the given state.
 
-        Returns the summed score, or None to signal a rejection.
+        Per-card contribution (Table 3 of the paper):
+          predict play    & goal play                   -> +3
+          predict discard & goal discard                -> +2
+          predict discard & goal may-discard            -> +1
+          predict keep                                  -> +0
+          damaging mismatch (play when goal != play, or
+          discard when goal is play/keep)               -> reject
+
+        Returns the summed score, or ``None`` to signal a rejection.
         """
         # I_B = CalculateGoals(B) in the given (possibly simulated) state.
         intents = self._create_intents(b_hand, board, trash)
@@ -222,7 +270,7 @@ class CaseBasedPlayer(Player):
     ) -> Action | None:
         """Cases 1a, 1c, 2a: pick the own-hand action maximizing summed U.
 
-        hint_list holds one hint (1c, 2a) or two hints (1a); utilities are
+        ``hint_list`` holds one hint (1c, 2a) or two hints (1a); utilities are
         summed across hints, implementing U(a_B, a) + U(a_C, a) for Case 1a.
         Ties break toward higher utility, then PLAY over DISCARD, then the
         lowest card index (consistent with "play the first such card").
@@ -253,7 +301,7 @@ class CaseBasedPlayer(Player):
     ) -> Action | None:
         """Case 1b: maximize U(a_B, a) + S(I_B, A_hat_B).
 
-        Candidates are the own-hand actions with U > 0 under own_hint
+        Candidates are the own-hand actions with U > 0 under ``own_hint``
         (B's hint to A); the S term is evaluated in the expected post-action
         state and measures whether the action leaves B able to follow
         ``pending_hint`` (C's hint to B). The status-quo baseline is
@@ -588,6 +636,16 @@ class CaseBasedPlayer(Player):
         c_hinted_b = (
             a_c is not None and a_c.action_type in hint_types and a_c.pnr == b_pnr
         )
+
+        # ---- Stage 0: safe action first (Design Choices; as in V2) ----
+        # Only the certain PLAY is elevated above the case logic; the certain
+        # discard stays in the fallback because responding to an actionable
+        # hint is usually worth more than the token a discard regains.
+        for i, k in enumerate(knowledge[nr]):
+            if playable(get_possible(k), board):
+                self.explanation.append([f"Stage 0: card {i} certainly playable"])
+                result = Action(Action.ActionType.PLAY, cnr=i)
+                break
 
         # ---- Stage 1: dispatch on the six cases ----
         if not result:
