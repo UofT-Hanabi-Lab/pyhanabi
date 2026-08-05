@@ -11,6 +11,7 @@ from .self_intentional_detect_dead_colors import SelfIntentionalPlayerDetectDead
 from .sampling_recognition import SamplingRecognitionPlayer
 from .llm_agent import LLMAgentPlayer
 from .timed import TimedPlayer
+from .case_based import CaseBasedPlayer
 
 __all__ = [
     "Player",
@@ -26,4 +27,5 @@ __all__ = [
     "TimedPlayer",
     "HanaSimPlayer",
     "LLMAgentPlayer",
+    "CaseBasedPlayer",
 ]

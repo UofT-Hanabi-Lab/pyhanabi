@@ -37,6 +37,7 @@ from players import (
     SamplingRecognitionPlayer,
     TimedPlayer,
     LLMAgentPlayer,
+    CaseBasedPlayer,
 )
 from players.hanasim import HanaSimPlayer
 from utils import NullStream
@@ -55,6 +56,7 @@ player_types = {
     "full-with-mem": SelfIntentionalPlayerWithMemory,
     "full-detect-dead": SelfIntentionalPlayerDetectDeadColors,
     "llm": LLMAgentPlayer,
+    "case": CaseBasedPlayer,
 }
 
 names = ["Shangdi", "Yu Di", "Tian", "Nu Wa", "Pangu"]
@@ -133,7 +135,7 @@ def report_metrics(pts: list[int], players: list[Player], n: int,
     plt.close(fig)
     saved.append(f"{prefix}score_{suffix}.png")
 
-    
+
     # Hint interpretation accuracy: per-game mean per player; NaN when a player had no hints that game
     cols = [f"Player {pl.pnr}" for pl in players]
     hint_accuracy_df = pd.DataFrame({
@@ -161,7 +163,7 @@ def report_metrics(pts: list[int], players: list[Player], n: int,
     # Post-move metrics: summarized and plotted iff enabled
     if post_move_metrics and metrics is not None:
         cols = [f"Player {pl.pnr}" for pl in players]
-            
+
         # IPP: per-game mean per player; NaN when a player had no IPP data that game
         ipp_df = pd.DataFrame({
             cols[p]: [
@@ -318,7 +320,7 @@ def main(args):
                         avg_known_unplayable_plays = sum(
                             known_unplayable_plays[j][i] for j in range(int(args[1]))
                         ) / sum(has_unplayable[j][i] for j in range(int(args[1])))
-                    
+
                     if sum(hint_possible[j][i] for j in range(int(args[1]))) == 0:
                         avg_hint_frequency = 0
                     else:
@@ -351,7 +353,7 @@ def main(args):
             v = int(agent[1]) if len(agent) > 1 else 0
             players.append(make_player(agent[0], i, v))
             print(f"Player {i}: {agent[0]} (version {v})")
-        else: 
+        else:
             players.append(make_player(a, i))
 
     n = 1000
