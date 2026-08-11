@@ -21,6 +21,7 @@ from utils import (
     pretend_v1,
     pretend_v3,
     whattodo,
+    COUNTS,
     MAX_HINT_TOKENS,
 )
 
@@ -29,6 +30,9 @@ class SelfIntentionalPlayer(Player):
     def __init__(self, name, pnr, version=0):
         super().__init__(name, pnr)
         self.got_hint = None
+        self.hint_was_forced = False
+        """V5: True iff the pending hint in got_hint was given while the giver
+        held eight hint tokens, so it may have been forced (Section 6.7)."""
         self.valid_hints = []
         self.redun_hints = []
         self.version = version
@@ -42,6 +46,7 @@ class SelfIntentionalPlayer(Player):
     @override
     def reset(self) -> None:
         self.got_hint = None
+        self.hint_was_forced = False
         self.valid_hints = []
         self.redun_hints = []
     def get_valid_hints(self):
@@ -179,7 +184,7 @@ class SelfIntentionalPlayer(Player):
             # discard
             scores = self.discard_card(nr, knowledge, trash, board)
 
-        
+
         if self.version == 4:
             # Interpret recieved hint
             if self.got_hint:
@@ -188,16 +193,16 @@ class SelfIntentionalPlayer(Player):
             # play or discard
             if not result:
                 result = self.play_or_discard(nr, knowledge, board, hints, possible, result)
-            
+
 
             # give intentional hint
             if not result:
                 result, redundant_hints = self.give_intentional_hint(nr, hands, knowledge, trash, board, hints, num_players, result)
-            
+
             # added this
             if deck_size < 16 and not result:
                 result = self.play_v2(nr, knowledge, board, hints, possible, result, deck_size, lives)
-            
+
             # added this
             if deck_size < 20 and not result:
                 result = self.give_hint_v3(nr, hands, knowledge, trash, board, hints, num_players, result)
@@ -212,7 +217,7 @@ class SelfIntentionalPlayer(Player):
                 # first, try to give a redundant hint
                 #if redundant_hints and not result:
                  #   result = self.give_redundant_hint(redundant_hints)
-                
+
                 # result = self.give_hint_v3(nr, hands, knowledge, trash, board, hints, num_players, result)
 
                 # give random hint
@@ -222,7 +227,38 @@ class SelfIntentionalPlayer(Player):
 
             # discard
             scores = self.discard_card(nr, knowledge, trash, board)
-        
+
+        if self.version == 5:
+            # Interpret recieved hint, unless it may have been forced
+            if self.got_hint:
+                if self.hint_was_forced:
+                    self.explanation.append(
+                        ["Received hint may have been forced (giver held 8 "
+                         "tokens): mental state updated, intention not interpreted"]
+                    )
+                    self.got_hint = None
+                    self.hint_was_forced = False
+                else:
+                    result = self.received_hint(nr, knowledge, board, hints, result, action)
+                    self.hint_was_forced = False
+
+            # play or discard
+            if not result:
+                result = self.play_or_discard(nr, knowledge, board, hints, possible, result)
+
+            # give intentional hint
+            if not result:
+                result, redundant_hints = self.give_intentional_hint(nr, hands, knowledge, trash, board, hints, num_players, result)
+
+            # forced to hint: give the informational rank hint of Section 6.7
+            if hints == MAX_HINT_TOKENS and not result:
+                # then I cannot discard
+                result = self.give_forced_rank_hint(nr, hands, knowledge, board, num_players)
+                if not result:
+                    result = self.give_random_hint(valid_actions)
+
+            # discard
+            scores = self.discard_card(nr, knowledge, trash, board)
 
         if result:
             assert result in valid_actions
@@ -291,6 +327,100 @@ class SelfIntentionalPlayer(Player):
 
         return result
 
+    def give_forced_rank_hint(self, nr, hands, knowledge, board, num_players):
+        """V5: choose the forced rank hint of Section 6.7.
+
+        Among every legal rank hint (one per rank present in each partner's
+        hand), prefer a rank that no firework is currently awaiting, so that
+        the hint does not suggest a play. Among the preferred hints, give the
+        one that removes the most identities from the recipient's mental
+        state; if every rank in every hand is awaited by some firework, give
+        whichever rank hint removes the most identities.
+
+        Returns the chosen hint as an Action, or None if no partner holds any
+        card (which cannot happen in a running game).
+        """
+        # the rank each unfinished firework is awaiting: one above its top
+        awaited_ranks = {board[c][1] + 1 for c in Color if board[c][1] < 5}
+
+        # candidate tuples: (preferred, identities removed, hintee, rank)
+        candidates: list[tuple[bool, int, int, int]] = []
+
+        for hintee_id in range(num_players):
+            if hintee_id == nr:
+                continue
+
+            # a rank hint is only legal for ranks the hintee actually holds
+            for r in sorted({num for (_, num) in hands[hintee_id]}):
+                removed = self._identities_removed_by_rank_hint(
+                    hands[hintee_id], knowledge[hintee_id], r
+                )
+                preferred = r not in awaited_ranks
+                candidates.append((preferred, removed, hintee_id, r))
+                self.explanation.append(
+                    [
+                        "Forced rank hint candidate",
+                        "Rank " + str(r) + " to player " + str(hintee_id),
+                        "not awaited" if preferred else "awaited by a firework",
+                        "removes " + str(removed) + " identities",
+                    ]
+                )
+
+        if not candidates:
+            return None
+
+        # Sorting on (preferred, removed) descending implements the two-level
+        # preference: any non-awaited rank beats any awaited one, and ties
+        # are broken by the number of identities removed. The sort is stable,
+        # so remaining ties keep hand order (next player first, lowest rank
+        # first), which keeps the choice deterministic.
+        candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
+        _, _, hintee_id, rank = candidates[0]
+
+        return Action(Action.ActionType.HINT_NUMBER, pnr=hintee_id, num=rank)
+
+    def _identities_removed_by_rank_hint(self, hand, hand_knowledge, rank):
+        """V5: count the identities a rank hint removes from a hand's mental
+        state.
+
+        The count covers every card in the hand, not only the cards the hint
+        positively identifies: for an identified card (its true rank equals
+        rank) every still-possible identity of a *different* rank is removed,
+        while for every other card the identities of rank rank are removed.
+        An identity counts as removed when its cell goes from a positive
+        count to zero.
+        """
+        removed = 0
+        for (_, num), k in zip(hand, hand_knowledge):
+            if num == rank:
+                # positively identified: all other ranks are ruled out
+                for c in Color:
+                    for i in range(len(COUNTS)):
+                        if i + 1 != rank and k[c][i] > 0:
+                            removed += 1
+            else:
+                # not identified: the hinted rank is ruled out for this card
+                for c in Color:
+                    if k[c][rank - 1] > 0:
+                        removed += 1
+        return removed
+
+    def _giver_hint_tokens(self, game):
+        """V5: return the number of hint tokens the giver held *when giving*
+        the hint that inform() is currently processing.
+
+        The two engines expose this differently:
+        - HanasimGame calls inform() after advancing its observation, so
+          game._obs.hint_tokens is the post-hint count and the hint has
+          already spent one token: add it back.
+        - The legacy Game calls inform() before deducting the token, so
+          game.hints is already the pre-hint count.
+        """
+        obs = getattr(game, "_obs", None)
+        if obs is not None:
+            return min(obs.hint_tokens + 1, MAX_HINT_TOKENS)
+        return game.hints
+
     def give_best_hint(self, nr, hands, knowledge, trash, board, hints, num_players, result):
         if num_players == 2:
             intents_for_next = self._create_intents(
@@ -346,7 +476,7 @@ class SelfIntentionalPlayer(Player):
                     )
                     if isvalid:
                         valid.append((hint_action, score, hintee_id))
-                    
+
 
                 for r in range(5):
                     r += 1
@@ -707,7 +837,7 @@ class SelfIntentionalPlayer(Player):
             )
 
         return result
-    
+
     def play_v2(self, nr, knowledge, board, hints, possible, result, deck_size, lives):
         for i, k in enumerate(knowledge[nr]):
             if playable_v2(k, board, deck_size, lives) and not result:
@@ -777,3 +907,9 @@ class SelfIntentionalPlayer(Player):
             Action.ActionType.HINT_NUMBER,
         }:
             self.got_hint = (action, player)
+            # V5: record whether the giver held eight tokens when giving this
+            # hint (making it potentially forced). Versions 0-4 never read
+            # this flag, so setting it unconditionally is harmless.
+            self.hint_was_forced = (
+                self._giver_hint_tokens(game) == MAX_HINT_TOKENS
+            )
