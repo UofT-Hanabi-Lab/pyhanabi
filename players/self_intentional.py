@@ -23,6 +23,9 @@ from utils import (
     whattodo,
     COUNTS,
     MAX_HINT_TOKENS,
+    TOTAL_CARDS,
+    hint_weights_v7,
+    pretend_v7,
 )
 
 
@@ -258,6 +261,32 @@ class SelfIntentionalPlayer(Player):
                     result = self.give_random_hint(valid_actions)
 
             # discard
+            scores = self.discard_card(nr, knowledge, trash, board)
+
+        if self.version == 7:
+            # Interpret recieved hint
+            if self.got_hint:
+                result = self.received_hint(nr, knowledge, board, hints, result, action)
+
+            # play a certainly playable card, or discard a certainly useless one
+            if not result:
+                result = self.play_or_discard(nr, knowledge, board, hints, possible, result)
+
+            # give intentional hint, scored with the V7 dynamic weights
+            if not result:
+                result, redundant_hints = self.give_intentional_hint_v7(
+                    nr, hands, knowledge, trash, board, hints, num_players,
+                    result, deck_size,
+                )
+
+            # At max tokens I cannot discard: redundant hint, else random hint
+            if hints == MAX_HINT_TOKENS and not result:
+                if redundant_hints:
+                    result = self.give_redundant_hint(redundant_hints)
+                else:
+                    result = self.give_random_hint(valid_actions)
+
+            # Fallback: discard the card with the lowest expected loss
             scores = self.discard_card(nr, knowledge, trash, board)
 
         if result:
@@ -614,6 +643,143 @@ class SelfIntentionalPlayer(Player):
 
             if valid and not result:
                 # sort descending by hint score
+                valid.sort(key=lambda x: x[1], reverse=True)
+
+                selected_action, _, hintee_id = valid[0]
+                if selected_action[0] is Action.ActionType.HINT_COLOR:
+                    result = Action(
+                        Action.ActionType.HINT_COLOR,
+                        pnr=hintee_id,
+                        col=Color(selected_action[1]),
+                    )
+                else:
+                    result = Action(
+                        Action.ActionType.HINT_NUMBER,
+                        pnr=hintee_id,
+                        num=selected_action[1],
+                    )
+
+        return result, redundant_hints
+
+    def give_intentional_hint_v7(
+        self, nr, hands, knowledge, trash, board, hints, num_players, result, deck_size
+    ):
+        """
+        V7: give_intentional_hint() with state-dependent hint scoring.
+        Return (result, redundant_hints), like give_intentional_hint().
+        """
+        redundant_hints = []
+
+        # --- Step 1: assign an intent to each card in each partner's hand ---
+        # (identical to give_intentional_hint)
+        if num_players == 2:
+            intents_for_next = self._create_intents(
+                hands[(self.pnr + 1) % 2], board, trash
+            )
+            self.explanation.append(
+                ["Intentions for next player"]
+                + list(map(format_intention, intents_for_next))
+            )
+            intents_for_sub = None
+        else:
+            intents_for_next = self._create_intents(hands[self._next_pnr], board, trash)
+            self.explanation.append(
+                ["Intentions for next player"]
+                + list(map(format_intention, intents_for_next))
+            )
+
+            intents_for_sub = self._create_intents(hands[self._sub_pnr], board, trash)
+            self.explanation.append(
+                ["Intentions for subsequent player"]
+                + list(map(format_intention, intents_for_sub))
+            )
+
+        if hints > 0:
+            # --- Step 2: compute the dynamic weights for this turn ----------
+            # The draw pile starts at TOTAL_CARDS minus the dealt cards.
+            initial_draw_pile = TOTAL_CARDS - num_players * self._hand_size
+            weights = hint_weights_v7(hints, deck_size, initial_draw_pile)
+            self.explanation.append(
+                [
+                    "V7 hint weights",
+                    "Play: {:.2f}".format(weights[0]),
+                    "Discard: {:.2f}".format(weights[1]),
+                    "May Discard: {:.2f}".format(weights[2]),
+                ]
+            )
+
+            # --- Step 3: enumerate and score every legal hint ---------------
+            hint_action: tuple[Action.ActionType, Color | int]
+            # scores are floats under V7 (dynamic weights), hence the type
+            valid: list[tuple[tuple[Action.ActionType, Color | int], float, int]] = []
+            redundant_hints: list[
+                tuple[tuple[Action.ActionType, Color | int], int]
+            ] = []
+
+            for hintee_id in range(num_players):
+                if hintee_id == nr:
+                    continue
+                elif num_players == 2 or hintee_id == self._next_pnr:
+                    hintee_intentions = intents_for_next
+                else:
+                    assert intents_for_sub is not None
+                    hintee_intentions = intents_for_sub
+
+                # every color hint for this partner
+                for c in Color:
+                    hint_action = (Action.ActionType.HINT_COLOR, c)
+                    (isvalid, score, expl) = pretend_v7(
+                        hint_action,
+                        knowledge[hintee_id],
+                        hintee_intentions,
+                        hands[hintee_id],
+                        board,
+                        trash,
+                        weights,
+                    )
+                    self.explanation.append(
+                        ["Prediction for: Hint Color " + c.display_name]
+                        + list(map(format_intention, expl))
+                    )
+                    if isvalid:
+                        valid.append((hint_action, score, hintee_id))
+                        self.valid_hints.append(
+                            (hint_action[1].display_name, hintee_id, score)
+                        )
+                    if expl == ["No new information"]:
+                        redundant_hints.append((hint_action, hintee_id))
+                        self.redun_hints.append(
+                            (hint_action[1].display_name, hintee_id, score)
+                        )
+
+                # every rank hint for this partner
+                for r in range(5):
+                    r += 1
+                    hint_action = (Action.ActionType.HINT_NUMBER, r)
+                    (isvalid, score, expl) = pretend_v7(
+                        hint_action,
+                        knowledge[hintee_id],
+                        hintee_intentions,
+                        hands[hintee_id],
+                        board,
+                        trash,
+                        weights,
+                    )
+                    self.explanation.append(
+                        ["Prediction for: Hint Rank " + str(r)]
+                        + list(map(format_intention, expl))
+                    )
+                    if isvalid:
+                        valid.append((hint_action, score, hintee_id))
+                        self.valid_hints.append((hint_action[1], hintee_id, score))
+                    if expl == ["No new information"]:
+                        redundant_hints.append((hint_action, hintee_id))
+                        self.redun_hints.append((hint_action[1], hintee_id, score))
+
+            # --- Step 4: give the highest-scoring valid hint ----------------
+            # (identical to give_intentional_hint; ties keep enumeration
+            # order because Python's sort is stable)
+            if valid and not result:
                 valid.sort(key=lambda x: x[1], reverse=True)
 
                 selected_action, _, hintee_id = valid[0]

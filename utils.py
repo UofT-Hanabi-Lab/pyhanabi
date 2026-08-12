@@ -213,17 +213,17 @@ def playable_v2(card_knowledge, board, deck_size, lives, dead_colors=None):
                 total_possibilities += card_knowledge[col][i]
                 if board[col][1] + 1 == i + 1 and i + 1 <= dead_colors[col]:
                     playable_possibilities += card_knowledge[col][i]
-    
+
     if total_possibilities == 0:
-        return False 
+        return False
     probability_playable = playable_possibilities / total_possibilities
     if probability_playable >= 0.5 and deck_size < 10 and lives > 1:
         return True
     elif probability_playable >= 0.7:
         return True
-    
+
     return False
-    
+
 
 def potentially_playable(possible, board, dead_colors=None):
     """
@@ -302,7 +302,7 @@ def evaluate(action, knowledge, intentions, hand, board, trash, ignore_dead=Fals
     """
     Evaluate the current state of the game and return a score based on the
     alignment of intentions and predicted actions.
-    critical cards, alignment, new info, number of hinted cards, 
+    critical cards, alignment, new info, number of hinted cards,
     """
     if ignore_dead:
         dead_colors = highest_playable_cards(board, trash)
@@ -352,7 +352,7 @@ def evaluate(action, knowledge, intentions, hand, board, trash, ignore_dead=Fals
                 for card in trash:
                     if card[0] == col and card[1] == num:
                         count += 1
-                
+
                 # Determine if discard is critical based on card number
                 if num == 1 and count == 2:
                     score += 3  # Bonus for hinting a 1 when two are discarded
@@ -362,7 +362,7 @@ def evaluate(action, knowledge, intentions, hand, board, trash, ignore_dead=Fals
                 if newknowledge[-1] != knowledge[i]:
                     change = True
                     new_info += 1
-    
+
     if not haspositive:
         return False, 0, ["Invalid hint"]
     if not change:
@@ -373,7 +373,7 @@ def evaluate(action, knowledge, intentions, hand, board, trash, ignore_dead=Fals
         predicted_action = whattodo(k, p, board, dead_colors)
         if predicted_action == Action.ActionType.PLAY and i == Intent.PLAY:
             seen_playable_card = True
-            
+
         elif predicted_action == Action.ActionType.PLAY and i != Intent.PLAY:
             if not seen_playable_card:
                 score -= 3  # Penalize for misalignment
@@ -463,6 +463,164 @@ def pretend(action, knowledge, intentions, hand, board, trash, ignore_dead=False
     if not pos:
         return False, score, predictions
     return True, score, predictions
+
+# V7: dynamic hint-scoring weights:
+#   1. The play weight is raised (3 -> 6) so play hints favored.
+#   2. The discard weights are no longer constants; they are a function of
+#      the game state:
+#        (a) hint tokens: with few tokens left, discarding regenerates
+#            tokens, so the discard weight rises; with plenty of tokens it
+#            falls;
+#        (b) deck size: as the deck empties we are in the late game and want
+#            to play rather than discard, so the discard weight shrinks.
+
+TOTAL_CARDS: Final[int] = len(Color) * sum(COUNTS)
+
+# V7: heuristic value of an aligned Play prediction (was 3 in pretend())
+V7_PLAY_WEIGHT: Final[float] = 6.0
+
+# V7: Maximum discard weight when discarding is most urgent (0 tokens, full deck)
+V7_DISCARD_WEIGHT_MAX: Final[float] = 3.0
+
+# V7: Discard weight when tokens are plentiful (before deck scaling)
+V7_DISCARD_WEIGHT_MIN: Final[float] = 1.0
+
+# V7: May-Discard is worth this fraction of the Discard weight (keeps the
+# original 2:1 ratio between Discard and May Discard)
+V7_MAY_DISCARD_FRACTION: Final[float] = 0.5
+
+
+def hint_weights_v7(
+    hints: int, deck_size: int, initial_draw_pile: int
+) -> tuple[float, float, float]:
+    """
+    Compute the dynamic hint-scoring weights for the current state.
+
+    Params:
+    - hints: hint tokens currently available
+    - deck_size: cards remaining in the draw pile
+    - initial_draw_pile: size of the draw pile at the start of the game
+      (TOTAL_CARDS minus the dealt cards), used to normalize deck_size
+
+    Returns (play_weight, discard_weight, may_discard_weight), where:
+
+    - play_weight is the constant V7_PLAY_WEIGHT: play hints are always
+      strongly favored.
+
+    - discard_weight is the product of two factors:
+
+        token_urgency = (MAX_HINT_TOKENS - hints) / MAX_HINT_TOKENS
+        Range [0, 1]
+
+        deck_fraction = deck_size / initial_draw_pile
+        Range [0, 1]
+
+    - may_discard_weight is V7_MAY_DISCARD_FRACTION of discard_weight.
+    """
+    # Factor 1 (hint tokens): fewer tokens -> higher urgency to discard.
+    token_urgency = (MAX_HINT_TOKENS - hints) / MAX_HINT_TOKENS
+
+    # Factor 2 (deck size): fewer cards left -> discard less, play more.
+    if initial_draw_pile <= 0:
+        deck_fraction = 0.0
+    else:
+        deck_fraction = max(0.0, min(1.0, deck_size / initial_draw_pile))
+
+    discard_weight = (
+        V7_DISCARD_WEIGHT_MIN
+        + (V7_DISCARD_WEIGHT_MAX - V7_DISCARD_WEIGHT_MIN) * token_urgency
+    ) * deck_fraction
+    may_discard_weight = V7_MAY_DISCARD_FRACTION * discard_weight
+
+    return V7_PLAY_WEIGHT, discard_weight, may_discard_weight
+
+
+def pretend_v7(
+    action, knowledge, intentions, hand, board, trash, weights, ignore_dead=False
+):
+    """
+    V7: pretend() with state-dependent heuristic weights.
+    Return (isvalid, score, predictions). score is a float under V7.
+    """
+    (play_w, discard_w, may_discard_w) = weights
+    (action_type, value) = action
+
+    # --- Simulate the hint's effect on the hintee's mental state ----------
+    # positive[i] is True iff card i is positively identified by the hint.
+    positive = []
+    haspositive = False  # the hint must touch at least one card to be legal
+    change = False       # the hint must add new information to be useful
+    if action_type == Action.ActionType.HINT_COLOR:
+        newknowledge = []
+        for i, (col, num) in enumerate(hand):
+            positive.append(value == col)
+            newknowledge.append(hint_color(knowledge[i], value, value == col))
+            if value == col:
+                haspositive = True
+                if newknowledge[-1] != knowledge[i]:
+                    change = True
+    else:
+        newknowledge = []
+        for i, (col, num) in enumerate(hand):
+            positive.append(value == num)
+            newknowledge.append(hint_rank(knowledge[i], value, value == num))
+            if value == num:
+                haspositive = True
+                if newknowledge[-1] != knowledge[i]:
+                    change = True
+    if not haspositive:
+        return False, 0, ["Invalid hint"]
+    if not change:
+        return False, 0, ["No new information"]
+
+    if ignore_dead:
+        dead_colors = highest_playable_cards(board, trash)
+    else:
+        dead_colors = None
+
+    # --- Predict the hintee's reaction card by card and score it ----------
+    score = 0.0
+    predictions: list[Intent | None] = []
+    pos = False  # at least one prediction must align for the hint to count
+    for i, c, k, p in zip(intentions, hand, newknowledge, positive):
+        predicted_action = whattodo(k, p, board, dead_colors)
+
+        # Misalignment: the hint would trigger an action we did not intend.
+        # Reject the hint outright, exactly as pretend() does.
+        if predicted_action == Action.ActionType.PLAY and i != Intent.PLAY:
+            return False, 0, predictions + [Intent.PLAY]
+        if predicted_action == Action.ActionType.DISCARD and i not in {
+            Intent.DISCARD,
+            Intent.CAN_DISCARD,
+        }:
+            return False, 0, predictions + [Intent.DISCARD]
+
+        # Alignment: score the card with the dynamic weights.
+        if predicted_action == Action.ActionType.PLAY and i == Intent.PLAY:
+            pos = True
+            predictions.append(Intent.PLAY)
+            score += play_w
+        elif predicted_action == Action.ActionType.DISCARD and i in {
+            Intent.DISCARD,
+            Intent.CAN_DISCARD,
+        }:
+            # "Play in desperation": with an empty deck discard_w is 0, so a
+            # discard alignment neither adds score nor (below) validates the
+            # hint on its own -- purely-discard hints are dropped and the
+            # agent falls through to more useful actions.
+            if discard_w > 0.0:
+                pos = True
+            predictions.append(Intent.DISCARD)
+            if i == Intent.DISCARD:
+                score += discard_w
+            else:
+                score += may_discard_w
+        else:
+            predictions.append(None)
+    if not pos:
+        return False, score, predictions
+    return True, score, predictions
+
 
 def pretend_v1(action, knowledge, intentions, hand, board, trash, ignore_dead=False):
     """
@@ -621,7 +779,7 @@ def pretend_v3(action, knowledge, intentions, hand, board, trash, ignore_dead=Fa
         else:
             num_nones += 1
             predictions.append(None)
-    
+
     if not has_alignment:
         if num_nones == 5:
             return True, score, predictions
