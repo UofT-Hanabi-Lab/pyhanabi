@@ -24,8 +24,8 @@ from utils import (
     COUNTS,
     MAX_HINT_TOKENS,
     TOTAL_CARDS,
-    hint_weights_v7,
-    pretend_v7,
+    hint_weights_v8,
+    pretend_v8,
 )
 
 
@@ -263,7 +263,7 @@ class SelfIntentionalPlayer(Player):
             # discard
             scores = self.discard_card(nr, knowledge, trash, board)
 
-        if self.version == 7:
+        if self.version == 8:
             # Interpret recieved hint
             if self.got_hint:
                 result = self.received_hint(nr, knowledge, board, hints, result, action)
@@ -272,9 +272,9 @@ class SelfIntentionalPlayer(Player):
             if not result:
                 result = self.play_or_discard(nr, knowledge, board, hints, possible, result)
 
-            # give intentional hint, scored with the V7 dynamic weights
+            # give intentional hint, scored with the V8 dynamic weights
             if not result:
-                result, redundant_hints = self.give_intentional_hint_v7(
+                result, redundant_hints = self.give_intentional_hint_v8(
                     nr, hands, knowledge, trash, board, hints, num_players,
                     result, deck_size,
                 )
@@ -661,7 +661,7 @@ class SelfIntentionalPlayer(Player):
 
         return result, redundant_hints
 
-    def give_intentional_hint_v7(
+    def give_intentional_hint_v8(
         self, nr, hands, knowledge, trash, board, hints, num_players, result, deck_size
     ):
         """
@@ -698,7 +698,7 @@ class SelfIntentionalPlayer(Player):
             # --- Step 2: compute the dynamic weights for this turn ----------
             # The draw pile starts at TOTAL_CARDS minus the dealt cards.
             initial_draw_pile = TOTAL_CARDS - num_players * self._hand_size
-            weights = hint_weights_v7(hints, deck_size, initial_draw_pile)
+            weights = hint_weights_v8(hints, deck_size, initial_draw_pile)
             self.explanation.append(
                 [
                     "V7 hint weights",
@@ -728,7 +728,7 @@ class SelfIntentionalPlayer(Player):
                 # every color hint for this partner
                 for c in Color:
                     hint_action = (Action.ActionType.HINT_COLOR, c)
-                    (isvalid, score, expl) = pretend_v7(
+                    (isvalid, score, expl) = pretend_v8(
                         hint_action,
                         knowledge[hintee_id],
                         hintee_intentions,
@@ -756,7 +756,7 @@ class SelfIntentionalPlayer(Player):
                 for r in range(5):
                     r += 1
                     hint_action = (Action.ActionType.HINT_NUMBER, r)
-                    (isvalid, score, expl) = pretend_v7(
+                    (isvalid, score, expl) = pretend_v8(
                         hint_action,
                         knowledge[hintee_id],
                         hintee_intentions,

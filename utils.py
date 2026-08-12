@@ -464,7 +464,7 @@ def pretend(action, knowledge, intentions, hand, board, trash, ignore_dead=False
         return False, score, predictions
     return True, score, predictions
 
-# V7: dynamic hint-scoring weights:
+# V8: dynamic hint-scoring weights:
 #   1. The play weight is raised (3 -> 6) so play hints favored.
 #   2. The discard weights are no longer constants; they are a function of
 #      the game state:
@@ -476,21 +476,21 @@ def pretend(action, knowledge, intentions, hand, board, trash, ignore_dead=False
 
 TOTAL_CARDS: Final[int] = len(Color) * sum(COUNTS)
 
-# V7: heuristic value of an aligned Play prediction (was 3 in pretend())
-V7_PLAY_WEIGHT: Final[float] = 6.0
+# V8: heuristic value of an aligned Play prediction (was 3 in pretend())
+V8_PLAY_WEIGHT: Final[float] = 6.0
 
-# V7: Maximum discard weight when discarding is most urgent (0 tokens, full deck)
-V7_DISCARD_WEIGHT_MAX: Final[float] = 3.0
+# V8: Maximum discard weight when discarding is most urgent (0 tokens, full deck)
+V8_DISCARD_WEIGHT_MAX: Final[float] = 3.0
 
-# V7: Discard weight when tokens are plentiful (before deck scaling)
-V7_DISCARD_WEIGHT_MIN: Final[float] = 1.0
+# V8: Discard weight when tokens are plentiful (before deck scaling)
+V8_DISCARD_WEIGHT_MIN: Final[float] = 1.0
 
-# V7: May-Discard is worth this fraction of the Discard weight (keeps the
+# V8: May-Discard is worth this fraction of the Discard weight (keeps the
 # original 2:1 ratio between Discard and May Discard)
-V7_MAY_DISCARD_FRACTION: Final[float] = 0.5
+V8_MAY_DISCARD_FRACTION: Final[float] = 0.5
 
 
-def hint_weights_v7(
+def hint_weights_v8(
     hints: int, deck_size: int, initial_draw_pile: int
 ) -> tuple[float, float, float]:
     """
@@ -527,20 +527,20 @@ def hint_weights_v7(
         deck_fraction = max(0.0, min(1.0, deck_size / initial_draw_pile))
 
     discard_weight = (
-        V7_DISCARD_WEIGHT_MIN
-        + (V7_DISCARD_WEIGHT_MAX - V7_DISCARD_WEIGHT_MIN) * token_urgency
+                             V8_DISCARD_WEIGHT_MIN
+                             + (V8_DISCARD_WEIGHT_MAX - V8_DISCARD_WEIGHT_MIN) * token_urgency
     ) * deck_fraction
-    may_discard_weight = V7_MAY_DISCARD_FRACTION * discard_weight
+    may_discard_weight = V8_MAY_DISCARD_FRACTION * discard_weight
 
-    return V7_PLAY_WEIGHT, discard_weight, may_discard_weight
+    return V8_PLAY_WEIGHT, discard_weight, may_discard_weight
 
 
-def pretend_v7(
+def pretend_v8(
     action, knowledge, intentions, hand, board, trash, weights, ignore_dead=False
 ):
     """
-    V7: pretend() with state-dependent heuristic weights.
-    Return (isvalid, score, predictions). score is a float under V7.
+    V8: pretend() with state-dependent heuristic weights.
+    Return (isvalid, score, predictions).
     """
     (play_w, discard_w, may_discard_w) = weights
     (action_type, value) = action
