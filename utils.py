@@ -477,7 +477,7 @@ def pretend(action, knowledge, intentions, hand, board, trash, ignore_dead=False
 TOTAL_CARDS: Final[int] = len(Color) * sum(COUNTS)
 
 # V8: heuristic value of an aligned Play prediction (was 3 in pretend())
-V8_PLAY_WEIGHT: Final[float] = 6.0
+V8_PLAY_WEIGHT: Final[float] = 6
 
 # V8: Maximum discard weight when discarding is most urgent (0 tokens, full deck)
 V8_DISCARD_WEIGHT_MAX: Final[float] = 3.0
