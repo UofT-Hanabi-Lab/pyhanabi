@@ -119,7 +119,7 @@ def format_hand(hand):
     return ", ".join(list(map(format_card, hand)))
 
 
-def initial_knowledge(visible_cards):
+def initial_knowledge(visible_cards=()):
     knowledge = []
     for _ in Color:
         knowledge.append(COUNTS[:])
