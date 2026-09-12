@@ -9,7 +9,16 @@ Setup then has three parts: build the binding from HanaSim, set up pyhanabi, and
 ---
 
 ## 0. Install WSL (If you haven't)
-From now on, **run every command in this guide inside the Ubuntu terminal**
+
+Open **PowerShell as Administrator** and run:
+
+```powershell
+wsl --install
+```
+
+Restart your computer when prompted. On first launch, Ubuntu will ask you to create a Linux username and password (this password is what `sudo` asks for later).
+
+From now on, **run every command in this guide inside the Ubuntu terminal** (search "Ubuntu" in the Start menu).
 
 ---
 
