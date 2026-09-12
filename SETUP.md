@@ -109,6 +109,7 @@ cd pyhanabi
 ```sh
 uv venv -p 3.12
 uv sync
+uv pip install matplotlib
 ```
 
 *What this does: creates pyhanabi's own Python 3.12 environment and installs all dependencies pinned in `pyproject.toml` / `uv.lock`, so everyone in the group runs identical package versions.*
