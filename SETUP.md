@@ -36,15 +36,19 @@ Then close and reopen the Ubuntu terminal so `uv` is on your PATH.
 
 ## 2. Build the HanaSim Python binding
 
-### 2.1 Clone HanaSim on the `pyhanabi-xp` branch
+### 2.1 Clone HanaSim on the `expose-deck` branch
 
 ```sh
 cd ~
-git clone --branch pyhanabi-xp https://github.com/UofT-Hanabi-Lab/HanaSim.git
+git clone --branch expose-deck https://github.com/UofT-Hanabi-Lab/HanaSim.git
 cd HanaSim
 ```
 
-*What this does: gets the C++ game engine. The `pyhanabi-xp` branch is the one that exposes the engine to Python via pybind11.*
+*What this does: gets the C++ game engine. The `expose-deck` branch contains the Python binding **plus** the deck-exposure feature our game logging and agents depend on 
+
+Do not use older branches like `pyhanabi-xp`, which build a binding missing that feature.*
+
+> **Want the repo somewhere else?** Append the target path to the clone command, e.g. `git clone --branch expose-deck https://github.com/UofT-Hanabi-Lab/HanaSim.git ~/repos/HanaSim`. If you do, use your own paths in place of `~/HanaSim` and `~/pyhanabi` in steps 4–5.
 
 ### 2.2 Create a Python 3.12 environment and install build packages
 
@@ -54,7 +58,9 @@ source .venv/bin/activate
 uv pip install "pybind11[global]" numpy gymnasium
 ```
 
-*What this does: creates an isolated Python 3.12 environment and installs the packages needed to compile the binding. **The Python version matters** — the binding only works with the exact Python version it was built against, and pyhanabi requires 3.12.*
+What this does: creates an isolated Python 3.12 environment and installs the packages needed to compile the binding. 
+
+**The Python version matters:** the binding only works with the exact Python version it was built against, and pyhanabi requires 3.12.
 
 ### 2.3 Compile
 
@@ -83,7 +89,11 @@ git clone --branch hanabilive_converter https://github.com/UofT-Hanabi-Lab/pyhan
 cd pyhanabi
 ```
 
-*What this does: gets our simulator and agent framework. `hanabilive_converter` is the branch we actively develop on.*
+*What this does: gets our simulator and agent framework.*
+
+> **Important: `hanabilive_converter` is the branch we actively develop on.** All current work lives here, not on `main`. Make sure you are on this branch before reading code, running experiments, or pushing changes.
+
+> **Want the repo somewhere else?** Same as in step 2.1: append the target path to the clone command, and use your own paths in steps 4–5.
 
 ### 3.2 Create the environment and install dependencies
 
@@ -125,34 +135,19 @@ python hanabi.py full full full
 
 This plays one 3-player game between three intentional agents and prints the result. See `player_types` in `hanabi.py` for all valid AI names (`random`, `inner`, `outer`, `full`, `case`, ...).
 
-**Graphical interface** — play in your browser:
+We have also implemented variants of the full agent during the summer. Run variant nunber $x$ by appending "\x" after "full".
+```sh
+python hanabi.py full/5 full/5 full/5
+```
+
+**Graphical interface**:
 
 ```sh
 python httpui.py
 ```
 
-Then open <http://127.0.0.1:31337/> in your **normal Windows browser** — WSL forwards localhost automatically. Use the GUI for playing games yourself and for development/debugging; use the command line for batch AI-vs-AI simulations.
+Then open <http://127.0.0.1:31337/> in your browser. 
 
-**If both of these work, your setup is complete.** 🎉
+Use the GUI for playing games yourself and for development/debugging; use the command line for batch AI-vs-AI simulations.
 
----
-
-## 6. Optional: pre-commit hooks
-
-Do this if you'll push code:
-
-```sh
-uv run pre-commit install
-```
-
-*What this does: auto-runs our linters (ruff, mypy) on each commit to keep code quality consistent.*
-
----
-
-## Troubleshooting
-
-- **`wsl --install` does nothing or errors** — make sure PowerShell is running as Administrator, and that virtualization is enabled in your BIOS (usually on by default). Then try `wsl --update`.
-- **`ModuleNotFoundError: No module named 'hana_sim'`** — the binding isn't in pyhanabi's site-packages (step 4), or it was built with a different Python version than 3.12 (step 2.2).
-- **`cmake` can't find pybind11** — make sure the HanaSim venv was active when you ran `cmake`, and that you installed `pybind11[global]` (the `[global]` part matters — it installs the CMake config files).
-- **Build is extremely slow or fails with permission errors** — your repos are probably under `/mnt/c/`. Move them into the Linux home directory (`~`) and rebuild.
-- **`uv: command not found` after installing** — close and reopen the Ubuntu terminal, or run `source ~/.bashrc`.
+**If both of these work, your setup is complete!**
