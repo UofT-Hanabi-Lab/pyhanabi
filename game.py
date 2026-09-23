@@ -263,7 +263,7 @@ class HanasimGame(AbstractGame):
             self._update_knowledge(
                 action,
                 acting_player_id,
-                self._convert_hands(self._obs.hands, acting_player_id), step_result.observation
+                self._convert_hands(self._obs.hands, acting_player_id), step_result.observation, prev_obs
             )
             self._log_move(turn, action, acting_player_id, prev_obs)
 
@@ -431,6 +431,8 @@ class HanasimGame(AbstractGame):
                     f"turn_{turn}": {
                         "player": acting_player_id,
                         "action": {
+                            "discard_crit": self.players[acting_player_id].get_discard_crit() if isinstance(self.players[acting_player_id], SelfIntentionalPlayer) else None,
+                            "critical_hints": [{ "hint": h[0], "hinted_player": h[1], "score": h[2] } for h in self.players[acting_player_id].get_critical_hints()],
                             "type": action.action_type.name,
                             "chosen_card": {"color": p_card[0].display_name, "rank": p_card[1]}
                             if p_card
@@ -485,7 +487,7 @@ class HanasimGame(AbstractGame):
         return resulting_hands
 
     def _update_knowledge(
-        self, action: Action, acting_player: int, hands: list[list[NativeCard]], post_obs
+        self, action: Action, acting_player: int, hands: list[list[NativeCard]], post_obs, prev_obs
     ) -> None:
         for p in self.players:
             p.inform(action, acting_player, self)
@@ -551,9 +553,20 @@ class HanasimGame(AbstractGame):
 
         else:  # the action is either play or discard
             assert action.cnr is not None
+            p_card = self._convert_card(prev_obs.hands[acting_player][action.cnr])
+                        
+                                    
+            old_col = p_card[0]
+            old_rank = p_card[1]
+
             del self.knowledge[acting_player][action.cnr]
             visible_cards = self._get_visible_cards(acting_player, post_obs.hands)
             self.knowledge[acting_player].append(initial_knowledge(visible_cards))  # draw a new card
+
+            # update knowledge of acting player with the card is played/discarded
+            for k in self.knowledge[acting_player][:-1]:
+                if k[old_col][old_rank - 1] > 0:
+                    k[old_col][old_rank - 1] -= 1
 
             # update knowlege of cooperating players with the new drawn card
             drawn_card = self._convert_card(post_obs.hands[acting_player][-1])
