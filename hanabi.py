@@ -22,6 +22,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+import hana_sim  # type: ignore
 from hana_sim import PlayerName  # type: ignore
 
 from game import HanasimGame, Game
@@ -367,6 +368,7 @@ def main(args):
         if (i + 1) % 100 == 0:
             print("Starting game", i + 1)
         random.seed(i + 1)
+        hana_sim.set_deck_seed(i + 1)
 
         game_log = io.StringIO()     # empty buffer for this game
         print(f"{len(players)} players: {', '.join(args)}",
