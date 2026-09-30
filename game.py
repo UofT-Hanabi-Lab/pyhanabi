@@ -1,5 +1,4 @@
 import sys
-import json
 from abc import ABCMeta, abstractmethod
 from typing import Sequence, override, Final, Any
 from collections import Counter
@@ -116,7 +115,7 @@ class HanasimGame(AbstractGame):
                 p_knowledge.append(initial_knowledge(visible_cards))
 
             self.knowledge.append(p_knowledge)
-            
+
         self._hinted_cards = {}
 
     @override
@@ -141,17 +140,23 @@ class HanasimGame(AbstractGame):
         )
         print(file=self.log)  # blank line — paragraph separator
 
-
         for i in range(len(self.players)):
             self.jlog["initial_mental_states"][f"player_{i}"] = []
             for card in self.knowledge[i]:
-                self.jlog["initial_mental_states"][f"player_{i}"].append({"green": card[0][:],
-                                                                          "yellow": card[1][:],
-                                                                          "white": card[2][:],
-                                                                          "blue": card[3][:],
-                                                                     "red": card[4][:]})
+                self.jlog["initial_mental_states"][f"player_{i}"].append(
+                    {
+                        "green": card[0][:],
+                        "yellow": card[1][:],
+                        "white": card[2][:],
+                        "blue": card[3][:],
+                        "red": card[4][:],
+                    }
+                )
 
-        self.jlog["deck"] = [{"color": c[0].display_name, "rank": c[1]} for c in self._convert_trash(self._env.deck[:])]
+        self.jlog["deck"] = [
+            {"color": c[0].display_name, "rank": c[1]}
+            for c in self._convert_trash(self._env.deck[:])
+        ]
 
         if self._post_move_metrics:
             # These structures track post-move metrics for each player
@@ -174,7 +179,9 @@ class HanasimGame(AbstractGame):
             )  # count of turns where player had at least one unplayable card in hand
             hint_frequency = Counter()  # count of hints given per player
             hint_possible = Counter()  # count of turns where a hint could be given
-            hint_interpreted_correctly = Counter()  # count of hints that were interpreted correctly by the recipient
+            hint_interpreted_correctly = (
+                Counter()
+            )  # count of hints that were interpreted correctly by the recipient
             hints_received = Counter()  # count of hints received per player
 
         turn = 1
@@ -192,7 +199,9 @@ class HanasimGame(AbstractGame):
                     self._convert_played(self._obs.fireworks),
                     self._convert_board(self._obs.fireworks),
                     HanasimGame._convert_valid_actions(self._obs.legal_actions),
-                    self._obs.hint_tokens, self._obs.lives_remaining, len(self._env.deck)
+                    self._obs.hint_tokens,
+                    self._obs.lives_remaining,
+                    len(self._env.deck),
                 )
 
                 step_result = self._env.step(self._convert_action(action))
@@ -231,21 +240,31 @@ class HanasimGame(AbstractGame):
                     acting_player_id
                 )
                 # Hints given per player
-                hint_frequency[acting_player_id] += 1 if action.action_type in [
-                    Action.ActionType.HINT_COLOR,
-                    Action.ActionType.HINT_NUMBER,
-                ] else 0
+                hint_frequency[acting_player_id] += (
+                    1
+                    if action.action_type
+                    in [
+                        Action.ActionType.HINT_COLOR,
+                        Action.ActionType.HINT_NUMBER,
+                    ]
+                    else 0
+                )
 
                 hint_possible[acting_player_id] += 1 if self._obs.hint_tokens > 0 else 0
 
-                hint_interpreted_correctly[acting_player_id] += self._hint_interpreted_correctly(action, acting_player_id) 
-                
+                hint_interpreted_correctly[acting_player_id] += (
+                    self._hint_interpreted_correctly(action, acting_player_id)
+                )
+
                 # Hints received per player
-                if action.action_type in [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]:
+                if action.action_type in [
+                    Action.ActionType.HINT_COLOR,
+                    Action.ActionType.HINT_NUMBER,
+                ]:
                     if action.pnr is not None:
                         hints_received[action.pnr] += 1
                     else:
-                        hints_received[acting_player_id] += 0 
+                        hints_received[acting_player_id] += 0
 
                 # Information per play
                 if action.action_type in [
@@ -256,27 +275,38 @@ class HanasimGame(AbstractGame):
                         self._information_per_play(action, acting_player_id)
                     )
 
-            self._jlog_action(turn, action, acting_player_id, self._obs, step_result.observation)
+            self._jlog_action(
+                turn, action, acting_player_id, self._obs, step_result.observation
+            )
 
             prev_obs = self._obs
             self._obs = step_result.observation
             self._update_knowledge(
                 action,
                 acting_player_id,
-                self._convert_hands(self._obs.hands, acting_player_id), step_result.observation
+                self._convert_hands(self._obs.hands, acting_player_id),
+                step_result.observation,
+                prev_obs,
             )
             self._log_move(turn, action, acting_player_id, prev_obs)
-
 
             updated_knowledge = {}
             for i in range(len(self.players)):
                 updated_knowledge[f"player_{i}"] = []
                 for card in self.knowledge[i]:
-                    updated_knowledge[f"player_{i}"].append({"green": card[0][:],
-                        "yellow": card[1][:], "white": card[2][:],
-                        "blue": card[3][:], "red": card[4][:]})
+                    updated_knowledge[f"player_{i}"].append(
+                        {
+                            "green": card[0][:],
+                            "yellow": card[1][:],
+                            "white": card[2][:],
+                            "blue": card[3][:],
+                            "red": card[4][:],
+                        }
+                    )
 
-            self.jlog["actions"][-1][f"turn_{turn}"]["resulting_state"]["mental_states"] = updated_knowledge
+            self.jlog["actions"][-1][f"turn_{turn}"]["resulting_state"][
+                "mental_states"
+            ] = updated_knowledge
             turn += 1
             if step_result.done:
                 break
@@ -296,9 +326,11 @@ class HanasimGame(AbstractGame):
         print("End reason:", end_reason, file=self.log)
         print("Final Score:", points, file=self.log)
 
-        self.jlog["result"] = {"score" : points,
-                               "end_reason": end_reason,
-                               "lives_remaining": self._obs.lives_remaining}
+        self.jlog["result"] = {
+            "score": points,
+            "end_reason": end_reason,
+            "lives_remaining": self._obs.lives_remaining,
+        }
 
         if self._post_move_metrics:
             for i in range(len(self.players)):
@@ -340,7 +372,7 @@ class HanasimGame(AbstractGame):
                     f"Player {i} ({self.players[i].name}) Hints Given: {hint_frequency[i]}",
                     file=self.log,
                 )
-    
+
             self._metric_dict["ipp_list"] = ipp_list
             self._metric_dict["critical_discards"] = critical_discards
             self._metric_dict["known_discards"] = known_playable_discards
@@ -355,7 +387,6 @@ class HanasimGame(AbstractGame):
 
         return points
 
-
     def _summarize_knowledge(self, card_knowledge) -> str:
         """Collapse one card's 5x5 possibility grid into the colors and numbers
         still possible for it — i.e. what its owner knows about it."""
@@ -364,46 +395,65 @@ class HanasimGame(AbstractGame):
             for col in Color
             if any(cnt > 0 for cnt in card_knowledge[col])
         ]
-        possible_ranks = sorted({
-            i + 1
-            for col in Color
-            for i, cnt in enumerate(card_knowledge[col])
-            if cnt > 0
-        })
-        color = "any" if len(possible_colors) == len(Color) else "/".join(possible_colors)
-        rank = "any" if len(possible_ranks) == len(COUNTS) else "/".join(map(str, possible_ranks))
+        possible_ranks = sorted(
+            {
+                i + 1
+                for col in Color
+                for i, cnt in enumerate(card_knowledge[col])
+                if cnt > 0
+            }
+        )
+        color = (
+            "any" if len(possible_colors) == len(Color) else "/".join(possible_colors)
+        )
+        rank = (
+            "any"
+            if len(possible_ranks) == len(COUNTS)
+            else "/".join(map(str, possible_ranks))
+        )
         return f"color: {color}; number: {rank}"
-
 
     def _log_move(self, move_number, action, acting_player_id, prev_obs) -> None:
         """Write one move as a full paragraph: what happened, then the complete
         post-move state (board, trash, tokens, all hands, all mental states)."""
         # What happened this move
         if action.action_type == Action.ActionType.HINT_COLOR:
-            print(f"Move {move_number}: Player {acting_player_id} hints Player "
-                  f"{action.pnr}: {action.col.display_name} cards",
-                  file=self.log)
+            print(
+                f"Move {move_number}: Player {acting_player_id} hints Player "
+                f"{action.pnr}: {action.col.display_name} cards",
+                file=self.log,
+            )
         elif action.action_type == Action.ActionType.HINT_NUMBER:
-            print(f"Move {move_number}: Player {acting_player_id} hints Player "
-                  f"{action.pnr}: {action.num}s", file=self.log)
+            print(
+                f"Move {move_number}: Player {acting_player_id} hints Player "
+                f"{action.pnr}: {action.num}s",
+                file=self.log,
+            )
         elif action.action_type == Action.ActionType.PLAY:
             card = self._convert_card(prev_obs.hands[acting_player_id][action.cnr])
             ok = self._obs.lives_remaining == prev_obs.lives_remaining
-            print(f"Move {move_number}: Player {acting_player_id} plays "
-                  f"{format_card(card)} — {'successfully' if ok else 'and it failed'}",
-                  file=self.log)
+            print(
+                f"Move {move_number}: Player {acting_player_id} plays "
+                f"{format_card(card)} — {'successfully' if ok else 'and it failed'}",
+                file=self.log,
+            )
         else:  # DISCARD
             card = self._convert_card(prev_obs.hands[acting_player_id][action.cnr])
-            print(f"Move {move_number}: Player {acting_player_id} discards "
-                  f"{format_card(card)}", file=self.log)
+            print(
+                f"Move {move_number}: Player {acting_player_id} discards "
+                f"{format_card(card)}",
+                file=self.log,
+            )
 
         # Shared board state after the move
         board = self._convert_board(self._obs.fireworks)
         trash = self._convert_trash(self._obs.discards)
         print(f"Board: {format_hand(board)}", file=self.log)
         print(f"Trash: {format_hand(trash) if trash else '(empty)'}", file=self.log)
-        print(f"Lives: {self._obs.lives_remaining} | Hints: {self._obs.hint_tokens}",
-              file=self.log)
+        print(
+            f"Lives: {self._obs.lives_remaining} | Hints: {self._obs.hint_tokens}",
+            file=self.log,
+        )
 
         # print("Hands:", file=self.log)
         # for i in range(len(self.players)):
@@ -415,67 +465,92 @@ class HanasimGame(AbstractGame):
             print(f"  Player {i}:", file=self.log)
             for idx, (card, k) in enumerate(zip(self._obs.hands[i], self.knowledge[i])):
                 native = self._convert_card(card)
-                print(f"    [{idx}] {format_card(native)} -> "
-                      f"{self._summarize_knowledge(k)}", file=self.log)
+                print(
+                    f"    [{idx}] {format_card(native)} -> "
+                    f"{self._summarize_knowledge(k)}",
+                    file=self.log,
+                )
 
         print(file=self.log)  # blank line — paragraph separator
         print(file=self.log)  # blank line — paragraph separator
-
 
     def _jlog_action(self, turn, action, acting_player_id, pre_obs, post_obs):
         p_card = (
-                self._convert_card(pre_obs.hands[acting_player_id][action.cnr]) if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD] else None
-            )
+            self._convert_card(pre_obs.hands[acting_player_id][action.cnr])
+            if action.action_type in [Action.ActionType.PLAY, Action.ActionType.DISCARD]
+            else None
+        )
         self.jlog["actions"].append(
-                {
-                    f"turn_{turn}": {
-                        "player": acting_player_id,
-                        "action": {
-                            "type": action.action_type.name,
-                            "chosen_card": {"color": p_card[0].display_name, "rank": p_card[1]}
-                            if p_card
-                            else None,
-                            "successful": "no" if post_obs.lives_remaining < pre_obs.lives_remaining else "yes" if action.action_type == Action.ActionType.PLAY else None,
-                            "valid_hints": [{ "hint": h[0], "hinted_player": h[1], "score": h[2] } for h in self.players[acting_player_id].get_valid_hints()],
-                            "redundant_hints": [{ "hint": h[0], "hinted_player": h[1], "score": h[2] } for h in self.players[acting_player_id].get_redundant_hints()],
-                            "hint": {
+            {
+                f"turn_{turn}": {
+                    "player": acting_player_id,
+                    "action": {
+                        "discard_crit": self.players[
+                            acting_player_id
+                        ].get_discard_crit()
+                        if isinstance(
+                            self.players[acting_player_id], SelfIntentionalPlayer
+                        )
+                        else None,
+                        "critical_hints": [
+                            {"hint": h[0], "hinted_player": h[1], "score": h[2]}
+                            for h in self.players[acting_player_id].get_critical_hints()
+                        ],
+                        "type": action.action_type.name,
+                        "chosen_card": {
+                            "color": p_card[0].display_name,
+                            "rank": p_card[1],
+                        }
+                        if p_card
+                        else None,
+                        "successful": "no"
+                        if post_obs.lives_remaining < pre_obs.lives_remaining
+                        else "yes"
+                        if action.action_type == Action.ActionType.PLAY
+                        else None,
+                        "valid_hints": [
+                            {"hint": h[0], "hinted_player": h[1], "score": h[2]}
+                            for h in self.players[acting_player_id].get_valid_hints()
+                        ],
+                        "redundant_hints": [
+                            {"hint": h[0], "hinted_player": h[1], "score": h[2]}
+                            for h in self.players[
+                                acting_player_id
+                            ].get_redundant_hints()
+                        ],
+                        "hint": {
                             "hint_color": action.col.display_name
                             if action.col
                             else None,
                             "hint_num": action.num if action.num else None,
                             "hinted_player": action.pnr
                             if action.pnr is not None
-                            else None},
+                            else None,
                         },
-                        "resulting_state": {
-                            "board": [
+                    },
+                    "resulting_state": {
+                        "board": [
+                            {"color": c[0].display_name, "rank": c[1]}
+                            for c in self._convert_board(post_obs.fireworks)
+                        ],
+                        "discard_pile": [
+                            {"color": c[0].display_name, "rank": c[1]}
+                            for c in self._convert_trash(post_obs.discards)
+                        ],
+                        "players_hands": {
+                            f"player_{i}": [
                                 {"color": c[0].display_name, "rank": c[1]}
-                                for c in self._convert_board(
-                                    post_obs.fireworks
-                                )
-                            ],
-                            "discard_pile": [
-                                {"color": c[0].display_name, "rank": c[1]}
-                                for c in self._convert_trash(
-                                    post_obs.discards
-                                )
-                            ],
-                            "players_hands": {
-                                f"player_{i}": [
-                                    {"color": c[0].display_name, "rank": c[1]}
-                                    for c in self._get_resulting_hands(
-                                        post_obs
-                                    )[i]
-                                ]
-                                for i in range(len(self.players))
-                            },
-                            "mental_states": {},
-                            "hint_tokens": post_obs.hint_tokens,
-                            "lives_remaining": post_obs.lives_remaining,
+                                for c in self._get_resulting_hands(post_obs)[i]
+                            ]
+                            for i in range(len(self.players))
                         },
-                    }
+                        "mental_states": {},
+                        "hint_tokens": post_obs.hint_tokens,
+                        "lives_remaining": post_obs.lives_remaining,
+                    },
                 }
-            )
+            }
+        )
 
     def _get_resulting_hands(self, post_obs):
         resulting_hands = []
@@ -485,7 +560,12 @@ class HanasimGame(AbstractGame):
         return resulting_hands
 
     def _update_knowledge(
-        self, action: Action, acting_player: int, hands: list[list[NativeCard]], post_obs
+        self,
+        action: Action,
+        acting_player: int,
+        hands: list[list[NativeCard]],
+        post_obs,
+        prev_obs,
     ) -> None:
         for p in self.players:
             p.inform(action, acting_player, self)
@@ -493,16 +573,16 @@ class HanasimGame(AbstractGame):
         if action.action_type == Action.ActionType.HINT_COLOR:
             assert action.col is not None
             assert action.pnr is not None
-        
-            # Track which cards were hinted 
-            hinted_indices = [] 
-            for i, (col, rank) in enumerate(hands[action.pnr]): 
-                if col == action.col: 
-                    hinted_indices.append(i) 
-            if action.pnr not in self._hinted_cards: 
-                self._hinted_cards[action.pnr] = [] 
 
-            self._hinted_cards[action.pnr].append((hinted_indices, action)) 
+            # Track which cards were hinted
+            hinted_indices = []
+            for i, (col, rank) in enumerate(hands[action.pnr]):
+                if col == action.col:
+                    hinted_indices.append(i)
+            if action.pnr not in self._hinted_cards:
+                self._hinted_cards[action.pnr] = []
+
+            self._hinted_cards[action.pnr].append((hinted_indices, action))
 
             # Given a hint for colour X,
             # for every card in the hinted player's hand:
@@ -523,13 +603,13 @@ class HanasimGame(AbstractGame):
             assert action.num is not None
             assert action.pnr is not None
 
-            # Track which cards were hinted 
+            # Track which cards were hinted
             hinted_indices = []
-            for i, (col, rank) in enumerate(hands[action.pnr]): 
-                if rank == action.num: 
-                    hinted_indices.append(i) 
-            if action.pnr not in self._hinted_cards: 
-                self._hinted_cards[action.pnr] = [] 
+            for i, (col, rank) in enumerate(hands[action.pnr]):
+                if rank == action.num:
+                    hinted_indices.append(i)
+            if action.pnr not in self._hinted_cards:
+                self._hinted_cards[action.pnr] = []
 
             self._hinted_cards[action.pnr].append((hinted_indices, action))
 
@@ -551,25 +631,39 @@ class HanasimGame(AbstractGame):
 
         else:  # the action is either play or discard
             assert action.cnr is not None
+            p_card = self._convert_card(prev_obs.hands[acting_player][action.cnr])
+
+            old_col = p_card[0]
+            old_rank = p_card[1]
+
             del self.knowledge[acting_player][action.cnr]
             visible_cards = self._get_visible_cards(acting_player, post_obs.hands)
-            self.knowledge[acting_player].append(initial_knowledge(visible_cards))  # draw a new card
+            self.knowledge[acting_player].append(
+                initial_knowledge(visible_cards)
+            )  # draw a new card
+
+            # update knowledge of acting player with the card is played/discarded
+            for k in self.knowledge[acting_player][:-1]:
+                if k[old_col][old_rank - 1] > 0:
+                    k[old_col][old_rank - 1] -= 1
 
             # update knowlege of cooperating players with the new drawn card
             drawn_card = self._convert_card(post_obs.hands[acting_player][-1])
             new_col = drawn_card[0]
             new_rank = drawn_card[1] - 1
-            
+
             for p in range(len(self.players)):
                 if p == acting_player:
                     continue
                 for k in self.knowledge[p]:
                     if k[new_col][new_rank] > 0:
                         k[new_col][new_rank] -= 1
-                    
-    def _get_visible_cards(self, player_id, hands: list[list[HanaSimCard]]) -> list[list[NativeCard]]:
+
+    def _get_visible_cards(
+        self, player_id, hands: list[list[HanaSimCard]]
+    ) -> list[list[NativeCard]]:
         """
-        Return the cards player_id can see. The cards it can see are the 
+        Return the cards player_id can see. The cards it can see are the
         cooperators' hands, discarded cards, cards on the board.
         """
         v = []
@@ -585,7 +679,7 @@ class HanasimGame(AbstractGame):
         for c in self._convert_board(self._obs.fireworks):
             for i in range(c[1]):
                 v.append((c[0], i + 1))
-        
+
         return v
 
     def _convert_hands(
@@ -854,35 +948,45 @@ class HanasimGame(AbstractGame):
             if not playable(possible_cards, self._convert_board(self._obs.fireworks)):
                 return True
         return False
-    
-    def _hint_interpreted_correctly(self, action: Action, acting_player_id: int) -> bool:
+
+    def _hint_interpreted_correctly(
+        self, action: Action, acting_player_id: int
+    ) -> bool:
         """
         This returns True if a player has interpreted a hint correctly
-        i.e. If the card is playable, it should have been played (not discarded), 
+        i.e. If the card is playable, it should have been played (not discarded),
         if the card is discardable (and not playable), it should have been discarded
-        or kept. 
+        or kept.
         """
-        # Only evaluate plays and discards 
-        if action.action_type not in {Action.ActionType.PLAY, Action.ActionType.DISCARD}: 
+        # Only evaluate plays and discards
+        if action.action_type not in {
+            Action.ActionType.PLAY,
+            Action.ActionType.DISCARD,
+        }:
             return False
-        
-        # Check if this player has any hinted cards 
-        if acting_player_id not in self._hinted_cards or not self._hinted_cards[acting_player_id]: 
-            return False 
-        
+
+        # Check if this player has any hinted cards
+        if (
+            acting_player_id not in self._hinted_cards
+            or not self._hinted_cards[acting_player_id]
+        ):
+            return False
+
         card_index = action.cnr
 
         # Check if the card index is in the hinted cards
-        hint_index = None 
-        for i, (hinted_indices, hint_action) in enumerate(self._hinted_cards[acting_player_id]): 
-            if card_index in hinted_indices: 
-                hint_index = i 
-                break 
-        
+        hint_index = None
+        for i, (hinted_indices, hint_action) in enumerate(
+            self._hinted_cards[acting_player_id]
+        ):
+            if card_index in hinted_indices:
+                hint_index = i
+                break
+
         if hint_index is None:
             return False  # The card played/discarded was not hinted at
-        
-        hinted_indices, hint_action = self._hinted_cards[acting_player_id][hint_index] 
+
+        hinted_indices, hint_action = self._hinted_cards[acting_player_id][hint_index]
         del self._hinted_cards[acting_player_id][hint_index]
 
         actual_card = self._convert_card(self._obs.hands[acting_player_id][card_index])
@@ -893,27 +997,30 @@ class HanasimGame(AbstractGame):
             intention = Intent.PLAY
         elif board[actual_card[0]][1] >= actual_card[1]:
             intention = Intent.DISCARD
-        elif actual_card[1] < 5 and actual_card[1] > 1 and (actual_card[0], actual_card[1]) not in (trash + board):
-                # DONE: this condition doesn't account for there being three 1s of each colour
+        elif (
+            actual_card[1] < 5
+            and actual_card[1] > 1
+            and (actual_card[0], actual_card[1]) not in (trash + board)
+        ):
+            # DONE: this condition doesn't account for there being three 1s of each colour
             intention = Intent.CAN_DISCARD
         elif actual_card[1] == 1:
             count = 0
-            for c in (trash + board):
+            for c in trash + board:
                 if actual_card[0] == c[0] and actual_card[1] == c[1]:
-                    count+=1
+                    count += 1
             if count < 2:
                 intention = Intent.CAN_DISCARD
 
         if action.action_type == Action.ActionType.PLAY and intention == Intent.PLAY:
             return True
-        
+
         elif action.action_type == Action.ActionType.DISCARD and intention in {
             Intent.DISCARD,
             Intent.CAN_DISCARD,
         }:
             return True
         return False
-        
 
     def _information_per_play(self, action: Action, acting_player_id: int) -> float:
         total_info = 0
