@@ -287,3 +287,9 @@ cython_debug/
 
 # Claude Code project instructions (local, not tracked)
 CLAUDE.md
+
+log/
+
+json/
+
+plots/

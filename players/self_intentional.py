@@ -85,6 +85,7 @@ class SelfIntentionalPlayer(Player):
         num_players = len(knowledge)
         possible = []
         result = None
+        ignore_dead = False
         self.explanation = []
         self.explanation.append(["Your Hand:"] + list(map(f, hands[1 - nr])))
         action = []
@@ -93,7 +94,9 @@ class SelfIntentionalPlayer(Player):
         self.crit_hints = []
         self.discard_crit = False
 
-        if self.version == 0:
+        if self.version == 0 or self.version == 11:
+            if self.version == 11:
+                ignore_dead = True
             # Interpret recieved hint
             if self.got_hint:
                 result = self.received_hint(nr, knowledge, board, hints, result, action)
@@ -104,7 +107,7 @@ class SelfIntentionalPlayer(Player):
 
             # give intentional hint
             if not result:
-                result, redundant_hints = self.give_intentional_hint(nr, hands, knowledge, trash, board, hints, num_players, result)
+                result, redundant_hints = self.give_intentional_hint(nr, hands, knowledge, trash, board, hints, num_players, result, ignore_dead)
 
             # give redundant hint
             if hints == MAX_HINT_TOKENS and not result:
@@ -1132,7 +1135,7 @@ class SelfIntentionalPlayer(Player):
         return result
 
 
-    def give_intentional_hint(self, nr, hands, knowledge, trash, board, hints, num_players, result):
+    def give_intentional_hint(self, nr, hands, knowledge, trash, board, hints, num_players, result, ignore_dead=False):
         redundant_hints = []
         if num_players == 2:
             intents_for_next = self._create_intents(
@@ -1190,7 +1193,8 @@ class SelfIntentionalPlayer(Player):
                             hintee_intentions,
                             hands[hintee_id],
                             board,
-                            trash
+                            trash,
+                            ignore_dead
                         )
                     self.explanation.append(
                         ["Prediction for: Hint Color " + c.display_name]
@@ -1228,7 +1232,8 @@ class SelfIntentionalPlayer(Player):
                             hintee_intentions,
                             hands[hintee_id],
                             board,
-                            trash
+                            trash,
+                            ignore_dead
                         )
                     self.explanation.append(
                         ["Prediction for: Hint Rank " + str(r)]
