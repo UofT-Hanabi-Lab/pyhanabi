@@ -83,12 +83,13 @@ def report_critical_discards(path: Path) -> None:
 # Command: hint_types
 # ---------------------------------------------------------------------------
 
-def get_hint_types_from_json(path: Path) -> Tuple[int, int, int]:
+def get_hint_types_from_json(path: Path) -> Tuple[int, int, int, int]:
     """
     Given a JSON file representing a game log, return a tuple where:
     - result[0] is the total number of hints given in the game
     - result[1] is the number of intentional hints given in the game
     - result[2] is the number of redundant hints given in the game
+    - result[3] is the number of random hints given in the game
     """
     assert path.is_file() and path.suffix.lower() == ".json", f"The path provided is not a JSON file: {path}"
     with open(path, "r") as f:
@@ -98,6 +99,7 @@ def get_hint_types_from_json(path: Path) -> Tuple[int, int, int]:
         total_hints = 0
         intentional_hints = 0
         redundant_hints = 0
+        random_hints = 0
         for turn in json_data["actions"]:
             action = turn[f"turn_{turns}"]["action"]
             # validate the logic in the log
@@ -108,14 +110,15 @@ def get_hint_types_from_json(path: Path) -> Tuple[int, int, int]:
                 intentional_hints += 1
             # 2. no valid intentional hints ==> we either have redundant hints, or we chose to play or discard
             else:
-                # TODO: this assert is apparently not true, otherwise the function works
-                assert action["redundant_hints"] != [] or action["type"] == "PLAY" or action["type"] == "DISCARD", f"file: {path}"
-                if action["type"] == "HINT_COLOR" or action["type"] == "HINT_NUMBER":
+                if action["redundant_hints"] and (action["type"] == "HINT_COLOR" or action["type"] == "HINT_NUMBER"):
                     total_hints += 1
                     redundant_hints += 1
+                elif action["type"] == "HINT_COLOR" or action["type"] == "HINT_NUMBER":
+                    total_hints += 1
+                    random_hints += 1
             turns += 1
 
-    return total_hints, intentional_hints, redundant_hints
+    return total_hints, intentional_hints, redundant_hints, random_hints
 
 
 def report_hint_types(path: Path) -> None:
@@ -127,30 +130,35 @@ def report_hint_types(path: Path) -> None:
 
     if path.is_file():
         print(f"Reporting hint details on file: {path}")
-        total_hints, intentional_hints, redundant_hints = get_hint_types_from_json(path)
+        total_hints, intentional_hints, redundant_hints, random_hints = get_hint_types_from_json(path)
         print("Total hints:", total_hints)
         print("Intentional hints:", intentional_hints)
         print("Redundant hints:", redundant_hints)
+        print("Random hints:", random_hints)
         print("Intentional hints ratio:", intentional_hints / total_hints)
+        print("Redundant hints ratio:", redundant_hints / total_hints)
 
     elif path.is_dir():
         print(f"Reporting aggregate hint details for directory: {path}")
-        aggregate_total_hints, aggregate_intentional_hints, aggregate_redundant_hints = 0, 0, 0
+        aggregate_total_hints, aggregate_intentional_hints, aggregate_redundant_hints, aggregate_random_hints = 0, 0, 0, 0
         game_count = 0
         for file in path.iterdir():
             assert file.is_file()
-            total_hints, intentional_hints, redundant_hints = get_hint_types_from_json(file)
+            total_hints, intentional_hints, redundant_hints, random_hints = get_hint_types_from_json(file)
             aggregate_total_hints += total_hints
             aggregate_intentional_hints += intentional_hints
             aggregate_redundant_hints += redundant_hints
+            aggregate_random_hints += random_hints
             game_count += 1
 
         print("Aggregate total hints", aggregate_total_hints)
         print("Aggregate intentional hints", aggregate_intentional_hints)
         print("Aggregate redundant hints", aggregate_redundant_hints)
+        print("Aggregate random hints", aggregate_random_hints)
         print("Total games:", game_count)
         print("Intentional hint ratio over all games:", aggregate_intentional_hints / aggregate_total_hints)
-        print("Redundant hint ratio:", aggregate_redundant_hints / aggregate_total_hints)
+        print("Redundant hint ratio over all games:", aggregate_redundant_hints / aggregate_total_hints)
+        print("Random hint ratio over all games:", aggregate_random_hints / aggregate_total_hints)
 
     else:
         raise ValueError(f"Path does not exist: {path}")
