@@ -252,7 +252,6 @@ def get_third_player_hint_info_from_file(path: Path) -> Tuple[int, int, int, int
     return total_hints, third_player_hints, misplays_after_third_player_hints, critical_discards_after_third_player_hints
 
 
-# TODO: implement this
 def report_third_player_hints(path: Path) -> None:
     """
     Report information on the scenario where the current player hints the player after the next ("third player hints").
