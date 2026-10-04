@@ -14,8 +14,6 @@ import json
 from pathlib import Path
 from typing import Tuple
 
-from pandas.core.internals.construction import to_arrays
-
 ALLOWED_SUBDIRS = {"low_scores", "max_score"}
 
 # ---------------------------------------------------------------------------
@@ -180,14 +178,10 @@ def report_third_player_hints(path: Path) -> None:
     """
 
     if path.is_file():
-        print(f"...: {path}")
-
-        # TODO
+        ...
 
     elif path.is_dir():
-        print(f"...: {path}")
-
-        # TODO
+        ...
 
     else:
         raise ValueError(f"Path does not exist: {path}")
