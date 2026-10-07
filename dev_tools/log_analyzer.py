@@ -269,8 +269,11 @@ def report_third_player_hints(path: Path) -> None:
         print("Ratio of third player hints over all hints:", third_player_hints / total_hints)
         print("Number of times a third player hint which caused Player B to misplay:", misplays)
         print("Number of times a third player hint which caused a critical discard in Player B:", critical_discards)
-        print("Ratio of third player hints which caused a misplay:", misplays / third_player_hints)
-        print("Ratio of third player hints which caused a critical discard:", critical_discards / third_player_hints)
+        try:
+            print("Ratio of third player hints which caused a misplay:", misplays / third_player_hints)
+            print("Ratio of third player hints which caused a critical discard:", critical_discards / third_player_hints)
+        except ZeroDivisionError:
+            raise "No third player hints were found"
 
     elif path.is_dir():
         print(f"Reporting third player hint details on all log files in the directory: {path}")
@@ -296,8 +299,11 @@ def report_third_player_hints(path: Path) -> None:
         print("Ratio of total hints which are third player hints:", aggregate_third_player_hints / aggregate_total_hints)
         print("Aggregate misplays:", aggregate_misplays)
         print("Aggregate critical discards:", aggregate_critical_discards)
-        print("Ratio of third player hints which caused a misplay:", aggregate_misplays / aggregate_third_player_hints)
-        print("Ratio of third player hints which caused a critical discard:", aggregate_critical_discards / aggregate_third_player_hints)
+        try:
+            print("Ratio of third player hints which caused a misplay:", aggregate_misplays / aggregate_third_player_hints)
+            print("Ratio of third player hints which caused a critical discard:", aggregate_critical_discards / aggregate_third_player_hints)
+        except ZeroDivisionError:
+            raise "No third player hints were found"
 
     else:
         raise ValueError(f"Path does not exist: {path}")
