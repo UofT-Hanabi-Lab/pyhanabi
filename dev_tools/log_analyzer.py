@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 from typing import Tuple
 
-ALLOWED_SUBDIRS = {"low_scores", "max_score"}
+ALLOWED_SUBDIRS = {"low_scores", "high_scores", "max_score"}
 CARD_COUNTS = {
     1: 3,
     2: 2,
