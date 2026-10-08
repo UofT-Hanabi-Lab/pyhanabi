@@ -15,6 +15,13 @@ from pathlib import Path
 from typing import Tuple
 
 ALLOWED_SUBDIRS = {"low_scores", "max_score"}
+CARD_COUNTS = {
+    1: 3,
+    2: 2,
+    3: 2,
+    4: 2,
+    5: 1
+}
 
 # ---------------------------------------------------------------------------
 # Command: critical_discards
@@ -125,7 +132,6 @@ def report_hint_types(path: Path) -> None:
     Is path points to a single log file, report hint details on the single game.
     If path points to a directory of log files, report aggregate hint details on all games.
     """
-
     if path.is_file():
         print(f"Reporting hint details on file: {path}")
         total_hints, intentional_hints, redundant_hints, random_hints = get_hint_types_from_json(path)
@@ -165,8 +171,87 @@ def report_hint_types(path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Command: third_player_hints
 # ---------------------------------------------------------------------------
+def is_critical_discard(move_info: list[str]) -> bool:
+    """
+    Takes in a set of move information form a log file (a single paragraph from a move file),
+    and determines whether the discard was critical.
+    Preconditions:
+     - the move must refer to a discard move
+    Returns: whether the discard was critical
+    """
+    move_line = move_info[0]
+    assert "discards" in move_line
+    trash_line = move_info[1]
+    assert "Trash" in trash_line
+    trash = trash_line.removeprefix("Trash: ").split(", ")
+    card_regex = re.compile(r'\b(white|red|blue|green|yellow) [1-5]\b')
+    match = card_regex.search(move_line)
+    assert match
+    discarded_card = match.group(0)
+    # int(discarded_card[-1]) gets the rank of the discard
+    assert trash.count(discarded_card) + 1 <= CARD_COUNTS[int(discarded_card[-1])]
+    return trash.count(discarded_card) + 1 == CARD_COUNTS[int(discarded_card[-1])]
 
-# TODO: implement this
+
+def get_third_player_hint_info_from_file(path: Path) -> Tuple[int, int, int, int]:
+    """
+    Get details on "third player hints" from a given file. A third player hint is a hint given by Player A to Player C.
+    We are specifically interested in the cases of third player hints that cause Player B to take a bad action.
+    - result[0] is the total number of hints given
+    - result[1] is the number of third player hints
+    - result[2] is the number of times a third player hints causes Player B to misplay
+    - result[3] is the number of times a third player hint causes Player B to discard a critical card
+    """
+    assert path.is_file(), f"The path provided is not a file: {path}"
+    with open(path, "r") as f:
+        moves = []
+        curr_move = []
+        for line in f.readlines():
+            if "Move" in line:
+                if curr_move:
+                    moves.append(curr_move)
+                curr_move = [line]
+            elif "Trash:" in line:
+                curr_move.append(line)
+
+    total_hints = 0
+    third_player_hints = 0
+    misplays_after_third_player_hints = 0
+    critical_discards_after_third_player_hints = 0
+
+    for i in range(0, len(moves) - 1):
+        curr_move_info = moves[i]
+        next_move_info = moves[i + 1]
+
+        # 1. Find the total number of hints
+        # move[0] is the line that looks like this "Move #: <move description>"
+        curr_move = curr_move_info[0]
+        assert "Move" in curr_move, curr_move
+        if "hints" in curr_move:
+            total_hints += 1
+
+            # 2. Find the cases where we have third player hints
+            match = re.search(r"Player (\d+) hints Player (\d+)", curr_move)
+            assert match is not None
+            curr_player = int(match.group(1))
+            hinted_player = int(match.group(2))
+            num_players = 3  # Note: this would have to change in 4+ player scenario
+            if (curr_player + 2) % num_players == hinted_player:  # This defines a "third player hint"
+                third_player_hints += 1
+
+                # 3. Find the cases where the third player hint causes player B to do "bad moves"
+                next_move = next_move_info[0]
+                assert "Move" in next_move
+                # 3a. Find the cases where the third player hint causes a misplay
+                if "plays" in next_move and "successfully" not in next_move:
+                    misplays_after_third_player_hints += 1
+                # 3b. Find the cases where the third player hint causes the discard of a critical card
+                elif "discards" in next_move and is_critical_discard(next_move_info):
+                    critical_discards_after_third_player_hints += 1
+
+    return total_hints, third_player_hints, misplays_after_third_player_hints, critical_discards_after_third_player_hints
+
+
 def report_third_player_hints(path: Path) -> None:
     """
     Report information on the scenario where the current player hints the player after the next ("third player hints").
@@ -176,12 +261,49 @@ def report_third_player_hints(path: Path) -> None:
     - Number of times a third player hint causes the player in between to misplay
     - Number of times a third player hint causes the player in between to discard a critical card
     """
-
     if path.is_file():
-        ...
+        print(f"Reporting third player hint details on file: {path}")
+        total_hints, third_player_hints, misplays, critical_discards = get_third_player_hint_info_from_file(path)
+        print("Total number of hints:", total_hints)
+        print("Number of third player hints:", third_player_hints)
+        print("Ratio of third player hints over all hints:", third_player_hints / total_hints)
+        print("Number of times a third player hint which caused Player B to misplay:", misplays)
+        print("Number of times a third player hint which caused a critical discard in Player B:", critical_discards)
+        try:
+            print("Ratio of third player hints which caused a misplay:", misplays / third_player_hints)
+            print("Ratio of third player hints which caused a critical discard:", critical_discards / third_player_hints)
+        except ZeroDivisionError:
+            raise "No third player hints were found"
 
     elif path.is_dir():
-        ...
+        print(f"Reporting third player hint details on all log files in the directory: {path}")
+        game_count = 0
+        aggregate_total_hints = 0
+        aggregate_third_player_hints = 0
+        aggregate_misplays = 0
+        aggregate_critical_discards = 0
+        for file in path.rglob("*"):
+            if file.is_dir():
+                assert file.name in ALLOWED_SUBDIRS, (f"The path under directory {path} is not a file: {file}, "
+                                                      f"and does not correspond to an allowed subdirectory name")
+                continue
+            game_count += 1
+            total_hints, third_player_hints, misplays, critical_discards = get_third_player_hint_info_from_file(file)
+            aggregate_total_hints += total_hints
+            aggregate_third_player_hints += third_player_hints
+            aggregate_misplays += misplays
+            aggregate_critical_discards += critical_discards
+        print("Number of games:", game_count)
+        print("Aggregate total hints:", aggregate_total_hints)
+        print("Aggregate third player hints:", aggregate_third_player_hints)
+        print("Ratio of total hints which are third player hints:", aggregate_third_player_hints / aggregate_total_hints)
+        print("Aggregate misplays:", aggregate_misplays)
+        print("Aggregate critical discards:", aggregate_critical_discards)
+        try:
+            print("Ratio of third player hints which caused a misplay:", aggregate_misplays / aggregate_third_player_hints)
+            print("Ratio of third player hints which caused a critical discard:", aggregate_critical_discards / aggregate_third_player_hints)
+        except ZeroDivisionError:
+            raise "No third player hints were found"
 
     else:
         raise ValueError(f"Path does not exist: {path}")
@@ -218,11 +340,11 @@ def create_parser() -> argparse.ArgumentParser:
     # Critical discards command: report the stats on critical discards per game or per set of games
     critical_discards_parser = subparsers.add_parser(
         "critical_discards",
-        help="Report stats on critical discards."
-             "If a path to a log file is passed as an argument, it will report stats on the single game."
-             "If a path to a directory of log files is passed as an argument,"
-             "it will report aggregate stats on the all games.",
-        description="Report stats on critical discards.",
+        help="Report stats on critical discards.",
+        description="Report stats on critical discards.\n"
+                    "If a path to a log file is passed as an argument, it will report stats on the single game."
+                    "If a path to a directory of log files is passed as an argument,"
+                    "it will report aggregate stats on the all games.",
     )
     critical_discards_parser.add_argument(
         "path",
@@ -235,7 +357,7 @@ def create_parser() -> argparse.ArgumentParser:
     hint_types_parser = subparsers.add_parser(
         "hint_types",
         help="Report details on the type of hints provided (intentional vs redundant).",
-        description="Report details on the hints provided. "
+        description="Report details on the hints provided.\n"
                     "If a path to a JSON log file is passed as an argument, it will provide hint information the single game."
                     "If a path to a directory of JSON log files is passed as an argument,"
                     "it will report aggregate information on the all games.",
@@ -251,7 +373,9 @@ def create_parser() -> argparse.ArgumentParser:
     third_player_hints_parser = subparsers.add_parser(
         "third_player_hints",
         help="Analyze the effect of hinting the third player.",
-        description="Report on the effect of hinting the third player. "
+        description="Report on the effect of hinting the third player. A 'third player hint' is defined as a hint that "
+                    "Player A gives to Player C. Specifically, investigate the negative effects that these hints can "
+                    "have on player B.\n"
                     "If a path to a log file is passed as an argument, it will analyze hint information the single game."
                     "If a path to a directory of log files is passed as an argument,"
                     "it will analyze aggregate information on the all games."
