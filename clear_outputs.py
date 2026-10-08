@@ -4,6 +4,7 @@ Removes:
   - all saved plots under plots/
   - all logs directly under log/ (top level only)
   - all low-score logs under log/low_scores/
+  - all high-score logs under log/high_scores/ (and log/max_score/ from older runs)
   - all json logs under json/
 
 Usage:
@@ -26,6 +27,8 @@ TARGETS = [
     (os.path.join(REPO_ROOT, "plots"), True),
     (os.path.join(REPO_ROOT, "log"), False),
     (os.path.join(REPO_ROOT, "log", "low_scores"), True),
+    (os.path.join(REPO_ROOT, "log", "high_scores"), True),
+    (os.path.join(REPO_ROOT, "log", "max_score"), True),  # left over from older runs
     (os.path.join(REPO_ROOT, "json"), True),
 ]
 

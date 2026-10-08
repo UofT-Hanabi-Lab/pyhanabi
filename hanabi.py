@@ -10,12 +10,18 @@ import io
 LOG_DIR = "log"
 LOG_JSON_DIR = "json"
 LOW_MARKS_DIR = os.path.join(LOG_DIR, "low_scores")
-MAX_MARK_DIR = os.path.join(LOG_DIR, "max_score")
-LOW_MARK_THRESHOLD = 5
+HIGH_MARKS_DIR = os.path.join(LOG_DIR, "high_scores")
+
+# Logs are classified by rank once the whole run is finished:
+# - the lowest LOW_SCORE_FRACTION of games go to low_scores/ (1% of 1000 = 10 games)
+# - the HIGH_SCORE_COUNT highest-scoring games go to high_scores/
+# Ties are broken by game number, so exactly that many games are moved.
+LOW_SCORE_FRACTION = 0.01
+HIGH_SCORE_COUNT = 5
 
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(LOW_MARKS_DIR, exist_ok=True)
-os.makedirs(MAX_MARK_DIR, exist_ok=True)
+os.makedirs(HIGH_MARKS_DIR, exist_ok=True)
 
 import pandas as pd
 import matplotlib
@@ -219,6 +225,32 @@ def report_metrics(pts: list[int], players: list[Player], n: int,
     print("\nSaved:", *saved, sep="\n  ")
 
 
+def classify_game_logs(game_logs: list[tuple[int, int, str]]):
+    """Move the lowest- and highest-scoring game logs out of LOG_DIR.
+
+    game_logs holds one (score, game number, log path) entry per game. The
+    bottom LOW_SCORE_FRACTION of games are moved to LOW_MARKS_DIR and the top
+    HIGH_SCORE_COUNT games to HIGH_MARKS_DIR; a game is never moved twice.
+    """
+    by_score = sorted(game_logs)  # ascending score, ties by game number
+    n_low = max(1, round(len(by_score) * LOW_SCORE_FRACTION))
+    low = by_score[:n_low]
+    rest = by_score[n_low:]
+    # highest score first; among equal scores, the earliest game wins
+    high = sorted(rest, key=lambda x: (-x[0], x[1]))[:HIGH_SCORE_COUNT]
+
+    for target_dir, selected in ((LOW_MARKS_DIR, low), (HIGH_MARKS_DIR, high)):
+        for _, _, path in selected:
+            os.replace(path, os.path.join(target_dir, os.path.basename(path)))
+
+    if low:
+        print(f"\nMoved {len(low)} lowest-scoring logs to {LOW_MARKS_DIR}/ "
+              f"(scores {low[0][0]}-{low[-1][0]})")
+    if high:
+        print(f"Moved {len(high)} highest-scoring logs to {HIGH_MARKS_DIR}/ "
+              f"(scores {high[-1][0]}-{high[0][0]})")
+
+
 def main(args):
     post_move_metrics = True
     if not args:
@@ -361,6 +393,7 @@ def main(args):
     timestamp = time.strftime("%Y%m%d_%H%M%S")
 
     pts = []
+    game_logs: list[tuple[int, int, str]] = []  # (score, game number, log path)
     all_metrics = {name: [] for name in ["ipp_list", "hint_interpreted_correctly", "hints_received"] + POST_MOVE_METRICS}
 
     for i in list(range(n)):
@@ -379,18 +412,13 @@ def main(args):
         g = HanasimGame(players, game_log, post_move_metrics)
         score = g.run()
 
-        #target_dir = LOW_MARKS_DIR if score <= LOW_MARK_THRESHOLD else LOG_DIR
-        if score <= LOW_MARK_THRESHOLD:
-            target_dir = LOW_MARKS_DIR
-        elif score == 21:
-            target_dir = MAX_MARK_DIR
-        else:
-            target_dir = LOG_DIR
-
-        log_path = os.path.join(target_dir, f"{len(players)}p{i + 1:04d}_{timestamp}.txt")
+        # every log is written to LOG_DIR; classify_game_logs() moves the
+        # lowest/highest-scoring ones once all games are done
+        log_path = os.path.join(LOG_DIR, f"{len(players)}p{i + 1:04d}_{timestamp}.txt")
         with open(log_path, "w") as f:
             f.write(game_log.getvalue())
         game_log.close()
+        game_logs.append((score, i + 1, log_path))
 
         json_path = os.path.join(LOG_JSON_DIR, f"{len(players)}p{i + 1:04d}_{timestamp}.json")
         with open(json_path, "w") as f:
@@ -413,6 +441,8 @@ def main(args):
 
     if n < 10:
         print(pts)
+
+    classify_game_logs(game_logs)
 
     report_metrics(pts, players, n,
                    post_move_metrics=post_move_metrics,
