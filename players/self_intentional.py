@@ -36,7 +36,7 @@ from utils import (
 )
 
 # V13: cost weights for hints to the subsequent player
-V13_DELAY_COST: Final[float] = 0.5
+V13_DELAY_COST: Final[float] = 0
 V13_CRIT_PENALTY_WEIGHT: Final[float] = 3
 
 
