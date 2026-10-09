@@ -407,6 +407,7 @@ def compare_corresponding_games(base_path: Path, new_path: Path, verbose=False) 
     else:
         raise ValueError(f"The base path does not exist. base_path: {base_path}")
 
+
 # ---------------------------------------------------------------------------
 # Argument parser setup
 # ---------------------------------------------------------------------------
