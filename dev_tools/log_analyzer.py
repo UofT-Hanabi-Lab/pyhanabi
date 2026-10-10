@@ -183,14 +183,14 @@ def is_critical_discard(move_info: list[str]) -> bool:
     assert "discards" in move_line
     trash_line = move_info[1]
     assert "Trash" in trash_line
-    trash = trash_line.removeprefix("Trash: ").split(", ")
+    trash = trash_line.strip().removeprefix("Trash: ").split(", ")
     card_regex = re.compile(r'\b(white|red|blue|green|yellow) [1-5]\b')
     match = card_regex.search(move_line)
     assert match
     discarded_card = match.group(0)
     # int(discarded_card[-1]) gets the rank of the discard
-    assert trash.count(discarded_card) + 1 <= CARD_COUNTS[int(discarded_card[-1])]
-    return trash.count(discarded_card) + 1 == CARD_COUNTS[int(discarded_card[-1])]
+    assert trash.count(discarded_card) <= CARD_COUNTS[int(discarded_card[-1])]
+    return trash.count(discarded_card) == CARD_COUNTS[int(discarded_card[-1])]
 
 
 def get_third_player_hint_info_from_file(path: Path) -> Tuple[int, int, int, int]:
@@ -213,6 +213,9 @@ def get_third_player_hint_info_from_file(path: Path) -> Tuple[int, int, int, int
                 curr_move = [line]
             elif "Trash:" in line:
                 curr_move.append(line)
+        # Don't forget to append the last move!
+        if curr_move:
+            moves.append(curr_move)
 
     total_hints = 0
     third_player_hints = 0
@@ -296,14 +299,17 @@ def report_third_player_hints(path: Path) -> None:
         print("Number of games:", game_count)
         print("Aggregate total hints:", aggregate_total_hints)
         print("Aggregate third player hints:", aggregate_third_player_hints)
-        print("Ratio of total hints which are third player hints:", aggregate_third_player_hints / aggregate_total_hints)
+        try:
+            print("Ratio of total hints which are third player hints:", aggregate_third_player_hints / aggregate_total_hints)
+        except ZeroDivisionError:
+            raise ValueError("No total hints were found")
         print("Aggregate misplays:", aggregate_misplays)
         print("Aggregate critical discards:", aggregate_critical_discards)
         try:
             print("Ratio of third player hints which caused a misplay:", aggregate_misplays / aggregate_third_player_hints)
             print("Ratio of third player hints which caused a critical discard:", aggregate_critical_discards / aggregate_third_player_hints)
         except ZeroDivisionError:
-            raise "No third player hints were found"
+            raise ValueError("No third player hints were found")
 
     else:
         raise ValueError(f"Path does not exist: {path}")
