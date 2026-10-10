@@ -12,7 +12,7 @@ import argparse
 import re
 import json
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, List
 
 ALLOWED_SUBDIRS = {"low_scores", "high_scores", "max_score"}
 CARD_COUNTS = {
@@ -310,6 +310,105 @@ def report_third_player_hints(path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Command: compare-corresponding-games
+# ---------------------------------------------------------------------------
+def extract_score_from_file(path: Path) -> int:
+    """Extract game score from the log file at path."""
+    assert path.is_file(), f"Path does not exist: {path}"
+    final_score_pattern = re.compile(r"Final Score: ([0-9]+)")
+    final_score = None
+    with open(path, "r") as f:
+        for line in f:
+            match = final_score_pattern.search(line)
+            if match:
+                final_score = match.group(1)
+    assert final_score
+    return int(final_score)
+
+
+def get_stats_for_directories(base_path: Path, new_path: Path, verbose) -> Tuple[int, int, int, List[str], List[str]]:
+    """
+    Compare corresponding files base_path and new_path.
+    For each corresponding file, collect information on:
+     - how many (and which) games performed better than the base_path
+     - how many (and which) games performed worse than the new_path
+     - how many games how many games had the same final score
+    Details on the return value:
+     - result[0] is the game count
+     - result[1] is the number of games where the new does better than the base
+     - result[2] is the number of games where the new does worse than the base
+     - result[3] is le list of games where the new does better than the base
+     - result[4] is the list of games where the new does worse than the base
+    """
+    game_count = 0
+    worse_score_game_count = 0
+    worse_score_games = []
+    better_score_game_count = 0
+    better_score_games = []
+    for base_file in base_path.rglob("*"):
+        if base_file.is_dir():
+            assert base_file.name in ALLOWED_SUBDIRS, (f"The path under directory {base_path} is not a file: {base_file}, "
+                                                       f"and does not correspond to an allowed subdirectory name")
+            continue
+
+        # Get corresponding new_path
+        filename_regex = re.compile(r'^(\d+p\d{4})_\d{8}_\d{6}\.txt$')
+        game_str_match = filename_regex.match(base_file.name)
+        assert game_str_match, f"The base file name {base_file.name} does not match the expected structure"
+        game_str = game_str_match.group(1)
+        new_file_pattern = game_str + "_*.txt"
+        new_file_pattern_matches = list(new_path.rglob(new_file_pattern))
+        assert len(new_file_pattern_matches) == 1
+
+        # Now you can get the scores
+        base_score = extract_score_from_file(base_file)
+        new_score = extract_score_from_file(new_file_pattern_matches[0])
+        game_count += 1
+        if new_score < base_score:
+            worse_score_game_count += 1
+            if verbose:
+                worse_score_games.append(game_str)
+        elif new_score > base_score:
+            better_score_game_count += 1
+            if verbose:
+                better_score_games.append(game_str)
+
+    return game_count, better_score_game_count, worse_score_game_count, better_score_games, worse_score_games
+
+
+def compare_corresponding_games(base_path: Path, new_path: Path, verbose=False) -> None:
+    """Print final score performance comparison for corresponding games in base_path and new_path"""
+    if base_path.is_file():
+        assert new_path.is_file(), "Make sure that new_path exists and points to a file, since base_path points to a file"
+        if verbose:
+            print("WARNING: verbose mode has no effect when comparing individual files. The argument is being ignored")
+        base_score = extract_score_from_file(base_path)
+        new_score = extract_score_from_file(new_path)
+        if base_score > new_score:
+            print(f"SAD :( The new score is {new_score}, while the base score is {base_score}")
+        elif base_score == new_score:
+            print(f"GOOD, the base and the new have the same score: {base_score}")
+        else:
+            print(f"YAY! The new score is {new_score} while the base score was {base_score}")
+    elif base_path.is_dir():
+        assert new_path.is_dir(), "Make sure that new_path exists and points to a directory, since base_path points to a directory"
+        (game_count,
+         better_score_game_count,
+         worse_score_game_count,
+         better_score_games,
+         worse_score_games) = get_stats_for_directories(base_path, new_path, verbose)
+        print(f"Total number of games: {game_count}")
+        print(f"Number of games where the new performs better than the base {better_score_game_count}")
+        if verbose:
+            print(f"Game IDs where the new performs better than the base {better_score_games}")
+        print(f"Number of games where the new performs worse than the base {worse_score_game_count}")
+        if verbose:
+            print(f"Game IDs where the new performs worse than the base {worse_score_games}")
+    else:
+        raise ValueError(f"The base path does not exist. base_path: {base_path}")
+
+
+# ---------------------------------------------------------------------------
 # Argument parser setup
 # ---------------------------------------------------------------------------
 
@@ -389,6 +488,39 @@ def create_parser() -> argparse.ArgumentParser:
 
     third_player_hints_parser.set_defaults(func=report_third_player_hints)
 
+    # Compare corresponding games command: compare two corresponding sets of logs by game number
+    compare_corresponding_games_parser = subparsers.add_parser(
+        "compare_corresponding_games",
+        help="Compare corresponding games from two different trial runs.",
+        description="Compare corresponding games from two different sets of games.\n"
+                    "Each game from one run is compared directly with the game from another run with the same "
+                    "run number. The comparison checks for the final score. Report how many games show a worse "
+                    "performance in the new compared to the base.\n"
+                    "Two paths must be provided for this command, and they must refer either both to log files or "
+                    "both to directories of log files.\n"
+                    "If two paths to log files are passed as an argument, the individual games will be compared.\n"
+                    "If two paths to directories of log files are passed as an argument, corresponding games "
+                    "will be compared."
+    )
+
+    compare_corresponding_games_parser.add_argument(
+        "base_path",
+        type=Path,
+        help="Path to a log file or directory of log files.",
+    )
+    compare_corresponding_games_parser.add_argument(
+        "new_path",
+        type=Path,
+        help="Path to a log file or directory of log files.",
+    )
+    compare_corresponding_games_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show the list of games where the new does strictly better and strictly worse than the new.",
+    )
+
+    compare_corresponding_games_parser.set_defaults(func=compare_corresponding_games)
+
     return parser
 
 
@@ -397,7 +529,10 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        args.func(args.path)
+        if args.command == "compare_corresponding_games":
+            args.func(args.base_path, args.new_path, args.verbose)
+        else:
+            args.func(args.path)
     except ValueError as exc:
         parser.error(str(exc))
     return 0
