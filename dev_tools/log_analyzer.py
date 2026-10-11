@@ -316,7 +316,7 @@ def report_third_player_hints(path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Command: compare-corresponding-games
+# Command: compare_corresponding_games
 # ---------------------------------------------------------------------------
 def extract_score_from_file(path: Path) -> int:
     """Extract game score from the log file at path."""
@@ -412,6 +412,63 @@ def compare_corresponding_games(base_path: Path, new_path: Path, verbose=False) 
             print(f"Game IDs where the new performs worse than the base {worse_score_games}")
     else:
         raise ValueError(f"The base path does not exist. base_path: {base_path}")
+
+
+# ---------------------------------------------------------------------------
+# Command: lost_lives
+# ---------------------------------------------------------------------------
+def get_lives_remaining_from_file(path: Path) -> int:
+    """Get the number of lives remaining at the end of a game for the game log"""
+    assert path.is_file(), f"The provided path is not a file: {path}"
+    initial_lives = 3
+    with open(path, "r") as f:
+        lines = f.readlines()
+    lives_lost = sum(1 for line in lines if "and it failed" in line)
+    assert lives_lost <= initial_lives
+    return initial_lives - lives_lost
+
+
+def report_lost_lives_info(path: Path, verbose=False) -> None:
+    """
+    Report information on lives lost during the games
+    """
+    if path.is_file():
+        print(f"Reporting the number of lives left for file: {path}")
+        lives_left = get_lives_remaining_from_file(path)
+        if lives_left > 0:
+            print("The deck exhausted in this game!")
+            print(f"Number of lives remaining at the end of the game: {lives_left}")
+        else:
+            print(f"There were {lives_left} lives left at the end of this game. "
+                  f"The players lost the game without exhausting the deck")
+
+    elif path.is_dir():
+        print(f"Reporting aggregate information on lives remaining for the games at {path}")
+        game_count = 0
+        total_lives_left = 0
+        lost_games_count = 0
+        lost_games = []
+        for file in path.rglob("*.txt"):
+            if file.is_dir():
+                assert file.name in ALLOWED_SUBDIRS, (f"The path under directory {path} is not a file: {file}, "
+                                                      f"and does not correspond to an allowed subdirectory name")
+                continue
+            game_count += 1
+            lives_left = get_lives_remaining_from_file(file)
+            total_lives_left += lives_left
+            if lives_left == 0:
+                lost_games_count += 1
+                if verbose:
+                    lost_games.append(file.name)
+        print(f"Number of games: {game_count}")
+        print(f"Average number lives left across all games: {total_lives_left / game_count}")
+        print(f"Number of games where the deck was not exhausted (all lives lost): {lost_games_count}")
+        print(f"Average number of lives left across games where the deck was exhausted: {total_lives_left / (game_count - lost_games_count)}")
+        if verbose:
+            print(f"Games where the players lost all lives: {lost_games}")
+
+    else:
+        raise ValueError(f"Path does not exist. path: {path}")
 
 
 # ---------------------------------------------------------------------------
@@ -527,6 +584,30 @@ def create_parser() -> argparse.ArgumentParser:
 
     compare_corresponding_games_parser.set_defaults(func=compare_corresponding_games)
 
+    # Lost lives command: report stats on lost lives during games
+    lost_lives_parser = subparsers.add_parser(
+        "lost_lives",
+        help="Report stats on lost lives during games.",
+        description="Report stats on the lives lost during the game\n"
+                    "If a path to a log file is passed as an argument, it will report information on the single game."
+                    "If a path to a directory of log files is passed as an argument,"
+                    "it will report aggregate information on the all games."
+    )
+
+    lost_lives_parser.add_argument(
+        "path",
+        type=Path,
+        help="Path to a log file or directory of log files.",
+    )
+
+    lost_lives_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show the list of games where all lives were exhausted.",
+    )
+
+    lost_lives_parser.set_defaults(func=report_lost_lives_info)
+
     return parser
 
 
@@ -537,6 +618,8 @@ def main() -> int:
     try:
         if args.command == "compare_corresponding_games":
             args.func(args.base_path, args.new_path, args.verbose)
+        elif args.command == "lost_lives":
+            args.func(args.path, args.verbose)
         else:
             args.func(args.path)
     except ValueError as exc:
