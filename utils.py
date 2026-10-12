@@ -544,6 +544,91 @@ def pretend_v9(action, knowledge, intentions, hand, board, trash, ignore_dead=Fa
         return False, score, predictions
     return True, score, predictions
 
+def pretend_v15(action, knowledge, intentions, hand, board, trash, hints,ignore_dead=False):
+    """
+    Pretend to give a hint and evaluates its effect on hand knowledge,
+    and the score of the game.
+    - if no cards match the hint, the hint is invalid
+    - tracks how much this hint would improve the player's future moves
+    - predict what each player would likely do with their cards after receiving the hint
+    """
+    (action_type, value) = action
+    positive = []
+    haspositive = False
+    change = False
+    if action_type == Action.ActionType.HINT_COLOR:
+        newknowledge = []
+        for i, (col, num) in enumerate(hand):
+            positive.append(value == col)
+            newknowledge.append(hint_color(knowledge[i], value, value == col))
+            if value == col:
+                haspositive = True
+                if newknowledge[-1] != knowledge[i]:
+                    change = True
+    else:
+        newknowledge = []
+        for i, (col, num) in enumerate(hand):
+            positive.append(value == num)
+
+
+            newknowledge.append(hint_rank(knowledge[i], value, value == num))
+            if value == num:
+                haspositive = True
+                if newknowledge[-1] != knowledge[i]:
+                    change = True
+    if not haspositive:
+        return False, 0, ["Invalid hint"]
+    if not change:
+        return False, 0, ["No new information"]
+
+
+    if ignore_dead:
+        dead_colors = highest_playable_cards(board, trash)
+    else:
+        dead_colors = None
+
+
+    score = 0
+    predictions: list[Intent | None] = []
+    pos = False
+    for i, c, k, p in zip(intentions, hand, newknowledge, positive):
+        predicted_action = whattodo(k, p, board, dead_colors)
+        if predicted_action == Action.ActionType.PLAY and i != Intent.PLAY:
+            # print("would cause them to play", f(c))
+            return False, 0, predictions + [Intent.PLAY]
+
+
+        if predicted_action == Action.ActionType.DISCARD and i not in {
+            Intent.DISCARD,
+            Intent.CAN_DISCARD,
+        }:
+            # print("would cause them to discard", f(c))
+            return False, 0, predictions + [Intent.DISCARD]
+
+
+        if predicted_action == Action.ActionType.PLAY and i == Intent.PLAY:
+            pos = True
+            predictions.append(Intent.PLAY)
+            score += 3
+        elif predicted_action == Action.ActionType.DISCARD and i in {
+            Intent.DISCARD,
+            Intent.CAN_DISCARD,
+        }:  
+            if hints < 4:
+                return False, 0, predictions + [Intent.DISCARD]
+            pos = True
+            predictions.append(Intent.DISCARD)
+            if i == Intent.DISCARD:
+                score += 2
+            else:
+                score += 1
+        else:
+            predictions.append(None)
+    if not pos:
+        return False, score, predictions
+    return True, score, predictions
+
+
 def pretend_v1(action, knowledge, intentions, hand, board, trash, ignore_dead=False):
     """
     Pretend to give a hint and evaluates its effect on hand knowledge,

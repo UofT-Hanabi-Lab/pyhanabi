@@ -26,6 +26,7 @@ from utils import (
     pretend_v6,
     pretend_v7,
     pretend_v9,
+    pretend_v15,
     whattodo,
     MAX_HINT_TOKENS,
     COUNTS,
@@ -553,6 +554,42 @@ class SelfIntentionalPlayer(Player):
 
             # Fallback: discard the card with the lowest expected loss
             scores = self.discard_card(nr, knowledge, trash, board)
+
+        if self.version == 15:
+            # Interpret recieved hint
+            if self.got_hint:
+                result = self.received_hint(nr, knowledge, board, hints, result, action)
+
+
+            # play or discard
+            if not result:
+                result = self.play_or_discard(nr, knowledge, board, hints, possible, result)
+
+
+            # give intentional hint
+            if not result:
+                result, redundant_hints = self.give_intentional_hint_v15(nr, hands, knowledge, trash, board, hints, num_players, result, ignore_dead)
+
+
+            # give redundant hint
+            if hints == MAX_HINT_TOKENS and not result:
+                # then I cannot discard
+
+
+                # first, try to give a redundant hint
+                if redundant_hints:
+                    result = self.give_redundant_hint(redundant_hints)
+
+
+                # give random hint
+                else:
+                    # if there are no redundant hints to give, give a random hint
+                    result = self.give_random_hint(valid_actions)
+
+
+            # discard
+            scores = self.discard_card(nr, knowledge, trash, board)
+
 
         if result:
             assert result in valid_actions
@@ -1273,6 +1310,147 @@ class SelfIntentionalPlayer(Player):
 
         return result, redundant_hints
 
+    def give_intentional_hint_v15(self, nr, hands, knowledge, trash, board, hints, num_players, result, ignore_dead=False):
+            redundant_hints = []
+            if num_players == 2:
+                intents_for_next = self._create_intents(
+                    hands[(self.pnr + 1) % 2], board, trash
+                )
+                self.explanation.append(
+                    ["Intentions for next player"]
+                    + list(map(format_intention, intents_for_next))
+                )
+                intents_for_sub = None
+            else:
+                intents_for_next = self._create_intents(hands[self._next_pnr], board, trash)
+                self.explanation.append(
+                    ["Intentions for next player"]
+                    + list(map(format_intention, intents_for_next))
+                )
+   
+                intents_for_sub = self._create_intents(hands[self._sub_pnr], board, trash)
+                self.explanation.append(
+                    ["Intentions for subsequent player"]
+                    + list(map(format_intention, intents_for_sub))
+                )
+   
+            if hints > 0:
+                hint_action: tuple[Action.ActionType, Color | int]
+                valid: list[tuple[tuple[Action.ActionType, Color | int], int, int]] = []
+                redundant_hints: list[
+                    tuple[tuple[Action.ActionType, Color | int], int]
+                ] = []
+   
+                for hintee_id in range(num_players):
+                    if hintee_id == nr:
+                        continue
+                    elif num_players == 2 or hintee_id == self._next_pnr:
+                        hintee_intentions = intents_for_next
+                    else:
+                        assert intents_for_sub is not None
+                        hintee_intentions = intents_for_sub
+   
+                    for c in Color:
+                        hint_action = (Action.ActionType.HINT_COLOR, c)
+                        if self.version == 7:
+                            (isvalid, score, expl) = pretend_v7(
+                                hint_action,
+                                knowledge[hintee_id],
+                                hintee_intentions,
+                                hands[hintee_id],
+                                board,
+                                trash
+                            )
+                        else:
+                            (isvalid, score, expl) = pretend_v15(
+                                hint_action,
+                                knowledge[hintee_id],
+                                hintee_intentions,
+                                hands[hintee_id],
+                                board,
+                                trash,
+                                hints,
+                                ignore_dead
+                            )
+                        self.explanation.append(
+                            ["Prediction for: Hint Color " + c.display_name]
+                            + list(map(format_intention, expl))
+                        )
+                        if isvalid:
+                            valid.append((hint_action, score, hintee_id))
+                            if hint_action[0] == Action.ActionType.HINT_NUMBER:
+                                self.valid_hints.append((hint_action[1], hintee_id, score))
+                            else:
+                                self.valid_hints.append((hint_action[1].display_name, hintee_id, score))
+                        if expl == ["No new information"]:
+                            redundant_hints.append((hint_action, hintee_id))
+                            if hint_action[0] == Action.ActionType.HINT_NUMBER:
+                                self.redun_hints.append((hint_action[1], hintee_id, score))
+                            else:
+                                self.redun_hints.append((hint_action[1].display_name, hintee_id, score))
+   
+                    for r in range(5):
+                        r += 1
+                        hint_action = (Action.ActionType.HINT_NUMBER, r)
+                        if self.version == 7:
+                            (isvalid, score, expl) = pretend_v7(
+                                hint_action,
+                                knowledge[hintee_id],
+                                hintee_intentions,
+                                hands[hintee_id],
+                                board,
+                                trash
+                            )
+                        else:
+                            (isvalid, score, expl) = pretend_v15(
+                                hint_action,
+                                knowledge[hintee_id],
+                                hintee_intentions,
+                                hands[hintee_id],
+                                board,
+                                trash,
+                                hints,
+                                ignore_dead
+                            )
+                        self.explanation.append(
+                            ["Prediction for: Hint Rank " + str(r)]
+                            + list(map(format_intention, expl))
+                        )
+                        if isvalid:
+                            valid.append((hint_action, score, hintee_id))
+                            if hint_action[0] == Action.ActionType.HINT_NUMBER:
+                                self.valid_hints.append((hint_action[1], hintee_id, score))
+                            else:
+                                self.valid_hints.append((hint_action[1].display_name, hintee_id, score))
+                        if expl == ["No new information"]:
+                            redundant_hints.append((hint_action, hintee_id))
+                            if hint_action[0] == Action.ActionType.HINT_NUMBER:
+                                self.redun_hints.append((hint_action[1], hintee_id, score))
+                            else:
+                                self.redun_hints.append((hint_action[1].display_name, hintee_id, score))
+   
+   
+                if valid and not result:
+                    # sort descending by hint score
+                    valid.sort(key=lambda x: x[1], reverse=True)
+   
+                    selected_action, _, hintee_id = valid[0]
+                    if selected_action[0] is Action.ActionType.HINT_COLOR:
+                        result = Action(
+                            Action.ActionType.HINT_COLOR,
+                            pnr=hintee_id,
+                            col=Color(selected_action[1]),
+                        )
+                    else:
+                        result = Action(
+                            Action.ActionType.HINT_NUMBER,
+                            pnr=hintee_id,
+                            num=selected_action[1],
+                        )
+   
+            return result, redundant_hints
+
+    
     def give_intentional_hint_v6(self, nr, hands, knowledge, trash, board, hints, num_players, result):
             redundant_hints = []
             play_hints = []
