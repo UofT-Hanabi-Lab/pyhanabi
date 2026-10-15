@@ -6,6 +6,7 @@ from players import Player
 from utils import (
     COUNTS,
     MAX_HINT_TOKENS,
+    TOTAL_CARDS,
     Action,
     Color,
     Intent,
@@ -13,6 +14,7 @@ from utils import (
     get_possible,
     hint_color,
     hint_rank,
+    hint_weights_v8,
     playable,
     potentially_discardable,
     potentially_playable,
@@ -29,6 +31,13 @@ PLAY_SCORE: Final = 3
 DISCARD_SCORE: Final = 2
 MAY_DISCARD_SCORE: Final = 1
 REJECTED: Final = float("-inf")
+
+# Static (play, discard, may discard) weights of Algorithm 7.
+STATIC_WEIGHTS: Final[tuple[float, float, float]] = (
+    float(PLAY_SCORE),
+    float(DISCARD_SCORE),
+    float(MAY_DISCARD_SCORE),
+)
 
 
 def is_hint(action: Action) -> bool:
@@ -111,9 +120,12 @@ def predict(
 
 
 def alignment_score(
-    goals: list[Intent | None], predictions: list[Action.ActionType | None]
+    goals: list[Intent | None],
+    predictions: list[Action.ActionType | None],
+    weights: tuple[float, float, float] = STATIC_WEIGHTS,
 ) -> float:
-    """S (Algorithm 7)."""
+    """S (Algorithm 7). ``weights`` is (play, discard, may discard)."""
+    play_w, discard_w, may_discard_w = weights
     total = 0.0
     for goal, predicted in zip(goals, predictions):
         if predicted is PLAY and goal is not Intent.PLAY:
@@ -121,9 +133,9 @@ def alignment_score(
         if predicted is DISCARD and goal in (Intent.PLAY, None):
             return REJECTED
         if predicted is PLAY:
-            total += PLAY_SCORE
+            total += play_w
         elif predicted is DISCARD:
-            total += DISCARD_SCORE if goal is Intent.DISCARD else MAY_DISCARD_SCORE
+            total += discard_w if goal is Intent.DISCARD else may_discard_w
     return total
 
 
@@ -184,6 +196,8 @@ class _Turn:
     board: list[tuple[Color, int]]
     tokens: int
     legal: list[Action]
+    # Weights for S inside the hint heuristic H; S and U are static elsewhere.
+    hint_weights: tuple[float, float, float] = STATIC_WEIGHTS
 
 
 @dataclass
@@ -201,6 +215,8 @@ class _Candidate:
 class CaseBasedPlayer(Player):
     def __init__(self, name: str, pnr: int):
         super().__init__(name, pnr)
+        # V8 dynamic weights for H; False recovers the fixed 3/2/1 weighting.
+        self.dynamic_hint_weights: bool = True
         self._last_actions: dict[int, Action] = {}  # a_B and a_C
         self.case: str | None = None
         self.valid_hints: list[tuple[str | int, int, float]] = []
@@ -246,6 +262,12 @@ class CaseBasedPlayer(Player):
     ) -> Action:
         """Algorithm 8."""
         num_players = len(knowledge)
+        if self.dynamic_hint_weights and deck_size is not None:
+            # V8: weights computed once from the state at the start of A's turn.
+            initial_draw_pile = TOTAL_CARDS - num_players * self._hand_size
+            hint_weights = hint_weights_v8(hints, deck_size, initial_draw_pile)
+        else:
+            hint_weights = STATIC_WEIGHTS
         turn = _Turn(
             a=nr,
             b=(nr + 1) % num_players,
@@ -256,11 +278,20 @@ class CaseBasedPlayer(Player):
             board=board,
             tokens=hints,
             legal=valid_actions,
+            hint_weights=hint_weights,
         )
         self.case = None
         self.valid_hints = []
         self.redun_hints = []
         self.explanation = []
+        self.explanation.append(
+            [
+                "Hint weights (H)",
+                "Play: {:.2f}".format(hint_weights[0]),
+                "Discard: {:.2f}".format(hint_weights[1]),
+                "May Discard: {:.2f}".format(hint_weights[2]),
+            ]
+        )
 
         # Lines 2-4
         for action in turn.legal:
@@ -404,6 +435,7 @@ class CaseBasedPlayer(Player):
         return alignment_score(
             assign_goals(hand, turn.board, turn.trash),
             predict(knowledge, touched, turn.board),
+            turn.hint_weights,
         )
 
     def _baseline_choice(self, turn: _Turn, top: list[_Candidate]) -> Action:
