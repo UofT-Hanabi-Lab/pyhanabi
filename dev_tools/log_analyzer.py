@@ -11,6 +11,7 @@ Usage examples:
 import argparse
 import re
 import json
+import ast
 from pathlib import Path
 from typing import Tuple, List
 
@@ -45,6 +46,89 @@ def get_critical_discards_from_file(path: Path) -> Tuple[int, int]:
             critical_discards += int(match.group(1))
 
     return total_discards, critical_discards
+
+def get_critical_card_list_from_file(path: Path) -> None:
+    assert path.is_file(), f"The path provided is not a file: {path}"
+    with open(path, "r") as f:
+        lines = f.readlines()
+
+    critical_discards_line = [line for line in lines if line.startswith("Critical cards discarded:")]
+    if not critical_discards_line:
+        raise ValueError(f"No critical-card summary found in {path}")
+    
+    return ast.literal_eval(
+        critical_discards_line[-1].split(":", 1)[1].strip()
+    )
+
+def get_estimate_critical_score_loss_from_file(path: Path) -> int:
+    assert path.is_file(), f"The path provided is not a file: {path}"
+
+    with open(path, "r") as f:
+        lines = f.readlines()
+
+    # Get the last board state recorded in the game.
+    board_lines = [
+        line for line in lines
+        if line.startswith("Board:")
+    ]
+    if not board_lines:
+        raise ValueError(f"No Board line found in {path}")
+
+    board = {}
+    for entry in board_lines[-1].strip()[len("Board:"):].split(","):
+        match = re.fullmatch(
+            r"\s*(green|yellow|white|blue|red)\s+(\d+)\s*",
+            entry,
+        )
+        if not match:
+            raise ValueError(f"Cannot parse board entry: {entry}")
+
+        color, height = match.groups()
+        board[color] = int(height)
+
+    # get all the critical cards discarded
+    critical_cards = get_critical_card_list_from_file(path)
+
+    lowest_blocked_rank = {}
+    for col, rank in critical_cards:
+        if rank > board[col]:
+            if (
+                col not in lowest_blocked_rank
+                or rank < lowest_blocked_rank[col]
+            ):
+                lowest_blocked_rank[col] = rank
+
+    score_loss = sum(6 - rank for rank in lowest_blocked_rank.values())
+
+    return score_loss
+
+def report_potential_score_loss(path: Path) -> None:
+    if path.is_file():
+        loss = get_estimate_critical_score_loss_from_file(path)
+        print("Estimated potential score loss:", loss)
+        return
+
+    if not path.is_dir():
+        raise ValueError(f"Path does not exist: {path}")
+
+    files = [
+        file for file in path.rglob("*")
+        if file.is_file()
+    ]
+
+    if not files:
+        print("No game logs found.")
+        return
+
+    total_loss = sum(
+        get_estimate_critical_score_loss_from_file(file)
+        for file in files
+    )
+
+    print("Games analyzed:", len(files))
+    print("Total estimated critical discard potential score loss:", total_loss)
+    print("Average estimated critical discard potential score loss per game:",
+          total_loss / len(files))
 
 
 def report_critical_discards(path: Path) -> None:
@@ -457,6 +541,20 @@ def create_parser() -> argparse.ArgumentParser:
         help="Path to a log file or directory of log files.",
     )
     critical_discards_parser.set_defaults(func=report_critical_discards)
+
+    potential_score_loss_parser = subparsers.add_parser(
+    "report_potential_score_loss",
+    help="Report stats on score loss due to critical discards.",
+    description="Report stats on score loss from critical discards.\n"
+                        "If a path to a log file is passed as an argument, it will report stats on the single game."
+                        "If a path to a directory of log files is passed as an argument,"
+                        "it will report aggregate stats on the all games.",
+    )
+    potential_score_loss_parser.add_argument(
+        "path", 
+        type=Path, 
+        help="Path to a log file or directory of log files.",) 
+    potential_score_loss_parser.set_defaults(func=report_potential_score_loss)
 
     # Hint types command: report information on the types of hints provided (intentional vs redundant)
     hint_types_parser = subparsers.add_parser(

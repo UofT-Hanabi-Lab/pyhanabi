@@ -859,7 +859,7 @@ def pretend_v6(action, knowledge, intentions, hand, board, trash, ignore_dead=Fa
         elif predicted_action == Action.ActionType.DISCARD and i in {
             Intent.DISCARD,
             Intent.CAN_DISCARD,
-        }:
+        }:  
             pos = True
             predictions.append(Intent.DISCARD)
             if i == Intent.DISCARD:

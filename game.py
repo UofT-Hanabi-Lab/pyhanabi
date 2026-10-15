@@ -164,6 +164,7 @@ class HanasimGame(AbstractGame):
                 [] for _ in range(len(self.players))
             ]  # list of ipp scores per player for each turn they play/discard
             critical_discards = Counter()  # count of critical discards per player
+            all_critical_cards = []
             known_playable_discards = (
                 Counter()
             )  # count of known playable discards per player
@@ -215,6 +216,8 @@ class HanasimGame(AbstractGame):
                 critical_discards[acting_player_id] += self._discarding_critical_card(
                     action, acting_player_id
                 )
+                if (self._all_critical_cards(action, acting_player_id)[0] is not None):
+                    all_critical_cards.append(self._all_critical_cards(action, acting_player_id))
 
                 # Known playable discards per play
                 known_playable_discards[acting_player_id] += (
@@ -372,9 +375,13 @@ class HanasimGame(AbstractGame):
                     f"Player {i} ({self.players[i].name}) Hints Given: {hint_frequency[i]}",
                     file=self.log,
                 )
-
+            print(f"Critical cards discarded: {all_critical_cards}",
+                                file=self.log,
+                                            )
+            
             self._metric_dict["ipp_list"] = ipp_list
             self._metric_dict["critical_discards"] = critical_discards
+            self._metric_dict["critical_cards"] = all_critical_cards
             self._metric_dict["known_discards"] = known_playable_discards
             self._metric_dict["known_playable_plays"] = known_playable_plays
             self._metric_dict["has_playable"] = has_playable
@@ -882,6 +889,37 @@ class HanasimGame(AbstractGame):
             return True
 
         return False
+    
+    def _all_critical_cards(self, action: Action, acting_player_id: int) -> bool:
+            """
+            This returns the card if a player has discarded a critical card
+            """
+    
+            # If action is not a discard, it is irrelevant to the calculation
+            if action.action_type != Action.ActionType.DISCARD:
+                return [None, None]
+    
+            # Identify card number and colour
+            (col, num) = self._convert_card(self._obs.hands[acting_player_id][action.cnr])
+    
+            # a 5 card is always critical
+            if num == 5:
+                return [col.display_name, num]
+    
+            # Check how many instances of the card are in the discard pile
+            trash = self._convert_trash(self._obs.discards)
+            count = 0
+            for card in trash:
+                if card[0] == col and card[1] == num:
+                    count += 1
+    
+            # Determine if discard is critical based on card number
+            if num == 1 and count == 2:
+                return [col.display_name, num]
+            if (num == 2 or num == 3 or num == 4) and count == 1:
+                return [col.display_name, num]
+    
+            return [None, None]
 
     def _discarding_known_playable_card(
         self, action: Action, acting_player_id: int
