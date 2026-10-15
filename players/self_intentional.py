@@ -591,6 +591,7 @@ class SelfIntentionalPlayer(Player):
             scores = self.discard_card(nr, knowledge, trash, board)
 
 
+
         if result:
             assert result in valid_actions
             return result
@@ -724,74 +725,6 @@ class SelfIntentionalPlayer(Player):
                     else:
                         self.crit_hints.append((hint_action[1].display_name, hintee_id, score))
 
-           # give any intentional hint
-            """if not valid and not result:
-                for c in Color:
-                    hint_action = (Action.ActionType.HINT_COLOR, c)
-                    if self.version == 7:
-                        (isvalid, score, expl) = pretend_v7(
-                            hint_action,
-                            knowledge[hintee_id],
-                            hintee_intentions,
-                            hands[hintee_id],
-                            board,
-                            trash
-                        )
-                    else:
-                        (isvalid, score, expl) = pretend(
-                            hint_action,
-                            knowledge[hintee_id],
-                            hintee_intentions,
-                            hands[hintee_id],
-                            board,
-                            trash
-                        )
-                    self.explanation.append(
-                        ["Prediction for: Hint Color " + c.display_name]
-                        + list(map(format_intention, expl))
-                    )
-                    if isvalid:
-                        valid.append((hint_action, score, hintee_id))
-                        if hint_action[0] == Action.ActionType.HINT_NUMBER:
-                            self.crit_hints.append((hint_action[1], hintee_id, score))
-                        else:
-                            self.crit_hints.append((hint_action[1].display_name, hintee_id, score))
-
-                for r in range(5):
-                    r += 1
-                    hint_action = (Action.ActionType.HINT_NUMBER, r)
-                    if self.version == 7:
-                        (isvalid, score, expl) = pretend_v7(
-                            hint_action,
-                            knowledge[hintee_id],
-                            hintee_intentions,
-                            hands[hintee_id],
-                            board,
-                            trash
-                        )
-                    else: 
-                        (isvalid, score, expl) = pretend(
-                            hint_action,
-                            knowledge[hintee_id],
-                            hintee_intentions,
-                            hands[hintee_id],
-                            board,
-                            trash
-                        )
-                    self.explanation.append(
-                        ["Prediction for: Hint Rank " + str(r)]
-                        + list(map(format_intention, expl))
-                    )
-                    if isvalid:
-                        valid.append((hint_action, score, hintee_id))
-                        if hint_action[0] == Action.ActionType.HINT_NUMBER:
-                            self.crit_hints.append((hint_action[1], hintee_id, score))
-                        else:
-                            self.crit_hints.append((hint_action[1].display_name, hintee_id, score))
-"""
-
-
-
             if valid and not result:
                 # sort descending by hint score
                 valid.sort(key=lambda x: x[1], reverse=True)
@@ -822,6 +755,8 @@ class SelfIntentionalPlayer(Player):
                 action = scores[0][0]
                 #col = action.col
                 #rank = action.num
+                if action.cnr >= len(hands[hintee_id]):
+                    continue 
                 card = hands[hintee_id][action.cnr]
                 col = card[0]
                 rank = card[1]
