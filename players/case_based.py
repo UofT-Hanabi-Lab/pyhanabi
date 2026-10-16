@@ -87,6 +87,53 @@ def is_expendable(card: tuple[Color, int], trash: list[tuple[Color, int]]) -> bo
     return COUNTS[card[1] - 1] - trash.count(card) >= 2
 
 
+def giver_hint_tokens(game) -> int:
+    """Tokens the giver held when hinting: HanasimGame informs post-action, Game pre-action."""
+    obs = getattr(game, "_obs", None)
+    if obs is not None:
+        return min(obs.hint_tokens + 1, MAX_HINT_TOKENS)
+    return game.hints
+
+
+def identities_removed(
+    hand: list[tuple[Color, int]], knowledge: list[list[list[int]]], rank: int
+) -> int:
+    """Identities a rank hint removes from a hand's mental state (Section 6.7)."""
+    removed = 0
+    for (_, num), table in zip(hand, knowledge):
+        if num == rank:
+            removed += sum(
+                1
+                for col in Color
+                for i in range(len(COUNTS))
+                if i + 1 != rank and table[col][i] > 0
+            )
+        else:
+            removed += sum(1 for col in Color if table[col][rank - 1] > 0)
+    return removed
+
+
+def forced_rank_hint(
+    a: int,
+    hands: list[list[tuple[Color, int]]],
+    knowledge: list[list[list[list[int]]]],
+    board: list[tuple[Color, int]],
+) -> Action | None:
+    """The forced rank hint of Section 6.7: a rank no firework awaits, removing the most identities."""
+    awaited = {board[col][1] + 1 for col in Color if board[col][1] < 5}
+    candidates = []
+    for player, hand in enumerate(hands):
+        if player == a:
+            continue
+        for rank in sorted({rank for (_, rank) in hand}):
+            removed = identities_removed(hand, knowledge[player], rank)
+            candidates.append((rank not in awaited, removed, player, rank))
+    if not candidates:
+        return None
+    _, _, player, rank = max(candidates, key=lambda c: (c[0], c[1]))
+    return Action(HINT_NUMBER, pnr=player, num=rank)
+
+
 def assign_goals(
     hand: list[tuple[Color, int]],
     board: list[tuple[Color, int]],
@@ -217,7 +264,10 @@ class CaseBasedPlayer(Player):
         super().__init__(name, pnr)
         # V8 dynamic weights for H; False recovers the fixed 3/2/1 weighting.
         self.dynamic_hint_weights: bool = True
+        # V5 forced hints; False recovers redundant/random giving and full interpretation.
+        self.forced_hint: bool = True
         self._last_actions: dict[int, Action] = {}  # a_B and a_C
+        self._was_forced: dict[int, bool] = {}  # giver held eight tokens when hinting
         self.case: str | None = None
         self.valid_hints: list[tuple[str | int, int, float]] = []
         self.redun_hints: list[tuple[str | int, int, float]] = []
@@ -225,6 +275,7 @@ class CaseBasedPlayer(Player):
     @override
     def reset(self) -> None:
         self._last_actions = {}
+        self._was_forced = {}
         self.case = None
         self.valid_hints = []
         self.redun_hints = []
@@ -243,8 +294,12 @@ class CaseBasedPlayer(Player):
     def inform(self, action: Action, player: int, game) -> None:
         if player == self.pnr:
             self._last_actions = {}
+            self._was_forced = {}
         else:
             self._last_actions[player] = action
+            self._was_forced[player] = (
+                is_hint(action) and giver_hint_tokens(game) == MAX_HINT_TOKENS
+            )
 
     @override
     def get_action(
@@ -306,7 +361,13 @@ class CaseBasedPlayer(Player):
         candidates, redundant = self._candidates(turn, received, plan)
         self._explain(candidates)
         if not candidates:
-            # Full hint bank and no intentional hint: Algorithm 2, lines 19-21.
+            # Full hint bank and no intentional hint: the rank hint of
+            # Section 6.7 (V5), or Algorithm 2 lines 19-21 when V5 is off.
+            if self.forced_hint:
+                forced = forced_rank_hint(turn.a, turn.hands, turn.knowledge, turn.board)
+                if forced is not None:
+                    self.explanation.append(["Forced rank hint", str(forced)])
+                    return forced
             return random.choice(redundant or [a for a in turn.legal if is_hint(a)])
         best = max(candidate.objective for candidate in candidates)
         top = [candidate for candidate in candidates if candidate.objective == best]
@@ -314,10 +375,20 @@ class CaseBasedPlayer(Player):
         # Lines 22-23, also used to break ties
         return self._baseline_choice(turn, top)
 
+    def _intended(self, player: int) -> Action | None:
+        """The player's last action, unless it was a hint that may have been forced (V5)."""
+        if self.forced_hint and self._was_forced.get(player):
+            self.explanation.append(
+                ["Hint from player " + str(player) + " may have been forced "
+                 "(giver held 8 tokens): intention not interpreted"]
+            )
+            return None
+        return self._last_actions.get(player)
+
     def _classify(self, turn: _Turn) -> tuple[str, list[Action], Action | None]:
         """Returns (case, hints A received, C's pending hint to B)."""
-        a_b = self._last_actions.get(turn.b)
-        a_c = self._last_actions.get(turn.c) if turn.c != turn.b else None
+        a_b = self._intended(turn.b)
+        a_c = self._intended(turn.c) if turn.c != turn.b else None
         b_to_a = hint_to(a_b, turn.a)
         c_to_a = hint_to(a_c, turn.a)
         c_to_b = hint_to(a_c, turn.b)
