@@ -1200,6 +1200,90 @@ def pretend_discard(act, knowledge, board, trash, ignore_dead=False, hint_value=
     return (act, expected, terms)
 
 
+# V17: lives-aware risky play. Before V14's fallback discard, compare the
+# estimated utility of playing the most promising card with the utility of
+# discarding V14's discard candidate. Q_play spends a life with probability
+# (1 - p), at a cost C(L, T) that shrinks as the game nears its end.
+
+V17_ALPHA: Final[float] = 0.2
+"""V17: scale of the life cost C(L, T) = alpha * T / (L - 1)."""
+
+V17_TOKEN_VALUE_MIN: Final[float] = 0.5
+"""V17: value of the token recovered by discarding at 7 tokens (matches
+pretend_discard's hint_value)."""
+
+V17_TOKEN_VALUE_MAX: Final[float] = 1.0
+"""V17: value of the token recovered by discarding at 0 tokens."""
+
+
+def identity_loss(col, rank, cnt, board, hint_value=0.5):
+    """
+    V17: estimated cost of losing a card whose identity is (col, rank).
+
+    Same heuristic as pretend_discard, but per identity: the probability
+    factor is left to the caller (pretend_discard multiplies by it twice
+    for cnt > 1), and identities that are already useless cost nothing
+    instead of earning the hint-token reward.
+    - cnt: remaining unseen copies of this identity in the card's knowledge
+    """
+    if board[col][1] >= rank:
+        return 0.0
+    if cnt > 1:
+        dist = rank - board[col][1]
+        loss = (6 - rank) / (dist * dist)
+    else:
+        loss = 6 - rank
+    if rank == 5:
+        # a played 5 also returns a hint token
+        loss += hint_value
+    return loss
+
+
+def token_value_v17(hints: int) -> float:
+    """V17: value of the token a discard recovers; higher when fewer remain."""
+    token_urgency = (MAX_HINT_TOKENS - hints) / MAX_HINT_TOKENS
+    return V17_TOKEN_VALUE_MIN + (V17_TOKEN_VALUE_MAX - V17_TOKEN_VALUE_MIN) * token_urgency
+
+
+def life_cost_v17(lives: int, turns_left: int) -> float:
+    """V17: C(L, T) = alpha * T / (L - 1); only defined for L > 1."""
+    assert lives > 1
+    return V17_ALPHA * turns_left / (lives - 1)
+
+
+def play_utility_v17(card_knowledge, board, life_cost):
+    """
+    V17: Q_play = p - sum_{x unplayable} P(x) l(x) - (1 - p) C(L, T).
+    Return (q_play, p), where p is the probability the card is playable,
+    weighted by the remaining-copy counts in the knowledge.
+    """
+    total = sum(map(sum, card_knowledge))
+    p = 0.0
+    loss = 0.0
+    for col in Color:
+        for i, cnt in enumerate(card_knowledge[col]):
+            if cnt == 0:
+                continue
+            rank = i + 1
+            prob = cnt / total
+            if board[col][1] + 1 == rank:
+                p += prob
+            else:
+                loss += prob * identity_loss(col, rank, cnt, board)
+    return p - loss - (1 - p) * life_cost, p
+
+
+def discard_utility_v17(card_knowledge, board, hints):
+    """V17: Q_discard = -sum_x P(x) l(x) + V_token."""
+    total = sum(map(sum, card_knowledge))
+    loss = 0.0
+    for col in Color:
+        for i, cnt in enumerate(card_knowledge[col]):
+            if cnt > 0:
+                loss += cnt / total * identity_loss(col, i + 1, cnt, board)
+    return -loss + token_value_v17(hints)
+
+
 def format_knowledge(k):
     result = ""
     for col in Color:

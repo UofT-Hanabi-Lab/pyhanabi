@@ -37,6 +37,7 @@ echo "Run $R, scores in [$A, $B]: $n games (copied to $D)"; echo
 [ "$n" -eq 0 ] && { echo "No games in this score range."; exit 0; }
 
 python dev_tools/log_analyzer.py end_reasons        "$D/txt";  echo
+python dev_tools/log_analyzer.py lost_lives         "$D/txt";  echo
 python dev_tools/log_analyzer.py critical_discards  "$D/txt";  echo
 python dev_tools/log_analyzer.py hint_types         "$D/json"; echo
 python dev_tools/log_analyzer.py third_player_hints "$D/txt"

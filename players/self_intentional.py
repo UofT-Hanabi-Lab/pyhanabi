@@ -33,6 +33,9 @@ from utils import (
     hint_weights_v8,
     pretend_v8,
     pretend_v10,
+    life_cost_v17,
+    play_utility_v17,
+    discard_utility_v17,
 )
 
 # V13: cost weights for hints to the subsequent player
@@ -554,6 +557,55 @@ class SelfIntentionalPlayer(Player):
             # Fallback: discard the card with the lowest expected loss
             scores = self.discard_card(nr, knowledge, trash, board)
 
+        if self.version == 17:
+            # V17 = V14 + lives-aware risky play: before the fallback
+            # discard, play the most promising card instead if its estimated
+            # utility beats discarding V14's discard candidate.
+
+            # Interpret recieved hint, unless it may have been forced (V5)
+            if self.got_hint:
+                if self.hint_was_forced:
+                    self.explanation.append(
+                        ["Received hint may have been forced (giver held 8 "
+                         "tokens): mental state updated, intention not interpreted"]
+                    )
+                    self.got_hint = None
+                    self.hint_was_forced = False
+                else:
+                    result = self.received_hint(nr, knowledge, board, hints, result, action)
+                    self.hint_was_forced = False
+
+            # play a certainly playable card, or discard a certainly useless one
+            if not result:
+                result = self.play_or_discard(nr, knowledge, board, hints, possible, result)
+
+            # give intentional hint, scored with the V8 dynamic weights
+            if not result:
+                result, redundant_hints = self.give_intentional_hint_v8(
+                    nr, hands, knowledge, trash, board, hints, num_players,
+                    result, deck_size,
+                )
+
+            # At max tokens I cannot discard: redundant hint, else forced
+            # rank hint (V5), else random hint
+            if hints == MAX_HINT_TOKENS and not result:
+                if redundant_hints:
+                    result = self.give_redundant_hint(redundant_hints)
+                else:
+                    result = self.give_forced_rank_hint(nr, hands, knowledge, board, num_players)
+                    if not result:
+                        result = self.give_random_hint(valid_actions)
+
+            # V14's discard candidate
+            scores = self.discard_card(nr, knowledge, trash, board)
+
+            # Risky play instead of the fallback discard
+            if not result:
+                result = self.risky_play_v17(
+                    nr, knowledge, board, hints, lives, deck_size, num_players,
+                    scores[0][0],
+                )
+
         if result:
             assert result in valid_actions
             return result
@@ -834,6 +886,48 @@ class SelfIntentionalPlayer(Player):
         )
         scores.sort(key=lambda x: -x[1])
         return scores
+
+    def risky_play_v17(
+        self, nr, knowledge, board, hints, lives, deck_size, num_players, discard_action
+    ):
+        """
+        V17: return a PLAY action if playing some card beats discarding
+        discard_action (V14's discard candidate), else None so that the
+        caller falls back to that discard.
+
+        Q_play(i)    = p_i - sum_{x unplayable} P_i(x) l(x) - (1 - p_i) C(L, T)
+        Q_discard(j) = -sum_x P_j(x) l(x) + V_token(hints)
+        with C(L, T) = alpha * T / (L - 1) and T = deck_size + num_players
+        (one turn per card left, plus the final round).
+        """
+        # Losing the last life ends the game: never risk it
+        if lives <= 1:
+            return None
+
+        turns_left = deck_size + num_players
+        life_cost = life_cost_v17(lives, turns_left)
+        q_discard = discard_utility_v17(knowledge[nr][discard_action.cnr], board, hints)
+
+        best = None  # (q_play, p, card index)
+        for i, k in enumerate(knowledge[nr]):
+            q_play, p = play_utility_v17(k, board, life_cost)
+            if best is None or q_play > best[0]:
+                best = (q_play, p, i)
+
+        q_play, p, cnr = best
+        self.explanation.append(
+            [
+                "V17 risky play",
+                "Lives: {} | Turns left: {} | Life cost: {:.2f}".format(lives, turns_left, life_cost),
+                "Best play: card {} (p = {:.2f}, Q = {:.2f})".format(cnr, p, q_play),
+                "Discard: card {} (Q = {:.2f})".format(discard_action.cnr, q_discard),
+            ]
+        )
+
+        # Ties keep V14's discard
+        if q_play > q_discard:
+            return Action(Action.ActionType.PLAY, cnr=cnr)
+        return None
 
     def give_random_hint(self, valid_actions):
         result = random.choice(
