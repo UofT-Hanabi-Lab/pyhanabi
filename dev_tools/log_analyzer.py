@@ -48,6 +48,9 @@ def get_critical_discards_from_file(path: Path) -> Tuple[int, int]:
     return total_discards, critical_discards
 
 def get_critical_card_list_from_file(path: Path) -> None:
+    """
+    Return a list of tuples (colour, rank) of the critical cards discarded.
+    """
     assert path.is_file(), f"The path provided is not a file: {path}"
     with open(path, "r") as f:
         lines = f.readlines()
@@ -60,11 +63,26 @@ def get_critical_card_list_from_file(path: Path) -> None:
         critical_discards_line[-1].split(":", 1)[1].strip()
     )
 
-def get_estimate_critical_score_loss_from_file(path: Path) -> int:
+def get_estimate_critical_and_overall_score_loss_from_file(path: Path) -> int:
+    """
+    Estimate the potential score loss from critical card discards and the score
+    loss overall.
+    """
     assert path.is_file(), f"The path provided is not a file: {path}"
 
     with open(path, "r") as f:
         lines = f.readlines()
+
+    # Get the final score from the game log.
+    score_lines = [
+            line for line in lines
+                if line.startswith("Final Score:")
+    ]
+    if not score_lines:
+        raise ValueError(f"No Final Score line found in {path}")
+
+    final_score = int(score_lines[-1].split(":", 1)[1].strip())
+    overall_score_loss = 25 - final_score
 
     # Get the last board state recorded in the game.
     board_lines = [
@@ -100,12 +118,16 @@ def get_estimate_critical_score_loss_from_file(path: Path) -> int:
 
     score_loss = sum(6 - rank for rank in lowest_blocked_rank.values())
 
-    return score_loss
+    return score_loss, overall_score_loss
 
 def report_potential_score_loss(path: Path) -> None:
+    """
+    Report the score losses overall and due to critical discards.
+    """
     if path.is_file():
-        loss = get_estimate_critical_score_loss_from_file(path)
-        print("Estimated potential score loss:", loss)
+        critical, overall_loss = get_estimate_critical_and_overall_score_loss_from_file(path)
+        print("Estimated potential critical score loss:", critical)
+        print("Overall score loss:", overall_loss)
         return
 
     if not path.is_dir():
@@ -120,15 +142,22 @@ def report_potential_score_loss(path: Path) -> None:
         print("No game logs found.")
         return
 
-    total_loss = sum(
-        get_estimate_critical_score_loss_from_file(file)
+    critical_loss = sum(
+        get_estimate_critical_and_overall_score_loss_from_file(file)[0]
         for file in files
     )
+    total_loss = sum(
+            get_estimate_critical_and_overall_score_loss_from_file(file)[1]
+            for file in files
+        )
 
     print("Games analyzed:", len(files))
-    print("Total estimated critical discard potential score loss:", total_loss)
+    print("Total score loss:", total_loss)
+    print("Average total score loss per game:",
+              total_loss / len(files))
+    print("Total estimated critical discard potential score loss:", critical_loss)
     print("Average estimated critical discard potential score loss per game:",
-          total_loss / len(files))
+          critical_loss / len(files))
 
 
 def report_critical_discards(path: Path) -> None:
@@ -554,6 +583,83 @@ def report_lost_lives_info(path: Path, verbose=False) -> None:
     else:
         raise ValueError(f"Path does not exist. path: {path}")
 
+# ---------------------------------------------------------------------------
+# Command: report_hint_intentions
+# ---------------------------------------------------------------------------
+def report_hint_intentions(path: Path) -> None:
+    """
+    Path must point to a JSON file or a directory of JSON files.
+    Report the total hints given, total play-intention hints given and total
+    discard-intention hints given.
+    """
+    if path.is_file():
+        files = [path]
+    elif path.is_dir():
+        files = [
+        file for file in path.rglob("*")
+        if file.is_file() and file.suffix.lower() == ".json"
+        ]
+    else:
+        raise ValueError(f"Path does not exist: {path}")
+    
+    if not files:
+        print("No JSON game logs found.")
+        return
+    
+    
+    hint_play = 0
+    hint_discards = 0
+    game_count = 0
+
+    for file in files:
+        assert file.is_file() and file.suffix.lower() == ".json", (
+            f"The path provided is not a JSON file: {file}"
+        )
+
+        with open(file, "r") as f:
+            json_data = json.load(f)
+            assert type(json_data) == dict, (
+                f"Impossible to parse the JSON file into a dict: {file}"
+            )
+
+        game_count += 1
+        for turn_entry in json_data["actions"]:
+            for turn_data in turn_entry.values():
+                if not isinstance(turn_data, dict):
+                    continue
+
+                action = turn_data.get("action", {})
+                if not isinstance(action, dict):
+                    continue
+
+                if action.get("type") not in ("HINT_COLOR", "HINT_NUMBER"):
+                    continue
+
+                hint = action.get("hint", {})
+                if not isinstance(hint, dict):
+                    continue
+
+                intention = hint.get("hint_intention")
+
+                if intention == "Play":
+                    hint_play += 1
+                elif intention == "Discard":
+                    hint_discards += 1
+
+    total_hints = hint_play + hint_discards
+
+    print("Games analyzed:", game_count)
+    print("Total play-intention hints:", hint_play)
+    print("Total discard-intention hints:", hint_discards)
+    print("Total given hints:", total_hints)
+
+    print("Average play-intention hints per game:",
+      f"{hint_play / game_count}")
+    print("Average discard-intention hints per game:",
+      f"{hint_discards / game_count}")
+    print("Average classified hints per game:",
+      f"{total_hints / game_count}")
+
 
 # ---------------------------------------------------------------------------
 # Argument parser setup
@@ -599,6 +705,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     critical_discards_parser.set_defaults(func=report_critical_discards)
 
+    # Potential score loss command: report the stats on total lost point overall and from critical discards
     potential_score_loss_parser = subparsers.add_parser(
     "report_potential_score_loss",
     help="Report stats on score loss due to critical discards.",
@@ -705,6 +812,21 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     lost_lives_parser.set_defaults(func=report_lost_lives_info)
+
+    # hint intentions command: number of play and discard hints
+    hint_intent_parser = subparsers.add_parser(
+        "report_hint_intentions",
+        help="Report stats on number of play and discard hints.",
+        description="Report stats on number of play and discard intended hints.\n"
+                            "If a path to a JSON file is passed as an argument, it will report stats on the single game."
+                            "If a path to a directory of JSON files is passed as an argument,"
+                            "it will report aggregate stats on the all games.",
+        )
+    hint_intent_parser.add_argument(
+            "path", 
+            type=Path, 
+            help="Path to a JSON file or directory of JSON files.",) 
+    hint_intent_parser.set_defaults(func=report_hint_intentions)
 
     return parser
 

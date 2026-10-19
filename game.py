@@ -526,6 +526,13 @@ class HanasimGame(AbstractGame):
                             ].get_redundant_hints()
                         ],
                         "hint": {
+                            "hint_intention": self.players[
+                            acting_player_id
+                        ].get_intent()
+                        if isinstance(
+                            self.players[acting_player_id], SelfIntentionalPlayer
+                        )
+                        else None,
                             "hint_color": action.col.display_name
                             if action.col
                             else None,
