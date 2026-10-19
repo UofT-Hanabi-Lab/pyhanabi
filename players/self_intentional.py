@@ -53,6 +53,7 @@ class SelfIntentionalPlayer(Player):
         self.crit_hints = []
         self.discard_crit = False
         self.version = version
+        self.intent = None
 
         self._next_pnr: Final[int] = (self.pnr + 1) % 3
         """Player ID of the next player in 3P"""
@@ -68,6 +69,7 @@ class SelfIntentionalPlayer(Player):
         self.redun_hints = []
         self.crit_hints = []
         self.discard_crit = False
+        self.intent = None
     def get_valid_hints(self):
         return self.valid_hints
 
@@ -79,6 +81,9 @@ class SelfIntentionalPlayer(Player):
 
     def get_discard_crit(self):
         return self.discard_crit
+
+    def get_intent(self):
+            return self.intent
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints, lives, deck_size
@@ -94,6 +99,7 @@ class SelfIntentionalPlayer(Player):
         self.redun_hints = []
         self.crit_hints = []
         self.discard_crit = False
+        self.intent = None
 
         if self.version == 0 or self.version == 11:
             if self.version == 11:
@@ -590,6 +596,44 @@ class SelfIntentionalPlayer(Player):
             # discard
             scores = self.discard_card(nr, knowledge, trash, board)
 
+        if self.version == 18:
+            # Interpret recieved hint
+            if self.got_hint:
+                result = self.received_hint(nr, knowledge, board, hints, result, action)
+
+            # play or discard
+            if not result:
+                result = self.play_or_discard(nr, knowledge, board, hints, possible, result)
+
+            # check if any other player may discard a critical card
+            discards_crit, crit_card_color, crit_card_rank, hintee_id = self.check_discard_critical_card(nr, knowledge, trash, board, num_players, hands)
+
+            # the other player might discard a critical card, give a hint to prevent that
+            if discards_crit and not result:
+                result = self.find_critical_card_hint(nr, hands, knowledge, trash, board, hints, num_players, crit_card_rank, crit_card_color, hintee_id, result)
+
+            # give intentional hint
+            if not result:
+                result, redundant_hints = self.give_intentional_hint_v6(nr, hands, knowledge, trash, board, hints, num_players, result)
+
+            if not result:
+                result = self.give_critical_hint(nr, hands, knowledge, trash, board, hints, num_players, result)
+
+            # give redundant hint
+            if hints == MAX_HINT_TOKENS and not result:
+                # then I cannot discard
+
+                # first, try to give a redundant hint
+                if redundant_hints:
+                    result = self.give_redundant_hint(redundant_hints)
+
+                # give random hint
+                else:
+                    # if there are no redundant hints to give, give a random hint
+                    result = self.give_random_hint(valid_actions)
+
+            # discard
+            scores = self.discard_card(nr, knowledge, trash, board)
 
 
         if result:
@@ -1494,10 +1538,12 @@ class SelfIntentionalPlayer(Player):
 
                 if valid and not result:
                     # sort descending by hint score
+                    self.intent = "Discard"
                     if hints <= 0 and discard_hints:
                         valid = discard_hints
                     elif play_hints:
                         valid = play_hints
+                        self.intent = "Play"
 
                     valid.sort(key=lambda x: x[1], reverse=True)
 
@@ -1514,7 +1560,8 @@ class SelfIntentionalPlayer(Player):
                             pnr=hintee_id,
                             num=selected_action[1],
                         )
-
+            if not result:
+                self.intent = None
             return result, redundant_hints
 
     def give_intentional_hint_v8(
