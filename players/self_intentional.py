@@ -34,7 +34,14 @@ from utils import (
     hint_weights_v8,
     pretend_v8,
     pretend_v10,
+    life_cost_v17,
+    play_utility_v17,
+    discard_utility_v17,
+    pretend_v19,
 )
+
+# V19: give_critical_hint only when at least this many hint tokens remain
+V19_CRIT_HINT_MIN_TOKENS: Final[int] = 4
 
 # V13: cost weights for hints to the subsequent player
 V13_DELAY_COST: Final[float] = 0
@@ -636,6 +643,120 @@ class SelfIntentionalPlayer(Player):
             scores = self.discard_card(nr, knowledge, trash, board)
 
 
+        if self.version == 17:
+            # V17 = V14 + lives-aware risky play: before the fallback
+            # discard, play the most promising card instead if its estimated
+            # utility beats discarding V14's discard candidate.
+
+            # Interpret recieved hint, unless it may have been forced (V5)
+            if self.got_hint:
+                if self.hint_was_forced:
+                    self.explanation.append(
+                        ["Received hint may have been forced (giver held 8 "
+                         "tokens): mental state updated, intention not interpreted"]
+                    )
+                    self.got_hint = None
+                    self.hint_was_forced = False
+                else:
+                    result = self.received_hint(nr, knowledge, board, hints, result, action)
+                    self.hint_was_forced = False
+
+            # play a certainly playable card, or discard a certainly useless one
+            if not result:
+                result = self.play_or_discard(nr, knowledge, board, hints, possible, result)
+
+            # give intentional hint, scored with the V8 dynamic weights
+            if not result:
+                result, redundant_hints = self.give_intentional_hint_v8(
+                    nr, hands, knowledge, trash, board, hints, num_players,
+                    result, deck_size,
+                )
+
+            # At max tokens I cannot discard: redundant hint, else forced
+            # rank hint (V5), else random hint
+            if hints == MAX_HINT_TOKENS and not result:
+                if redundant_hints:
+                    result = self.give_redundant_hint(redundant_hints)
+                else:
+                    result = self.give_forced_rank_hint(nr, hands, knowledge, board, num_players)
+                    if not result:
+                        result = self.give_random_hint(valid_actions)
+
+            # V14's discard candidate
+            scores = self.discard_card(nr, knowledge, trash, board)
+
+            # Risky play instead of the fallback discard
+            if not result:
+                result = self.risky_play_v17(
+                    nr, knowledge, board, hints, lives, deck_size, num_players,
+                    scores[0][0],
+                )
+
+        if self.version == 19:
+            # V19 = V17 + V18: V14's forced-hint handling and risky play
+            # (V17), V18's critical-card protection, and intentional hints
+            # scored with V8's dynamic weights while preferring play hints (V6).
+            redundant_hints = []
+
+            # Interpret recieved hint, unless it may have been forced (V5)
+            if self.got_hint:
+                if self.hint_was_forced:
+                    self.explanation.append(
+                        ["Received hint may have been forced (giver held 8 "
+                         "tokens): mental state updated, intention not interpreted"]
+                    )
+                    self.got_hint = None
+                    self.hint_was_forced = False
+                else:
+                    result = self.received_hint(nr, knowledge, board, hints, result, action)
+                    self.hint_was_forced = False
+
+            # play a certainly playable card, or discard a certainly useless one
+            if not result:
+                result = self.play_or_discard(nr, knowledge, board, hints, possible, result)
+
+            # check if any other player may discard a critical card (V18)
+            discards_crit, crit_card_color, crit_card_rank, hintee_id = self.check_discard_critical_card(nr, knowledge, trash, board, num_players, hands)
+
+            # the other player might discard a critical card, give a hint to prevent that
+            if discards_crit and not result:
+                result = self.find_critical_card_hint(nr, hands, knowledge, trash, board, hints, num_players, crit_card_rank, crit_card_color, hintee_id, result)
+                if result:
+                    self.intent = "Save"
+
+            # give intentional hint, V8 weights + V6 play-hint preference
+            if not result:
+                result, redundant_hints = self.give_intentional_hint_v19(
+                    nr, hands, knowledge, trash, board, hints, num_players,
+                    result, deck_size,
+                )
+
+            # At max tokens I cannot discard: redundant hint, else forced
+            # rank hint (V5), else random hint
+            if hints == MAX_HINT_TOKENS and not result:
+                if redundant_hints:
+                    result = self.give_redundant_hint(redundant_hints)
+                else:
+                    result = self.give_forced_rank_hint(nr, hands, knowledge, board, num_players)
+                    if not result:
+                        result = self.give_random_hint(valid_actions)
+
+            # V14's discard candidate
+            scores = self.discard_card(nr, knowledge, trash, board)
+
+            # Risky play instead of the fallback discard (V17)
+            if not result:
+                result = self.risky_play_v17(
+                    nr, knowledge, board, hints, lives, deck_size, num_players,
+                    scores[0][0],
+                )
+
+            # hint any critical card, only when tokens are plentiful (V18)
+            if not result and hints >= V19_CRIT_HINT_MIN_TOKENS:
+                result = self.give_critical_hint(nr, hands, knowledge, trash, board, hints, num_players, result)
+                if result:
+                    self.intent = "Save"
+
         if result:
             assert result in valid_actions
             return result
@@ -850,6 +971,48 @@ class SelfIntentionalPlayer(Player):
         )
         scores.sort(key=lambda x: -x[1])
         return scores
+
+    def risky_play_v17(
+        self, nr, knowledge, board, hints, lives, deck_size, num_players, discard_action
+    ):
+        """
+        V17: return a PLAY action if playing some card beats discarding
+        discard_action (V14's discard candidate), else None so that the
+        caller falls back to that discard.
+
+        Q_play(i)    = p_i - sum_{x unplayable} P_i(x) l(x) - (1 - p_i) C(L, T)
+        Q_discard(j) = -sum_x P_j(x) l(x) + V_token(hints)
+        with C(L, T) = alpha * T / (L - 1) and T = deck_size + num_players
+        (one turn per card left, plus the final round).
+        """
+        # Losing the last life ends the game: never risk it
+        if lives <= 1:
+            return None
+
+        turns_left = deck_size + num_players
+        life_cost = life_cost_v17(lives, turns_left)
+        q_discard = discard_utility_v17(knowledge[nr][discard_action.cnr], board, hints)
+
+        best = None  # (q_play, p, card index)
+        for i, k in enumerate(knowledge[nr]):
+            q_play, p = play_utility_v17(k, board, life_cost)
+            if best is None or q_play > best[0]:
+                best = (q_play, p, i)
+
+        q_play, p, cnr = best
+        self.explanation.append(
+            [
+                "V17 risky play",
+                "Lives: {} | Turns left: {} | Life cost: {:.2f}".format(lives, turns_left, life_cost),
+                "Best play: card {} (p = {:.2f}, Q = {:.2f})".format(cnr, p, q_play),
+                "Discard: card {} (Q = {:.2f})".format(discard_action.cnr, q_discard),
+            ]
+        )
+
+        # Ties keep V14's discard
+        if q_play > q_discard:
+            return Action(Action.ActionType.PLAY, cnr=cnr)
+        return None
 
     def give_random_hint(self, valid_actions):
         result = random.choice(
@@ -1699,6 +1862,125 @@ class SelfIntentionalPlayer(Player):
                         num=selected_action[1],
                     )
 
+        return result, redundant_hints
+
+    def give_intentional_hint_v19(
+        self, nr, hands, knowledge, trash, board, hints, num_players, result, deck_size
+    ):
+        """
+        V19: give_intentional_hint_v8() scored with pretend_v19, preferring
+        hints that make the hintee play (V6). Sets self.intent.
+        Return (result, redundant_hints), like give_intentional_hint().
+        """
+        redundant_hints = []
+        play_hints = []
+
+        if num_players == 2:
+            intents_for_next = self._create_intents(
+                hands[(self.pnr + 1) % 2], board, trash
+            )
+            self.explanation.append(
+                ["Intentions for next player"]
+                + list(map(format_intention, intents_for_next))
+            )
+            intents_for_sub = None
+        else:
+            intents_for_next = self._create_intents(hands[self._next_pnr], board, trash)
+            self.explanation.append(
+                ["Intentions for next player"]
+                + list(map(format_intention, intents_for_next))
+            )
+
+            intents_for_sub = self._create_intents(hands[self._sub_pnr], board, trash)
+            self.explanation.append(
+                ["Intentions for subsequent player"]
+                + list(map(format_intention, intents_for_sub))
+            )
+
+        if hints > 0:
+            initial_draw_pile = TOTAL_CARDS - num_players * self._hand_size
+            weights = hint_weights_v8(hints, deck_size, initial_draw_pile)
+            self.explanation.append(
+                [
+                    "V19 hint weights",
+                    "Play: {:.2f}".format(weights[0]),
+                    "Discard: {:.2f}".format(weights[1]),
+                    "May Discard: {:.2f}".format(weights[2]),
+                ]
+            )
+
+            hint_action: tuple[Action.ActionType, Color | int]
+            valid: list[tuple[tuple[Action.ActionType, Color | int], float, int]] = []
+
+            for hintee_id in range(num_players):
+                if hintee_id == nr:
+                    continue
+                elif num_players == 2 or hintee_id == self._next_pnr:
+                    hintee_intentions = intents_for_next
+                else:
+                    assert intents_for_sub is not None
+                    hintee_intentions = intents_for_sub
+
+                # every color hint, then every rank hint, for this partner
+                candidates = [(Action.ActionType.HINT_COLOR, c) for c in Color]
+                candidates += [(Action.ActionType.HINT_NUMBER, r) for r in range(1, 6)]
+                for hint_action in candidates:
+                    (isvalid, score, expl, isplay) = pretend_v19(
+                        hint_action,
+                        knowledge[hintee_id],
+                        hintee_intentions,
+                        hands[hintee_id],
+                        board,
+                        trash,
+                        weights,
+                    )
+                    if hint_action[0] == Action.ActionType.HINT_COLOR:
+                        label = hint_action[1].display_name
+                        self.explanation.append(
+                            ["Prediction for: Hint Color " + label]
+                            + list(map(format_intention, expl))
+                        )
+                    else:
+                        label = hint_action[1]
+                        self.explanation.append(
+                            ["Prediction for: Hint Rank " + str(label)]
+                            + list(map(format_intention, expl))
+                        )
+                    if isvalid:
+                        valid.append((hint_action, score, hintee_id))
+                        if isplay:
+                            play_hints.append((hint_action, score, hintee_id))
+                        self.valid_hints.append((label, hintee_id, score))
+                    if expl == ["No new information"]:
+                        redundant_hints.append((hint_action, hintee_id))
+                        self.redun_hints.append((label, hintee_id, score))
+
+            # give the highest-scoring play hint if any, else the
+            # highest-scoring valid hint
+            if valid and not result:
+                self.intent = "Discard"
+                if play_hints:
+                    valid = play_hints
+                    self.intent = "Play"
+
+                valid.sort(key=lambda x: x[1], reverse=True)
+
+                selected_action, _, hintee_id = valid[0]
+                if selected_action[0] is Action.ActionType.HINT_COLOR:
+                    result = Action(
+                        Action.ActionType.HINT_COLOR,
+                        pnr=hintee_id,
+                        col=Color(selected_action[1]),
+                    )
+                else:
+                    result = Action(
+                        Action.ActionType.HINT_NUMBER,
+                        pnr=hintee_id,
+                        num=selected_action[1],
+                    )
+
+        if not result:
+            self.intent = None
         return result, redundant_hints
 
 
