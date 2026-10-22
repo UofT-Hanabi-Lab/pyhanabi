@@ -23,6 +23,7 @@ CARD_COUNTS = {
     4: 2,
     5: 1
 }
+END_REASONS = ["deck exhausted", "out of lives", "board completed"]
 
 # ---------------------------------------------------------------------------
 # Command: critical_discards
@@ -46,118 +47,6 @@ def get_critical_discards_from_file(path: Path) -> Tuple[int, int]:
             critical_discards += int(match.group(1))
 
     return total_discards, critical_discards
-
-def get_critical_card_list_from_file(path: Path) -> None:
-    """
-    Return a list of tuples (colour, rank) of the critical cards discarded.
-    """
-    assert path.is_file(), f"The path provided is not a file: {path}"
-    with open(path, "r") as f:
-        lines = f.readlines()
-
-    critical_discards_line = [line for line in lines if line.startswith("Critical cards discarded:")]
-    if not critical_discards_line:
-        raise ValueError(f"No critical-card summary found in {path}")
-    
-    return ast.literal_eval(
-        critical_discards_line[-1].split(":", 1)[1].strip()
-    )
-
-def get_estimate_critical_and_overall_score_loss_from_file(path: Path) -> int:
-    """
-    Estimate the potential score loss from critical card discards and the score
-    loss overall.
-    """
-    assert path.is_file(), f"The path provided is not a file: {path}"
-
-    with open(path, "r") as f:
-        lines = f.readlines()
-
-    # Get the final score from the game log.
-    score_lines = [
-            line for line in lines
-                if line.startswith("Final Score:")
-    ]
-    if not score_lines:
-        raise ValueError(f"No Final Score line found in {path}")
-
-    final_score = int(score_lines[-1].split(":", 1)[1].strip())
-    overall_score_loss = 25 - final_score
-
-    # Get the last board state recorded in the game.
-    board_lines = [
-        line for line in lines
-        if line.startswith("Board:")
-    ]
-    if not board_lines:
-        raise ValueError(f"No Board line found in {path}")
-
-    board = {}
-    for entry in board_lines[-1].strip()[len("Board:"):].split(","):
-        match = re.fullmatch(
-            r"\s*(green|yellow|white|blue|red)\s+(\d+)\s*",
-            entry,
-        )
-        if not match:
-            raise ValueError(f"Cannot parse board entry: {entry}")
-
-        color, height = match.groups()
-        board[color] = int(height)
-
-    # get all the critical cards discarded
-    critical_cards = get_critical_card_list_from_file(path)
-
-    lowest_blocked_rank = {}
-    for col, rank in critical_cards:
-        if rank > board[col]:
-            if (
-                col not in lowest_blocked_rank
-                or rank < lowest_blocked_rank[col]
-            ):
-                lowest_blocked_rank[col] = rank
-
-    score_loss = sum(6 - rank for rank in lowest_blocked_rank.values())
-
-    return score_loss, overall_score_loss
-
-def report_potential_score_loss(path: Path) -> None:
-    """
-    Report the score losses overall and due to critical discards.
-    """
-    if path.is_file():
-        critical, overall_loss = get_estimate_critical_and_overall_score_loss_from_file(path)
-        print("Estimated potential critical score loss:", critical)
-        print("Overall score loss:", overall_loss)
-        return
-
-    if not path.is_dir():
-        raise ValueError(f"Path does not exist: {path}")
-
-    files = [
-        file for file in path.rglob("*")
-        if file.is_file()
-    ]
-
-    if not files:
-        print("No game logs found.")
-        return
-
-    critical_loss = sum(
-        get_estimate_critical_and_overall_score_loss_from_file(file)[0]
-        for file in files
-    )
-    total_loss = sum(
-            get_estimate_critical_and_overall_score_loss_from_file(file)[1]
-            for file in files
-        )
-
-    print("Games analyzed:", len(files))
-    print("Total score loss:", total_loss)
-    print("Average total score loss per game:",
-              total_loss / len(files))
-    print("Total estimated critical discard potential score loss:", critical_loss)
-    print("Average estimated critical discard potential score loss per game:",
-          critical_loss / len(files))
 
 
 def report_critical_discards(path: Path) -> None:
@@ -195,6 +84,125 @@ def report_critical_discards(path: Path) -> None:
 
     else:
         raise ValueError(f"Path does not exist: {path}")
+
+
+# ---------------------------------------------------------------------------
+# Command: report_potential_score_loss
+# ---------------------------------------------------------------------------
+
+def get_critical_card_list_from_file(path: Path) -> None:
+    """
+    Return a list of tuples (colour, rank) of the critical cards discarded.
+    """
+    assert path.is_file(), f"The path provided is not a file: {path}"
+    with open(path, "r") as f:
+        lines = f.readlines()
+
+    critical_discards_line = [line for line in lines if line.startswith("Critical cards discarded:")]
+    if not critical_discards_line:
+        raise ValueError(f"No critical-card summary found in {path}")
+
+    return ast.literal_eval(
+        critical_discards_line[-1].split(":", 1)[1].strip()
+    )
+
+
+def get_estimate_critical_and_overall_score_loss_from_file(path: Path) -> int:
+    """
+    Estimate the potential score loss from critical card discards and the score
+    loss overall.
+    """
+    assert path.is_file(), f"The path provided is not a file: {path}"
+
+    with open(path, "r") as f:
+        lines = f.readlines()
+
+    # Get the final score from the game log.
+    score_lines = [
+        line for line in lines
+        if line.startswith("Final Score:")
+    ]
+    if not score_lines:
+        raise ValueError(f"No Final Score line found in {path}")
+
+    final_score = int(score_lines[-1].split(":", 1)[1].strip())
+    overall_score_loss = 25 - final_score
+
+    # Get the last board state recorded in the game.
+    board_lines = [
+        line for line in lines
+        if line.startswith("Board:")
+    ]
+    if not board_lines:
+        raise ValueError(f"No Board line found in {path}")
+
+    board = {}
+    for entry in board_lines[-1].strip()[len("Board:"):].split(","):
+        match = re.fullmatch(
+            r"\s*(green|yellow|white|blue|red)\s+(\d+)\s*",
+            entry,
+        )
+        if not match:
+            raise ValueError(f"Cannot parse board entry: {entry}")
+
+        color, height = match.groups()
+        board[color] = int(height)
+
+    # get all the critical cards discarded
+    critical_cards = get_critical_card_list_from_file(path)
+
+    lowest_blocked_rank = {}
+    for col, rank in critical_cards:
+        if rank > board[col]:
+            if (
+                    col not in lowest_blocked_rank
+                    or rank < lowest_blocked_rank[col]
+            ):
+                lowest_blocked_rank[col] = rank
+
+    score_loss = sum(6 - rank for rank in lowest_blocked_rank.values())
+
+    return score_loss, overall_score_loss
+
+
+def report_potential_score_loss(path: Path) -> None:
+    """
+    Report the score losses overall and due to critical discards.
+    """
+    if path.is_file():
+        critical, overall_loss = get_estimate_critical_and_overall_score_loss_from_file(path)
+        print("Estimated potential critical score loss:", critical)
+        print("Overall score loss:", overall_loss)
+        return
+
+    if not path.is_dir():
+        raise ValueError(f"Path does not exist: {path}")
+
+    files = [
+        file for file in path.rglob("*")
+        if file.is_file()
+    ]
+
+    if not files:
+        print("No game logs found.")
+        return
+
+    critical_loss = sum(
+        get_estimate_critical_and_overall_score_loss_from_file(file)[0]
+        for file in files
+    )
+    total_loss = sum(
+        get_estimate_critical_and_overall_score_loss_from_file(file)[1]
+        for file in files
+    )
+
+    print("Games analyzed:", len(files))
+    print("Total score loss:", total_loss)
+    print("Average total score loss per game:",
+          total_loss / len(files))
+    print("Total estimated critical discard potential score loss:", critical_loss)
+    print("Average estimated critical discard potential score loss per game:",
+          critical_loss / len(files))
 
 
 # ---------------------------------------------------------------------------
@@ -526,8 +534,10 @@ def compare_corresponding_games(base_path: Path, new_path: Path, verbose=False) 
     else:
         raise ValueError(f"The base path does not exist. base_path: {base_path}")
 
-END_REASONS = ["deck exhausted", "out of lives", "board completed"]
 
+# ---------------------------------------------------------------------------
+# Command: end_reasons
+# ---------------------------------------------------------------------------
 
 def get_end_reason_from_file(path: Path) -> str:
     """
@@ -571,7 +581,6 @@ def report_end_reasons(path: Path) -> None:
 
     else:
         raise ValueError(f"Path does not exist: {path}")
-
 
 
 # ---------------------------------------------------------------------------
@@ -652,7 +661,6 @@ def report_hint_intentions(path: Path) -> None:
     if not files:
         print("No JSON game logs found.")
         return
-    
     
     hint_play = 0
     hint_discards = 0
