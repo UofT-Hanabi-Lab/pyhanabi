@@ -1369,6 +1369,91 @@ def discard_utility_v17(card_knowledge, board, hints):
     return -loss + token_value_v17(hints)
 
 
+def pretend_v19(
+    action, knowledge, intentions, hand, board, trash, weights, ignore_dead=False
+):
+    """
+    V19: pretend_v8 (dynamic weights) that also reports, like pretend_v6,
+    whether the hint makes the hintee play a card it should play.
+    Return (isvalid, score, predictions, is_play).
+    """
+    (play_w, discard_w, may_discard_w) = weights
+    (action_type, value) = action
+
+    # --- Simulate the hint's effect on the hintee's mental state ----------
+    positive = []
+    haspositive = False
+    change = False
+    if action_type == Action.ActionType.HINT_COLOR:
+        newknowledge = []
+        for i, (col, num) in enumerate(hand):
+            positive.append(value == col)
+            newknowledge.append(hint_color(knowledge[i], value, value == col))
+            if value == col:
+                haspositive = True
+                if newknowledge[-1] != knowledge[i]:
+                    change = True
+    else:
+        newknowledge = []
+        for i, (col, num) in enumerate(hand):
+            positive.append(value == num)
+            newknowledge.append(hint_rank(knowledge[i], value, value == num))
+            if value == num:
+                haspositive = True
+                if newknowledge[-1] != knowledge[i]:
+                    change = True
+    if not haspositive:
+        return False, 0, ["Invalid hint"], False
+    if not change:
+        return False, 0, ["No new information"], False
+
+    if ignore_dead:
+        dead_colors = highest_playable_cards(board, trash)
+    else:
+        dead_colors = None
+
+    # --- Predict the hintee's reaction card by card and score it ----------
+    score = 0.0
+    predictions: list[Intent | None] = []
+    pos = False
+    is_play = False
+    for i, c, k, p in zip(intentions, hand, newknowledge, positive):
+        predicted_action = whattodo(k, p, board, dead_colors)
+
+        # Misalignment: reject the hint outright
+        if predicted_action == Action.ActionType.PLAY and i != Intent.PLAY:
+            return False, 0, predictions + [Intent.PLAY], False
+        if predicted_action == Action.ActionType.DISCARD and i not in {
+            Intent.DISCARD,
+            Intent.CAN_DISCARD,
+        }:
+            return False, 0, predictions + [Intent.DISCARD], False
+
+        # Alignment: score the card with the dynamic weights (V8)
+        if predicted_action == Action.ActionType.PLAY and i == Intent.PLAY:
+            pos = True
+            is_play = True
+            predictions.append(Intent.PLAY)
+            score += play_w
+        elif predicted_action == Action.ActionType.DISCARD and i in {
+            Intent.DISCARD,
+            Intent.CAN_DISCARD,
+        }:
+            # with an empty deck discard_w is 0: discard-only hints are dropped
+            if discard_w > 0.0:
+                pos = True
+            predictions.append(Intent.DISCARD)
+            if i == Intent.DISCARD:
+                score += discard_w
+            else:
+                score += may_discard_w
+        else:
+            predictions.append(None)
+    if not pos:
+        return False, score, predictions, False
+    return True, score, predictions, is_play
+
+
 def format_knowledge(k):
     result = ""
     for col in Color:
