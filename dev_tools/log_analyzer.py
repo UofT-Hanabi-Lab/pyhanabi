@@ -526,6 +526,53 @@ def compare_corresponding_games(base_path: Path, new_path: Path, verbose=False) 
     else:
         raise ValueError(f"The base path does not exist. base_path: {base_path}")
 
+END_REASONS = ["deck exhausted", "out of lives", "board completed"]
+
+
+def get_end_reason_from_file(path: Path) -> str:
+    """
+    Return why the game in the given log file ended: one of END_REASONS,
+    or "unknown" for logs written before the end reason was recorded.
+    """
+    assert path.is_file(), f"The path provided is not a file: {path}"
+    with open(path, "r") as f:
+        for line in f:
+            if line.startswith("End reason:"):
+                return line.removeprefix("End reason:").strip()
+    return "unknown"
+
+
+def report_end_reasons(path: Path) -> None:
+    """
+    Report why games ended (deck exhausted, out of lives, board completed).
+    If path points to a single log file, report the end reason of the single game.
+    If path points to a directory of log files, report counts and ratios over all games.
+    """
+    if path.is_file():
+        print(f"Reporting end reason for file: {path}")
+        print("End reason:", get_end_reason_from_file(path))
+
+    elif path.is_dir():
+        print(f"Reporting aggregate end reasons for directory: {path}")
+        counts = {reason: 0 for reason in END_REASONS}
+        game_count = 0
+        for file in path.rglob("*"):
+            if file.is_dir():
+                assert file.name in ALLOWED_SUBDIRS, (f"The path under directory {path} is not a file: {file}, "
+                                                      f"and does not correspond to an allowed subdirectory name")
+                continue
+            reason = get_end_reason_from_file(file)
+            counts[reason] = counts.get(reason, 0) + 1
+            game_count += 1
+
+        print("Number of games:", game_count)
+        for reason, count in counts.items():
+            print(f"{reason.capitalize()}: {count} ({count / game_count:.2%})")
+
+    else:
+        raise ValueError(f"Path does not exist: {path}")
+
+
 
 # ---------------------------------------------------------------------------
 # Command: lost_lives
@@ -788,6 +835,23 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     compare_corresponding_games_parser.set_defaults(func=compare_corresponding_games)
+
+    # End reasons command: count how games ended (deck exhausted, out of lives, board completed)
+    end_reasons_parser = subparsers.add_parser(
+        "end_reasons",
+        help="Count how games ended (deck exhausted, out of lives, board completed).",
+        description="Report why games ended.\n"
+                    "If a path to a log file is passed as an argument, it will report the end reason of the single game."
+                    "If a path to a directory of log files is passed as an argument,"
+                    "it will report counts and ratios over all games.",
+    )
+    end_reasons_parser.add_argument(
+        "path",
+        type=Path,
+        help="Path to a log file or directory of log files.",
+    )
+    end_reasons_parser.set_defaults(func=report_end_reasons)
+
 
     # Lost lives command: report stats on lost lives during games
     lost_lives_parser = subparsers.add_parser(
