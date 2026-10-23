@@ -10,11 +10,14 @@ from utils import (
     Action,
     Color,
     Intent,
+    discard_utility_v17,
     discardable,
     get_possible,
     hint_color,
     hint_rank,
     hint_weights_v8,
+    life_cost_v17,
+    play_utility_v17,
     playable,
     potentially_discardable,
     potentially_playable,
@@ -38,6 +41,9 @@ STATIC_WEIGHTS: Final[tuple[float, float, float]] = (
     float(DISCARD_SCORE),
     float(MAY_DISCARD_SCORE),
 )
+
+# Minimum tokens for the second critical-hint stage (V19's V19_CRIT_HINT_MIN_TOKENS).
+CRIT_INFO_MIN_TOKENS: Final = 4
 
 
 def is_hint(action: Action) -> bool:
@@ -85,6 +91,15 @@ def apply_hint(
 def is_expendable(card: tuple[Color, int], trash: list[tuple[Color, int]]) -> bool:
     """Another copy remains. Only for cards that are not useless."""
     return COUNTS[card[1] - 1] - trash.count(card) >= 2
+
+
+def is_critical(
+    card: tuple[Color, int],
+    board: list[tuple[Color, int]],
+    trash: list[tuple[Color, int]],
+) -> bool:
+    """Last copy of a card the board still needs (Section 6.11)."""
+    return card[1] > board[card[0]][1] and not is_expendable(card, trash)
 
 
 def giver_hint_tokens(game) -> int:
@@ -245,6 +260,9 @@ class _Turn:
     legal: list[Action]
     # Weights for S inside the hint heuristic H; S and U are static elsewhere.
     hint_weights: tuple[float, float, float] = STATIC_WEIGHTS
+    # Absent on engines that do not pass them (legacy Game, GUI, converter).
+    lives: int | None = None
+    deck_size: int | None = None
 
 
 @dataclass
@@ -253,6 +271,7 @@ class _Candidate:
     utility: float = 0.0  # sum of U over the hints A received
     plan: float = 0.0  # S(I_B, A^_B) after the action
     hint_score: float = 0.0  # H, used only to rank hints
+    crit_save: bool = False  # identifies the critical card a partner may discard (V9)
 
     @property
     def objective(self) -> float:
@@ -262,15 +281,24 @@ class _Candidate:
 class CaseBasedPlayer(Player):
     def __init__(self, name: str, pnr: int):
         super().__init__(name, pnr)
+
+        ############ Switches ##############
         # V8 dynamic weights for H; False recovers the fixed 3/2/1 weighting.
         self.dynamic_hint_weights: bool = True
         # V5 forced hints; False recovers redundant/random giving and full interpretation.
         self.forced_hint: bool = True
+        # V9/V19 critical card hints; False recovers HEAD behavior.
+        self.critical_card_hints: bool = True
+        # V17 risky play before the fallback discard; False recovers HEAD behavior.
+        self.risky_play: bool = True
+
+
         self._last_actions: dict[int, Action] = {}  # a_B and a_C
         self._was_forced: dict[int, bool] = {}  # giver held eight tokens when hinting
         self.case: str | None = None
         self.valid_hints: list[tuple[str | int, int, float]] = []
         self.redun_hints: list[tuple[str | int, int, float]] = []
+        self.crit_hints: list[tuple[str | int, int, float]] = []
 
     @override
     def reset(self) -> None:
@@ -279,6 +307,7 @@ class CaseBasedPlayer(Player):
         self.case = None
         self.valid_hints = []
         self.redun_hints = []
+        self.crit_hints = []
 
     # Read by the game's JSON log.
     def get_valid_hints(self):
@@ -288,7 +317,7 @@ class CaseBasedPlayer(Player):
         return self.redun_hints
 
     def get_critical_hints(self):
-        return []
+        return self.crit_hints
 
     @override
     def inform(self, action: Action, player: int, game) -> None:
@@ -334,10 +363,13 @@ class CaseBasedPlayer(Player):
             tokens=hints,
             legal=valid_actions,
             hint_weights=hint_weights,
+            lives=lives,
+            deck_size=deck_size,
         )
         self.case = None
         self.valid_hints = []
         self.redun_hints = []
+        self.crit_hints = []
         self.explanation = []
         self.explanation.append(
             [
@@ -373,7 +405,7 @@ class CaseBasedPlayer(Player):
         top = [candidate for candidate in candidates if candidate.objective == best]
 
         # Lines 22-23, also used to break ties
-        return self._baseline_choice(turn, top)
+        return self._baseline_choice(turn, top, plan)
 
     def _intended(self, player: int) -> Action | None:
         """The player's last action, unless it was a hint that may have been forced (V5)."""
@@ -425,6 +457,8 @@ class CaseBasedPlayer(Player):
                     candidates.append(_Candidate(action, utility=utility))
         hints, redundant = self._intentional_hints(turn, plan)
         candidates.extend(hints)
+        if self.critical_card_hints:
+            self._mark_critical_saves(turn, plan, candidates)
 
         if plan is not None:
             for candidate in candidates:
@@ -509,7 +543,119 @@ class CaseBasedPlayer(Player):
             turn.hint_weights,
         )
 
-    def _baseline_choice(self, turn: _Turn, top: list[_Candidate]) -> Action:
+    def _predicted_critical_discard(self, turn: _Turn) -> tuple[int, tuple[Color, int]] | None:
+        """The first partner whose best discard candidate is a critical card (Section 6.11)."""
+        partners = (turn.b, turn.c) if turn.b != turn.c else (turn.b,)
+        for player in partners:
+            knowledge = turn.knowledge[player]
+            discards = [Action(DISCARD, cnr=i) for i in range(len(turn.hands[player]))]
+            if not discards:
+                continue
+            best = max(
+                discards,
+                key=lambda a: pretend_discard(a, knowledge, turn.board, turn.trash)[1],
+            )
+            card = turn.hands[player][best.cnr]
+            if is_critical(card, turn.board, turn.trash):
+                return player, card
+        return None
+
+    def _safe_identifying_hints(
+        self, turn: _Turn, plan: Action | None, player: int, card: tuple[Color, int]
+    ) -> list[tuple[Action, float]]:
+        """(hint, gain) for legal hints to ``player`` identifying ``card`` that add information and predict no misplay or harmful discard."""
+        results: list[tuple[Action, float]] = []
+        hand = turn.hands[player]
+        before = turn.knowledge[player]
+        pending = [plan] if plan is not None and player == turn.b else []
+        for hint in turn.legal:
+            if not (is_hint(hint) and hint.pnr == player and identifies(hint, card)):
+                continue
+            after = apply_hint(hint, hand, before)
+            if not any(
+                identifies(hint, c) and new != old
+                for c, old, new in zip(hand, before, after)
+            ):
+                continue
+            score_after = self._alignment(turn, hand, after, pending + [hint])
+            if score_after == REJECTED:
+                continue
+            score_before = self._alignment(turn, hand, before, pending)
+            gain = score_after - score_before if score_before != REJECTED else score_after
+            results.append((hint, max(gain, 0.0)))
+        return results
+
+    def _mark_critical_saves(
+        self, turn: _Turn, plan: Action | None, candidates: list[_Candidate]
+    ) -> None:
+        """First V9 stage: qualify and flag hints identifying the critical card a partner is predicted to discard."""
+        if turn.tokens == 0:
+            return
+        prediction = self._predicted_critical_discard(turn)
+        if prediction is None:
+            return
+        player, card = prediction
+        for hint, gain in self._safe_identifying_hints(turn, plan, player, card):
+            label = hint.num if hint.col is None else hint.col.display_name
+            assert label is not None
+            self.crit_hints.append((label, player, gain))
+            existing = next((c for c in candidates if c.action == hint), None)
+            if existing is not None:
+                existing.crit_save = True
+            else:
+                # The pretend_v9 relaxation: a safe hint qualifies without a gain.
+                candidates.append(_Candidate(hint, hint_score=gain, crit_save=True))
+
+    def _critical_info_hint(self, turn: _Turn, plan: Action | None) -> Action | None:
+        """Second V9 stage: the best safe hint identifying any critical card a partner holds."""
+        best: tuple[float, Action] | None = None
+        partners = (turn.b, turn.c) if turn.b != turn.c else (turn.b,)
+        for player in partners:
+            seen: set[tuple[Color, int]] = set()
+            for card in turn.hands[player]:
+                if card in seen or not is_critical(card, turn.board, turn.trash):
+                    continue
+                seen.add(card)
+                for hint, gain in self._safe_identifying_hints(turn, plan, player, card):
+                    label = hint.num if hint.col is None else hint.col.display_name
+                    assert label is not None
+                    self.crit_hints.append((label, player, gain))
+                    if best is None or gain > best[0]:
+                        best = (gain, hint)
+        return best[1] if best is not None else None
+
+    def _risky_play(self, turn: _Turn, fallback: Action) -> Action | None:
+        """V17: a PLAY whose expected utility beats discarding ``fallback``, else None."""
+        if turn.lives is None or turn.deck_size is None or turn.lives <= 1:
+            return None
+        own = turn.knowledge[turn.a]
+        assert fallback.cnr is not None
+        turns_left = turn.deck_size + len(turn.knowledge)
+        life_cost = life_cost_v17(turn.lives, turns_left)
+        q_discard = discard_utility_v17(own[fallback.cnr], turn.board, turn.tokens)
+        best: tuple[float, float, int] | None = None
+        for i, table in enumerate(own):
+            q_play, p = play_utility_v17(table, turn.board, life_cost)
+            if best is None or q_play > best[0]:
+                best = (q_play, p, i)
+        assert best is not None
+        q_play, p, cnr = best
+        self.explanation.append(
+            [
+                "Risky play (V17)",
+                "Lives: {} | Turns left: {} | Life cost: {:.2f}".format(
+                    turn.lives, turns_left, life_cost
+                ),
+                "Best play: card {} (p = {:.2f}, Q = {:.2f})".format(cnr, p, q_play),
+                "Discard: card {} (Q = {:.2f})".format(fallback.cnr, q_discard),
+            ]
+        )
+        # Ties keep the discard, as in risky_play_v17.
+        if q_play > q_discard:
+            return Action(PLAY, cnr=cnr)
+        return None
+
+    def _baseline_choice(self, turn: _Turn, top: list[_Candidate], plan: Action | None) -> Action:
         """Baseline priority sequence, restricted to ``top``."""
         own = turn.knowledge[turn.a]
 
@@ -527,16 +673,33 @@ class CaseBasedPlayer(Player):
         if useless:
             return random.choice(useless)
 
+        # A hint protecting a predicted critical discard precedes other hints (V9).
+        saves = [candidate for candidate in top if candidate.crit_save]
+        if saves:
+            best = max(candidate.hint_score for candidate in saves)
+            return random.choice([c.action for c in saves if c.hint_score == best])
+
         hints = [candidate for candidate in top if is_hint(candidate.action)]
         if hints:
             best = max(candidate.hint_score for candidate in hints)
             return random.choice([c.action for c in hints if c.hint_score == best])
 
         # pretend_discard returns the negated expected loss.
-        return max(
+        fallback = max(
             discards,
             key=lambda action: pretend_discard(action, own, turn.board, turn.trash)[1],
         )
+        if self.risky_play:
+            play = self._risky_play(turn, fallback)
+            if play is not None:
+                return play
+        # Hint any critical card, only when tokens are plentiful (V19).
+        if self.critical_card_hints and turn.tokens >= CRIT_INFO_MIN_TOKENS:
+            hint = self._critical_info_hint(turn, plan)
+            if hint is not None:
+                self.explanation.append(["Critical card hint", str(hint)])
+                return hint
+        return fallback
 
     def _explain(self, candidates: list[_Candidate]) -> None:
         self.explanation.append(["Case", self.case])
@@ -544,3 +707,4 @@ class CaseBasedPlayer(Player):
         self.explanation.append(["Utility U"] + [c.utility for c in candidates])
         self.explanation.append(["Plan S"] + [c.plan for c in candidates])
         self.explanation.append(["Hint score H"] + [c.hint_score for c in candidates])
+        self.explanation.append(["Critical save"] + [c.crit_save for c in candidates])
