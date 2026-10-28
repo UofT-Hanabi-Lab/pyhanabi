@@ -8,14 +8,19 @@ Reports:
 - hint tokens available when a playable critical card was discarded
 - points lost per game to dead cards (unreachable because of the trash)
   vs. to running out of time (reachable but never played)
+- V17 risky plays (V17, V19, case-based): how many succeeded, how many were
+  misplays, and how many of those misplays destroyed a critical card. Read
+  from the "risky_play" flag of the JSON logs, so only for runs made after
+  that flag was added.
 
 Usage (from the repo root):
-    python dev_tools/run_stats.py <timestamp> [--players N] [--log-dir DIR]
+    python dev_tools/run_stats.py <timestamp> [--players N] [--log-dir DIR] [--json-dir DIR]
     e.g.  python dev_tools/run_stats.py 20261013_200628 --players 3
 """
 
 import argparse
 import collections
+import json
 import re
 from pathlib import Path
 
@@ -67,6 +72,28 @@ def parse_game(path: Path):
     return moves, int(s.group(1)) if s else None
 
 
+def parse_risky_flags(path: Path) -> list[bool] | None:
+    """
+    The "risky_play" flag of every move in a JSON game log, or None if the
+    log is missing or predates the flag.
+    """
+    if not path.is_file():
+        return None
+    actions = json.loads(path.read_text())["actions"]
+    flags = []
+    for entry in actions:
+        (turn,) = entry.values()
+        if "risky_play" not in turn["action"]:
+            return None
+        flags.append(bool(turn["action"]["risky_play"]))
+    return flags
+
+
+def is_critical(col: str, rank: int, board: dict[str, int], trash: collections.Counter) -> bool:
+    """Whether (col, rank) is unplayed and its last copy, given the state before the move."""
+    return board[col] < rank and trash[(col, rank)] == COUNTS[rank] - 1
+
+
 def reachable_score(board: dict[str, int], trash: collections.Counter) -> int:
     """Max score still achievable given the board and the trash."""
     total = 0
@@ -86,6 +113,7 @@ def main() -> int:
     parser.add_argument("timestamp", help="run suffix of the log names, e.g. 20261013_200628")
     parser.add_argument("--players", type=int, help="only games with this many players")
     parser.add_argument("--log-dir", type=Path, default=Path("log"))
+    parser.add_argument("--json-dir", type=Path, default=Path("json"))
     args = parser.parse_args()
 
     prefix = f"{args.players}p" if args.players else "*p"
@@ -101,11 +129,17 @@ def main() -> int:
     crit_playable_tokens = collections.Counter()
     dead_loss = []
     time_loss = []
+    risky = collections.Counter()
+    risky_games = 0  # games whose JSON log records risky plays
 
     for path in files:
         moves, score = parse_game(path)
         if not moves:
             continue
+        risky_flags = parse_risky_flags(args.json_dir / f"{path.stem}.json")
+        if risky_flags is not None:
+            assert len(risky_flags) == len(moves), f"{path}: JSON and text logs disagree on moves"
+            risky_games += 1
         if score is not None:
             scores.append(score)
         final_lives[moves[-1]["lives"]] += 1
@@ -124,15 +158,24 @@ def main() -> int:
                         label = nxt["kind"]
                     hint_next[at8][label] += 1
 
-            elif mv["kind"] == "plays" and "success" not in mv["rest"]:
-                misplays += 1
+            elif mv["kind"] == "plays":
+                success = "success" in mv["rest"]
+                if not success:
+                    misplays += 1
+                if risky_flags is not None and risky_flags[k]:
+                    col, rank = CARD_RE.match(mv["rest"]).groups()
+                    risky["total"] += 1
+                    if success:
+                        risky["successful"] += 1
+                    else:
+                        risky["misplayed"] += 1
+                        if is_critical(col, int(rank), prev_board, prev_trash):
+                            risky["misplayed_critical"] += 1
 
             elif mv["kind"] == "discards":
                 col, rank = CARD_RE.match(mv["rest"]).groups()
                 rank = int(rank)
-                is_critical = (prev_board[col] < rank
-                               and prev_trash[(col, rank)] == COUNTS[rank] - 1)
-                if is_critical:
+                if is_critical(col, rank, prev_board, prev_trash):
                     if prev_board[col] + 1 == rank:
                         crit["playable"] += 1
                         crit_playable_tokens[prev_hints] += 1
@@ -168,6 +211,17 @@ def main() -> int:
     print()
     print(f"Avg points lost per game to critical discards:         {sum(dead_loss) / n:.2f}")
     print(f"Avg points lost per game to exhausted deck: {sum(time_loss) / n:.2f}")
+    print()
+    if not risky_games:
+        print("Risky plays: not recorded (no JSON logs with the risky_play flag)")
+    else:
+        t = risky["total"]
+        print(f"Risky plays in {risky_games} games: {t}")
+        if t:
+            print(f"  successful:                 {risky['successful']} ({risky['successful'] / t:.0%})")
+            print(f"  misplays:                   {risky['misplayed']} ({risky['misplayed'] / t:.0%})")
+            print(f"  misplays of critical cards: {risky['misplayed_critical']} "
+                  f"({risky['misplayed_critical'] / t:.0%})")
     return 0
 
 

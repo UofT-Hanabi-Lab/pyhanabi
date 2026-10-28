@@ -59,6 +59,7 @@ class SelfIntentionalPlayer(Player):
         self.redun_hints = []
         self.crit_hints = []
         self.discard_crit = False
+        self.risky_play = False
         self.version = version
         self.intent = None
 
@@ -76,6 +77,7 @@ class SelfIntentionalPlayer(Player):
         self.redun_hints = []
         self.crit_hints = []
         self.discard_crit = False
+        self.risky_play = False
         self.intent = None
     def get_valid_hints(self):
         return self.valid_hints
@@ -88,6 +90,9 @@ class SelfIntentionalPlayer(Player):
 
     def get_discard_crit(self):
         return self.discard_crit
+
+    def get_risky_play(self):
+        return self.risky_play
 
     def get_intent(self):
             return self.intent
@@ -106,6 +111,7 @@ class SelfIntentionalPlayer(Player):
         self.redun_hints = []
         self.crit_hints = []
         self.discard_crit = False
+        self.risky_play = False
         self.intent = None
 
         if self.version == 0 or self.version == 11:
@@ -1011,6 +1017,7 @@ class SelfIntentionalPlayer(Player):
 
         # Ties keep V14's discard
         if q_play > q_discard:
+            self.risky_play = True
             return Action(Action.ActionType.PLAY, cnr=cnr)
         return None
 
