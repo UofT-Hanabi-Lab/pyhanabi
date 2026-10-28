@@ -28,6 +28,9 @@ class Player:
         return []
     def get_redundant_hints(self):
         return []
+    def get_risky_play(self):
+        """True iff this turn's action was a V17 risky play."""
+        return False
 
     def get_action(
         self, nr, hands, knowledge, trash, played, board, valid_actions, hints
