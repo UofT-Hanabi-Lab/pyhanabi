@@ -492,6 +492,7 @@ class HanasimGame(AbstractGame):
                 f"turn_{turn}": {
                     "player": acting_player_id,
                     "action": {
+                        "risky_play": self.players[acting_player_id].get_risky_play(),
                         "discard_crit": self.players[
                             acting_player_id
                         ].get_discard_crit()

@@ -299,6 +299,7 @@ class CaseBasedPlayer(Player):
         self.valid_hints: list[tuple[str | int, int, float]] = []
         self.redun_hints: list[tuple[str | int, int, float]] = []
         self.crit_hints: list[tuple[str | int, int, float]] = []
+        self.played_risky: bool = False  # this turn's action is a V17 risky play
 
     @override
     def reset(self) -> None:
@@ -308,6 +309,7 @@ class CaseBasedPlayer(Player):
         self.valid_hints = []
         self.redun_hints = []
         self.crit_hints = []
+        self.played_risky = False
 
     # Read by the game's JSON log.
     def get_valid_hints(self):
@@ -318,6 +320,10 @@ class CaseBasedPlayer(Player):
 
     def get_critical_hints(self):
         return self.crit_hints
+
+    @override
+    def get_risky_play(self):
+        return self.played_risky
 
     @override
     def inform(self, action: Action, player: int, game) -> None:
@@ -370,6 +376,7 @@ class CaseBasedPlayer(Player):
         self.valid_hints = []
         self.redun_hints = []
         self.crit_hints = []
+        self.played_risky = False
         self.explanation = []
         self.explanation.append(
             [
@@ -692,6 +699,7 @@ class CaseBasedPlayer(Player):
         if self.risky_play:
             play = self._risky_play(turn, fallback)
             if play is not None:
+                self.played_risky = True
                 return play
         # Hint any critical card, only when tokens are plentiful (V19).
         if self.critical_card_hints and turn.tokens >= CRIT_INFO_MIN_TOKENS:
