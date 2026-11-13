@@ -421,9 +421,9 @@ def pretend(action, knowledge, intentions, hand, board, trash, ignore_dead=False
                 if newknowledge[-1] != knowledge[i]:
                     change = True
     if not haspositive:
-        return False, 0, ["Invalid hint"]
+        return False, 0, ["Invalid hint"], False
     if not change:
-        return False, 0, ["No new information"]
+        return False, 0, ["No new information"], False
 
     if ignore_dead:
         dead_colors = highest_playable_cards(board, trash)
@@ -433,23 +433,25 @@ def pretend(action, knowledge, intentions, hand, board, trash, ignore_dead=False
     score = 0
     predictions: list[Intent | None] = []
     pos = False
+    is_play = False
     for i, c, k, p in zip(intentions, hand, newknowledge, positive):
         predicted_action = whattodo(k, p, board, dead_colors)
         if predicted_action == Action.ActionType.PLAY and i != Intent.PLAY:
             # print("would cause them to play", f(c))
-            return False, 0, predictions + [Intent.PLAY]
+            return False, 0, predictions + [Intent.PLAY], False
 
         if predicted_action == Action.ActionType.DISCARD and i not in {
             Intent.DISCARD,
             Intent.CAN_DISCARD,
         }:
             # print("would cause them to discard", f(c))
-            return False, 0, predictions + [Intent.DISCARD]
+            return False, 0, predictions + [Intent.DISCARD], False
 
         if predicted_action == Action.ActionType.PLAY and i == Intent.PLAY:
             pos = True
             predictions.append(Intent.PLAY)
             score += 3
+            is_play = True
         elif predicted_action == Action.ActionType.DISCARD and i in {
             Intent.DISCARD,
             Intent.CAN_DISCARD,
@@ -463,8 +465,8 @@ def pretend(action, knowledge, intentions, hand, board, trash, ignore_dead=False
         else:
             predictions.append(None)
     if not pos:
-        return False, score, predictions
-    return True, score, predictions
+        return False, score, predictions, False
+    return True, score, predictions, is_play
 
 def pretend_v9(action, knowledge, intentions, hand, board, trash, ignore_dead=False):
     """

@@ -1357,6 +1357,7 @@ class SelfIntentionalPlayer(Player):
 
     def give_intentional_hint(self, nr, hands, knowledge, trash, board, hints, num_players, result, ignore_dead=False):
         redundant_hints = []
+        play_hints = []
         if num_players == 2:
             intents_for_next = self._create_intents(
                 hands[(self.pnr + 1) % 2], board, trash
@@ -1407,7 +1408,7 @@ class SelfIntentionalPlayer(Player):
                             trash
                         )
                     else:
-                        (isvalid, score, expl) = pretend(
+                        (isvalid, score, expl, isplay) = pretend(
                             hint_action,
                             knowledge[hintee_id],
                             hintee_intentions,
@@ -1422,6 +1423,8 @@ class SelfIntentionalPlayer(Player):
                     )
                     if isvalid:
                         valid.append((hint_action, score, hintee_id))
+                        if isplay:
+                            play_hints.append((hint_action, score, hintee_id, c))
                         if hint_action[0] == Action.ActionType.HINT_NUMBER:
                             self.valid_hints.append((hint_action[1], hintee_id, score))
                         else:
@@ -1446,7 +1449,7 @@ class SelfIntentionalPlayer(Player):
                             trash
                         )
                     else:
-                        (isvalid, score, expl) = pretend(
+                        (isvalid, score, expl, isplay) = pretend(
                             hint_action,
                             knowledge[hintee_id],
                             hintee_intentions,
@@ -1461,6 +1464,8 @@ class SelfIntentionalPlayer(Player):
                     )
                     if isvalid:
                         valid.append((hint_action, score, hintee_id))
+                        if isplay:
+                            play_hints.append((hint_action, score, hintee_id, r))
                         if hint_action[0] == Action.ActionType.HINT_NUMBER:
                             self.valid_hints.append((hint_action[1], hintee_id, score))
                         else:
@@ -1490,6 +1495,16 @@ class SelfIntentionalPlayer(Player):
                         pnr=hintee_id,
                         num=selected_action[1],
                     )
+                if any((result.action_type, result.pnr) == hint[0] for hint in play_hints):
+                    if (result.action_type == Action.ActionType.HINT_COLOR and 
+                        any(result.col == hint[3] for hint in play_hints if (result.action_type, result.pnr) == hint[0])):
+                        self.intent = "Play"
+                    elif (result.action_type == Action.ActionType.HINT_NUMBER and 
+                          any(result.num == hint[3] for hint in play_hints if (result.action_type, result.pnr) == hint[0])):
+                        self.intent = "Play" 
+                    
+                else:
+                    self.intent = "Discard"
 
         return result, redundant_hints
 
