@@ -661,28 +661,33 @@ class HanasimGame(AbstractGame):
             old_col = p_card[0]
             old_rank = p_card[1]
 
+            drew = len(post_obs.hands[acting_player]) == len(prev_obs.hands[acting_player])
+
             del self.knowledge[acting_player][action.cnr]
-            visible_cards = self._get_visible_cards(acting_player, post_obs.hands)
-            self.knowledge[acting_player].append(
-                initial_knowledge(visible_cards)
-            )  # draw a new card
+            if drew:
+                visible_cards = self._get_visible_cards(acting_player, post_obs.hands)
+                self.knowledge[acting_player].append(
+                    initial_knowledge(visible_cards)
+                )  # draw a new card
 
             # update knowledge of acting player with the card is played/discarded
-            for k in self.knowledge[acting_player][:-1]:
+            existing = self.knowledge[acting_player][:-1] if drew else self.knowledge[acting_player]
+            for k in existing:
                 if k[old_col][old_rank - 1] > 0:
                     k[old_col][old_rank - 1] -= 1
 
             # update knowlege of cooperating players with the new drawn card
-            drawn_card = self._convert_card(post_obs.hands[acting_player][-1])
-            new_col = drawn_card[0]
-            new_rank = drawn_card[1] - 1
+            if drew:
+                drawn_card = self._convert_card(post_obs.hands[acting_player][-1])
+                new_col = drawn_card[0]
+                new_rank = drawn_card[1] - 1
 
-            for p in range(len(self.players)):
-                if p == acting_player:
-                    continue
-                for k in self.knowledge[p]:
-                    if k[new_col][new_rank] > 0:
-                        k[new_col][new_rank] -= 1
+                for p in range(len(self.players)):
+                    if p == acting_player:
+                        continue
+                    for k in self.knowledge[p]:
+                        if k[new_col][new_rank] > 0:
+                            k[new_col][new_rank] -= 1
 
     def _get_visible_cards(
         self, player_id, hands: list[list[HanaSimCard]]
