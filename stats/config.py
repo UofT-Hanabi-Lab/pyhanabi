@@ -54,7 +54,7 @@ PLAYER_NAMES = ("A", "B", "C")
 
 # Integer versions implemented on SelfIntentionalPlayer after hanabilive_converter.
 INTEGER_VERSIONS = frozenset(
-    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 17, 18, 19}
+    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 17, 18, 19, 20}
 )
 
 # Default paper table. V6_hgt3 is listed so it appears in skip logs.
@@ -71,6 +71,7 @@ ACTIVE_AGENTS = [
     "V17",
     "V18",
     "V19",
+    "V20",
     "case",
 ]
 

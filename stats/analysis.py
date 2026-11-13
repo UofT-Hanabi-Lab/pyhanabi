@@ -292,25 +292,26 @@ def latex_score_table(
     baseline_n: int,
     baseline_label: str = "Baseline (Full v0)",
 ) -> str:
-    """Booktabs table: Agent | Mean | Diff vs. baseline | 95% CI | Holm-adjusted p."""
+    """Booktabs table: Agent | Mean | Diff vs. baseline | 95% CI | Raw p | Holm-adjusted p."""
     lines = [
-        r"\begin{tabular}{lcccc}",
+        r"\begin{tabular}{lccccc}",
         r"\toprule",
-        r"Agent & Mean & Diff vs.\ baseline & 95\% CI & Holm-adjusted $p$ \\",
+        r"Agent & Mean & Diff vs.\ baseline & 95\% CI & Raw $p$ & Holm-adjusted $p$ \\",
         r"\midrule",
     ]
     base_mean_s = fmt_num(baseline_mean, 3)
     lines.append(
         f"{baseline_label} & {base_mean_s} "
-        f"(std {fmt_num(baseline_std, 3)}, $n$={baseline_n}) & --- & --- & --- \\\\"
+        f"(std {fmt_num(baseline_std, 3)}, $n$={baseline_n}) & --- & --- & --- & --- \\\\"
     )
     for r in rows:
         name = r.get("display_name", r["agent"])
         mean_s = fmt_num(r["mean_score"], 3)
         diff_s = fmt_num(r["mean_diff"], 3)
         ci_s = f"[{fmt_num(r['ci_low'], 3)}, {fmt_num(r['ci_high'], 3)}]"
+        p_raw_s = fmt_p(r["p_ttest"])
         p_s = fmt_p(r["p_ttest_holm"])
-        cells = [name, mean_s, diff_s, ci_s, p_s]
+        cells = [name, mean_s, diff_s, ci_s, p_raw_s, p_s]
         if r.get("significant"):
             cells = [f"\\textbf{{{c}}}" for c in cells]
         lines.append(" & ".join(cells) + r" \\")
