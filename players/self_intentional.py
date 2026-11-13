@@ -961,7 +961,7 @@ class SelfIntentionalPlayer(Player):
                 #col = action.col
                 #rank = action.num
                 if action.cnr >= len(hands[hintee_id]):
-                    continue 
+                    continue
                 card = hands[hintee_id][action.cnr]
                 col = card[0]
                 rank = card[1]
@@ -984,7 +984,7 @@ class SelfIntentionalPlayer(Player):
             ["My Knowledge"] + list(map(format_knowledge, knowledge[nr]))
         )
         possible = [
-            Action(Action.ActionType.DISCARD, cnr=i) for i in range(self._hand_size)
+            Action(Action.ActionType.DISCARD, cnr=i) for i in range(len(knowledge[nr]))
         ]
 
         scores = list(
@@ -1510,20 +1510,20 @@ class SelfIntentionalPlayer(Player):
                     ["Intentions for next player"]
                     + list(map(format_intention, intents_for_next))
                 )
-   
+
                 intents_for_sub = self._create_intents(hands[self._sub_pnr], board, trash)
                 self.explanation.append(
                     ["Intentions for subsequent player"]
                     + list(map(format_intention, intents_for_sub))
                 )
-   
+
             if hints > 0:
                 hint_action: tuple[Action.ActionType, Color | int]
                 valid: list[tuple[tuple[Action.ActionType, Color | int], int, int]] = []
                 redundant_hints: list[
                     tuple[tuple[Action.ActionType, Color | int], int]
                 ] = []
-   
+
                 for hintee_id in range(num_players):
                     if hintee_id == nr:
                         continue
@@ -1532,7 +1532,7 @@ class SelfIntentionalPlayer(Player):
                     else:
                         assert intents_for_sub is not None
                         hintee_intentions = intents_for_sub
-   
+
                     for c in Color:
                         hint_action = (Action.ActionType.HINT_COLOR, c)
                         if self.version == 7:
@@ -1571,7 +1571,7 @@ class SelfIntentionalPlayer(Player):
                                 self.redun_hints.append((hint_action[1], hintee_id, score))
                             else:
                                 self.redun_hints.append((hint_action[1].display_name, hintee_id, score))
-   
+
                     for r in range(5):
                         r += 1
                         hint_action = (Action.ActionType.HINT_NUMBER, r)
@@ -1611,12 +1611,12 @@ class SelfIntentionalPlayer(Player):
                                 self.redun_hints.append((hint_action[1], hintee_id, score))
                             else:
                                 self.redun_hints.append((hint_action[1].display_name, hintee_id, score))
-   
-   
+
+
                 if valid and not result:
                     # sort descending by hint score
                     valid.sort(key=lambda x: x[1], reverse=True)
-   
+
                     selected_action, _, hintee_id = valid[0]
                     if selected_action[0] is Action.ActionType.HINT_COLOR:
                         result = Action(
@@ -1630,10 +1630,10 @@ class SelfIntentionalPlayer(Player):
                             pnr=hintee_id,
                             num=selected_action[1],
                         )
-   
+
             return result, redundant_hints
 
-    
+
     def give_intentional_hint_v6(self, nr, hands, knowledge, trash, board, hints, num_players, result):
             redundant_hints = []
             play_hints = []
