@@ -198,6 +198,136 @@ def plot_behavioral_bars(means, stds, out_dir):
     return path
 
 
+# Parameters needed to adjust the radar chart values
+
+# +1 = higher is better, -1 = lower is better
+METRIC_DIRECTION = {
+    "IPP": +1,
+    "Discard Playable": -1,
+    "Play Playable": +1,
+    "Play Unplayable": -1,
+    "Communicativeness": +1,   # debatable: more hinting isn't inherently better
+}
+
+RADAR_MAX_RATIO = 2.0   # clip ratios above this so one outlier can't squash the chart
+
+
+def normalize_to_baseline(means, baseline_label, eps=1e-9, max_ratio=RADAR_MAX_RATIO):
+    """
+    Return a DataFrame (metrics x agents) where the baseline is 1.0 on every axis
+    and values > 1 always mean "better than baseline".
+
+      higher-is-better:  agent / baseline
+      lower-is-better:   baseline / agent   (reciprocal, so "outward" = better)
+
+    eps avoids division by zero (0/0 -> 1, i.e. "same as baseline").
+    Returns (normalized, was_clipped) where was_clipped is a boolean DataFrame.
+    """
+    raw = pd.DataFrame(index=means.index, columns=means.columns, dtype=float)
+    for metric in means.index:
+        base = means.loc[metric, baseline_label]
+        for agent in means.columns:
+            val = means.loc[metric, agent]
+            if METRIC_DIRECTION[metric] > 0:
+                raw.loc[metric, agent] = (val + eps) / (base + eps)
+            else:
+                raw.loc[metric, agent] = (base + eps) / (val + eps)
+
+    was_clipped = raw > max_ratio
+    return raw.clip(upper=max_ratio), was_clipped
+
+
+def _radar_tick_labels(metric_names, baseline_values):
+    labels = []
+    for m in metric_names:
+        suffix = " (inverted)" if METRIC_DIRECTION[m] < 0 else ""
+        labels.append(f"{m}{suffix}\nbaseline = {baseline_values[m]:.2f}")
+    return labels
+
+
+def _draw_radar(ax, norm, agents, title, colors, tick_labels, r_max):
+    metrics = list(norm.index)
+    angles = np.linspace(0, 2 * np.pi, len(metrics), endpoint=False).tolist()
+    closed = angles + angles[:1]
+
+    # Reference ring at 1.0 = baseline performance
+    ring = np.linspace(0, 2 * np.pi, 200)
+    ax.plot(ring, np.ones_like(ring), color="black", linestyle="--",
+            linewidth=1, alpha=0.7, label="Baseline (1.0)")
+
+    single = len(agents) == 1
+    for agent in agents:
+        vals = norm[agent].tolist()
+        vals += vals[:1]
+        ax.plot(closed, vals, color=colors[agent], linewidth=2, label=agent)
+        ax.fill(closed, vals, color=colors[agent], alpha=0.30 if single else 0.15)
+
+    ax.set_xticks(angles)
+    ax.set_xticklabels(tick_labels, fontsize=8)
+    ax.set_ylim(0, r_max)
+    ticks = np.arange(0.5, r_max + 1e-9, 0.5)
+    ax.set_yticks(ticks)
+    ax.set_yticklabels([f"{t:g}" for t in ticks], fontsize=7)
+    ax.set_title(title, y=1.12)
+
+
+def plot_behavioral_radars(means, out_dir, baseline_label, save_individual=False):
+    """
+    2x2 figure: one radar for each of the agents (baseline, case_based,
+    self_intentional_v19) plus an overlay of all of them. All panels share the
+    same radial scale so they are directly comparable.
+    """
+    norm, was_clipped = normalize_to_baseline(means, baseline_label)
+    agents = list(means.columns)
+    metrics = list(means.index)
+    baseline_values = means[baseline_label]
+    tick_labels = _radar_tick_labels(metrics, baseline_values)
+
+    # Shared radial limit: at least 1.5, rounded up to the next 0.5
+    r_max = max(1.5, float(np.ceil(norm.max().max() * 2) / 2))
+
+    cmap = plt.get_cmap("tab10")
+    colors = {a: cmap(i) for i, a in enumerate(agents)}
+
+    panels = [[a] for a in agents] + [agents]
+    titles = agents + ["All agents"]
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 11), subplot_kw={"polar": True})
+    flat = list(axes.flat)
+    for ax, group, title in zip(flat, panels, titles):
+        _draw_radar(ax, norm, group, title, colors, tick_labels, r_max)
+    for ax in flat[len(panels):]:      # hide unused panels if < 3 agents
+        ax.axis("off")
+    flat[len(panels) - 1].legend(loc="upper right", bbox_to_anchor=(1.4, 1.15))
+
+    note = ""
+    if was_clipped.values.any():
+        note = f"  |  values clipped at {RADAR_MAX_RATIO:g}x"
+    fig.suptitle(
+        f"Behavioral profile relative to {baseline_label} "
+        f"(1.0 = baseline, outward = better){note}", fontsize=12)
+    fig.tight_layout()
+    path = os.path.join(out_dir, "behavioral_radars.png")
+    fig.savefig(path, dpi=120, bbox_inches="tight")
+    plt.close(fig)
+
+    if save_individual:
+        for group, title in zip(panels, titles):
+            f, a = plt.subplots(figsize=(6, 6), subplot_kw={"polar": True})
+            _draw_radar(a, norm, group, title, colors, tick_labels, r_max)
+            a.legend(loc="upper right", bbox_to_anchor=(1.3, 1.1))
+            f.tight_layout()
+            f.savefig(os.path.join(out_dir, f"radar_{title.replace(' ', '_')}.png"),
+                      dpi=120, bbox_inches="tight")
+            plt.close(f)
+
+    norm.to_csv(os.path.join(out_dir, "behavioral_radar_normalized.csv"))
+    if was_clipped.values.any():
+        print("Note: these radar values were clipped at "
+              f"{RADAR_MAX_RATIO:g}x:\n{was_clipped[was_clipped.any(axis=1)]}")
+    return path
+
+
 # ======================================================================
 # Main
 # ======================================================================
@@ -257,6 +387,7 @@ def main():
               os.path.join(out_dir, "behavioral_stds.csv")]
 
     saved.append(plot_behavioral_bars(means, stds, out_dir))
+    saved.append(plot_behavioral_radars(means, out_dir, baseline_label))
 
     print("\nSaved:", *saved, sep="\n  ")
 
