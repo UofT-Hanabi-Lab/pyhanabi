@@ -1032,6 +1032,301 @@ def report_critical_hints(path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Command: three_player_subsequent_hints
+# ---------------------------------------------------------------------------
+
+HINT_TYPES = ("HINT_COLOR", "HINT_NUMBER")
+INTENDED_TO_TYPE = {"Play": "PLAY", "Discard": "DISCARD"}
+KEYS = ["not_appropriate_at_hint", "intended", "invalid", "invalid_acted", "invalid_misplay",
+        "hints", "hints_invalidated"]
+
+
+def _board_dict(state: dict) -> dict:
+    return {b["color"]: b["rank"] for b in state["board"]}
+
+
+def _trash_counts(state: dict) -> collections.Counter:
+    return collections.Counter((c["color"], c["rank"]) for c in state["discard_pile"])
+
+
+def _is_critical_in_state(card: Tuple[str, int], state: dict) -> bool:
+    col, rank = card
+    board = _board_dict(state)
+    trash = _trash_counts(state)
+    return rank > board[col] and trash[card] == CARD_COUNTS[rank] - 1
+
+def get_subsequent_hint_validity_info_from_json(path: Path, num_players: int = 3) -> dict:
+    """
+    For every card a hint is predicted to make the recipient play or discard, check 
+    whether the action was appropriate when the hint was given and whether it is 
+    still appropriate when the recipient acts.
+    Returns {distance: stats}, where distance is the number of players between 
+    the giver and the recipient and stats counts:
+    - "not_appropriate_at_hint": predicted cards already unplayable (or critical) at hint time.
+    - "intended": predicted cards that were appropriate at hint time. 
+    - "invalid": those no longer appropriate when the recipient acts.
+    - "invalid_acted": invalid ones the recipient still played/discarded as predicted.
+    - "invalid_misplay": invalid ones where the recipient's next move was a misplay. 
+    - "hints": hints with at least one card appropriate at hint time.
+    - "hints_invalidated": hints with at least one invalid card.
+    """
+    with open(path, "r") as f:
+        json_data = json.load(f)
+
+    turns = [next(iter(entry.values())) for entry in json_data["actions"]]
+    result = collections.defaultdict(lambda: dict.fromkeys(KEYS, 0))
+
+    for i, turn in enumerate(turns):
+        action = turn["action"]
+        if action["type"] not in HINT_TYPES:
+            continue
+        hint = action["hint"]
+
+        intended = hint.get("intended") or hint.get("intended_card")
+        if isinstance(intended, list):
+            intended = intended[0] if intended else None
+        if not intended:
+            continue
+
+        giver, recipient = turn["player"], hint["hinted_player"]
+        j = next((k for k in range(i + 1, len(turns)) if turns[k]["player"] == recipient), None)
+        if j is None:
+            continue
+
+        # state right after the hint
+        hint_state = turn["resulting_state"]    
+        hint_board = _board_dict(hint_state)
+        state = turns[j - 1]["resulting_state"]       
+        board = _board_dict(state)
+        response = turns[j]["action"]
+        chosen = response.get("chosen_card")
+        stats = result[(recipient - giver) % num_players]
+        hint_counted = False
+        hint_invalidated = False
+
+        for predicted in intended.get("predicted_actions") or intended.get("cards", []):
+            if predicted["action"] not in INTENDED_TO_TYPE:
+                continue
+            card = (predicted["color"], predicted["rank"])
+
+            # checks if prediction appropriate when the hint was given
+            if predicted["action"] == "Play":
+                appropriate_at_hint = card[1] == hint_board[card[0]] + 1
+            else:
+                appropriate_at_hint = not _is_critical_in_state(card, hint_state)
+            if not appropriate_at_hint:
+                stats["not_appropriate_at_hint"] += 1
+                continue
+            stats["intended"] += 1
+            if not hint_counted:
+                stats["hints"] += 1
+                hint_counted = True
+
+            # check if still appropriate when the recipient acts
+            if predicted["action"] == "Play":
+                invalid = card[1] != board[card[0]] + 1
+            else:
+                invalid = _is_critical_in_state(card, state)
+            if not invalid:
+                continue
+
+            stats["invalid"] += 1
+            if not hint_invalidated:
+                stats["hints_invalidated"] += 1
+                hint_invalidated = True
+            did_it = (chosen and (chosen["color"], chosen["rank"]) == card
+                      and response["type"] == INTENDED_TO_TYPE[predicted["action"]])
+            if did_it:
+                stats["invalid_acted"] += 1
+            if response["type"] == "PLAY" and response.get("successful") == "no":
+                stats["invalid_misplay"] += 1
+
+    return result
+
+
+def report_subsequent_hint_validity(path: Path) -> None:
+    if path.is_file():
+        files = [path]
+    elif path.is_dir():
+        files = sorted(f for f in path.rglob("*.json") if f.is_file())
+    else:
+        raise ValueError(f"Path does not exist: {path}")
+    if not files:
+        print("No JSON game logs found.")
+        return
+
+    total = collections.defaultdict(lambda: dict.fromkeys(KEYS, 0))
+    for file in files:
+        for distance, stats in get_subsequent_hint_validity_info_from_json(file).items():
+            for key in KEYS:
+                total[distance][key] += stats[key]
+
+    print("Games analyzed:", len(files))
+    for distance in sorted(total):
+        s = total[distance]
+        who = "next player" if distance == 1 else "player after next"
+        print(f"\nHints to the {who} (distance {distance}):")
+        print("  Predictions already inappropriate at hint time:", s["not_appropriate_at_hint"])
+        print("  Predictions appropriate at hint time:", s["intended"])
+        print("  No longer appropriate when the recipient acts:", s["invalid"])
+        if s["intended"]:
+            print(f"  Ratio invalidated: {s['invalid'] / s['intended']:.2%}")
+        if s["hints"]:
+            print(f"  Hints with an invalidated prediction: {s['hints_invalidated']} of {s['hints']} "
+                  f"({s['hints_invalidated'] / s['hints']:.2%})")
+        if s["invalid"]:
+            print(f"  Invalidated ones still carried out: {s['invalid_acted']} ({s['invalid_acted'] / s['invalid']:.2%})")
+            print(f"  Invalidated ones followed by a misplay: {s['invalid_misplay']} ({s['invalid_misplay'] / s['invalid']:.2%})")
+
+
+# ---------------------------------------------------------------------------
+# Command: hint_type_misplays
+# ---------------------------------------------------------------------------
+def get_hint_type_misplays_from_json(path: Path) -> dict:
+    """
+    For every hint, classify it as intentional, redundant or random and check 
+    whether the recipient's next move is a misplay.
+    Returns {hint_type: {"hints": ..., "misplays": ...}}.
+    """
+    assert path.is_file() and path.suffix.lower() == ".json", f"The path provided is not a JSON file: {path}"
+    with open(path, "r") as f:
+        json_data = json.load(f)
+
+    turns = [next(iter(entry.values())) for entry in json_data["actions"]]
+    result = {t: {"hints": 0, "misplays": 0} for t in ("intentional", "redundant", "random")}
+
+    for i, turn in enumerate(turns):
+        action = turn["action"]
+        if action["type"] not in ("HINT_COLOR", "HINT_NUMBER"):
+            continue
+
+        if action["valid_hints"]:
+            hint_type = "intentional"
+        elif action["redundant_hints"]:
+            hint_type = "redundant"
+        else:
+            hint_type = "random"
+
+        recipient = action["hint"]["hinted_player"]
+        response = next((t["action"] for t in turns[i + 1:] if t["player"] == recipient), None)
+        if response is None:
+            continue
+
+        result[hint_type]["hints"] += 1
+        if response["type"] == "PLAY" and response.get("successful") == "no":
+            result[hint_type]["misplays"] += 1
+
+    return result
+
+
+def report_hint_type_misplays(path: Path) -> None:
+    """
+    Report how often the recipient misplays right after an intentional,
+    redundant or random hint. Path must be a JSON file or a directory of JSON files.
+    """
+    if path.is_file():
+        files = [path]
+    elif path.is_dir():
+        files = sorted(f for f in path.rglob("*.json") if f.is_file())
+    else:
+        raise ValueError(f"Path does not exist: {path}")
+    if not files:
+        print("No JSON game logs found.")
+        return
+
+    total = {t: {"hints": 0, "misplays": 0} for t in ("intentional", "redundant", "random")}
+    for file in files:
+        for hint_type, stats in get_hint_type_misplays_from_json(file).items():
+            total[hint_type]["hints"] += stats["hints"]
+            total[hint_type]["misplays"] += stats["misplays"]
+
+    print("Games analyzed:", len(files))
+    for hint_type, s in total.items():
+        print(f"\n{hint_type.capitalize()} hints:")
+        print("  Hints:", s["hints"])
+        print("  Followed by a misplay (= lives lost):", s["misplays"])
+        if s["hints"]:
+            print(f"  Misplay rate: {s['misplays'] / s['hints']:.2%}")
+        print(f"  Lives lost per game: {s['misplays'] / len(files):.3f}")
+
+# ---------------------------------------------------------------------------
+# Command: misplays_by_lives
+# ---------------------------------------------------------------------------
+
+def get_misplays_by_lives_from_file(path: Path) -> dict:
+    """
+    Count the total plays and misplays made with each number of lives remaining.
+    Returns a dictionary mapping lives remaining to play and misplay counts.
+    """
+    _, states = parse_game_states(path)
+
+    stats = {
+        lives: {"plays": 0, "misplays": 0}
+        for lives in range(1, INITIAL_LIVES + 1)
+    }
+
+    for prev, state in zip(states, states[1:]):
+        move = state["move"]
+
+        # Only consider plays, not hints or discards.
+        if " plays " not in move:
+            continue
+
+        # Use the number of lives before the play.
+        lives = prev["lives"]
+
+        if lives not in stats:
+            continue
+
+        stats[lives]["plays"] += 1
+
+        if "and it failed" in move:
+            stats[lives]["misplays"] += 1
+
+    return stats
+
+
+def report_misplays_by_lives(path: Path) -> None:
+    """
+    Report the number and rate of misplays when players have 1, 2, or 3 lives remaining.
+    """
+    files = get_txt_log_files(path)
+
+    if not files:
+        print("No game logs found.")
+        return
+
+    total = {
+        lives: {"plays": 0, "misplays": 0}
+        for lives in range(1, INITIAL_LIVES + 1)
+    }
+
+    for file in files:
+        stats = get_misplays_by_lives_from_file(file)
+
+        for lives in total:
+            total[lives]["plays"] += stats[lives]["plays"]
+            total[lives]["misplays"] += stats[lives]["misplays"]
+
+    print(f"Reporting misplays by remaining lives for: {path}")
+    print("Games analyzed:", len(files))
+
+    print(
+        f"\n{'Lives':>6} | {'Plays':>8} | {'Misplays':>8} | "
+        f"{'Misplay rate':>12}"
+    )
+
+    for lives in range(INITIAL_LIVES, 0, -1):
+        plays = total[lives]["plays"]
+        misplays = total[lives]["misplays"]
+        rate = misplays / plays if plays else 0
+
+        print(
+            f"{lives:>6} | {plays:>8} | {misplays:>8} | "
+            f"{rate:>11.2%}"
+        )
+        
+# ---------------------------------------------------------------------------
 # Command: missed_dead_color_discards
 # ---------------------------------------------------------------------------
 
@@ -1531,6 +1826,36 @@ def create_parser() -> argparse.ArgumentParser:
         help="Path to a log file or directory of log files.",
     )
     critical_hints_parser.set_defaults(func=report_critical_hints)
+
+    # Three player subsequent_hint validity command: report how often a hint to the player after next is outdated when the recipient acts
+    subsequent_hint_validity = subparsers.add_parser(
+        "subsequent_hint_validity",
+        help="Report how often a hint to the player after next is outdated when the recipient acts.",
+    )
+    subsequent_hint_validity.add_argument(
+        "path", 
+        type=Path, 
+        help="JSON log file or directory of JSON log files.")
+    subsequent_hint_validity.set_defaults(func=report_subsequent_hint_validity)
+
+    # Hint type misplays command: report misplays right after intentional, redundant and random hints
+    hint_type_misplays_parser = subparsers.add_parser(
+        "hint_type_misplays",
+        help="Report misplays (lives lost) right after intentional, redundant and random hints.",
+    )
+    hint_type_misplays_parser.add_argument("path", type=Path, help="JSON log file or directory of JSON log files.")
+    hint_type_misplays_parser.set_defaults(func=report_hint_type_misplays)
+
+
+    # Misplays by remaining lives command: Report the number and rate of misplays when players have 1, 2, or 3 lives remaining.
+    misplays_by_lives_parser = subparsers.add_parser(
+        "misplays_by_lives",
+        help="Report misplay rates by the number of lives remaining.",
+        description="Report the number of plays and misplays made with each "
+                    "number of lives remaining.",
+    )
+    misplays_by_lives_parser.add_argument("path", type=Path, help="Log file or directory of log files.")
+    misplays_by_lives_parser.set_defaults(func=report_misplays_by_lives)
 
     # Missed dead color discards command: report information on missed discards of known dead colors
     missed_dead_color_discards_parser = subparsers.add_parser(

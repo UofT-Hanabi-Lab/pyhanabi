@@ -19,6 +19,7 @@ from utils import (
     format_card,
     MAX_HINT_TOKENS,
     playable,
+    whattodo,
 )
 
 MAX_PLAYERS: Final[int] = 5
@@ -544,6 +545,11 @@ class HanasimGame(AbstractGame):
                             self.players[acting_player_id], SelfIntentionalPlayer
                         )
                         else None,
+                            "intended": self._get_intended_card(action, 
+                                            self.knowledge, 
+                                            self._convert_board(post_obs.fireworks), 
+                                            post_obs.hint_tokens, 
+                                            self._convert_hands(post_obs.hands, acting_player_id)),
                             "hint_color": action.col.display_name
                             if action.col
                             else None,
@@ -711,6 +717,35 @@ class HanasimGame(AbstractGame):
                 v.append((c[0], i + 1))
 
         return v
+
+    def _get_intended_card(self, action: Action, knowledge, board, hints, hands):
+        """
+        Predict what the recipient does after the hint. Returns None for non-hints, 
+        otherwise a dict with:
+        - "immediate": the action the recipient is predicted to take next
+        (play preferred over discard, lowest hand index first), or None.
+        - "predicted_actions": every card predicted to be played or discarded because of the hint.
+        """
+        if action.action_type not in [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]:
+            return None
+
+        recipient_id = action.pnr
+        predicted_actions = []
+        for i, (k, card) in enumerate(zip(knowledge[recipient_id], hands[recipient_id])):
+            if action.action_type == Action.ActionType.HINT_COLOR:
+                touched = card[0] == action.col
+            else:
+                touched = card[1] == action.num
+            if not touched:
+                continue
+            a = whattodo(k, True, board)
+            if a == Action.ActionType.PLAY or (a == Action.ActionType.DISCARD and hints < MAX_HINT_TOKENS):
+                predicted_actions.append({"action": a.display_name, "hand_index": i,
+                                        "color": card[0].display_name, "rank": card[1]})
+
+        plays = [p for p in predicted_actions if p["action"] == Action.ActionType.PLAY.display_name]
+        next_action = plays[0] if plays else (predicted_actions[0] if predicted_actions else None)
+        return {"next_action": next_action, "predicted_actions": predicted_actions}
 
     def _convert_hands(
         self, hands: list[list[HanaSimCard]], curr_player: int
