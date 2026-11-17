@@ -715,10 +715,11 @@ class HanasimGame(AbstractGame):
 
     def _get_intended_card(self, action: Action, knowledge, board, hints, hands):
         """
-        Predict what the recipient does after the hint. Returns None for non-hints, otherwise a dict with:
+        Predict what the recipient does after the hint. Returns None for non-hints, 
+        otherwise a dict with:
         - "immediate": the action the recipient is predicted to take next
-        (play preferred over discard, lowest hand index first), or None
-        - "predicted_actions": every card predicted to be played or discarded because of the hint
+        (play preferred over discard, lowest hand index first), or None.
+        - "predicted_actions": every card predicted to be played or discarded because of the hint.
         """
         if action.action_type not in [Action.ActionType.HINT_COLOR, Action.ActionType.HINT_NUMBER]:
             return None
