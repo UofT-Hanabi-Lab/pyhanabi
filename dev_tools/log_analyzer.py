@@ -42,6 +42,15 @@ HAND_CARD_REGEX = re.compile(
 # --------------------------------------------------------------
 
 # --------------------------------------------------------------
+# Start of variables for the three_player_subsequent_hints command
+HINT_TYPES = ("HINT_COLOR", "HINT_NUMBER")
+INTENDED_TO_TYPE = {"Play": "PLAY", "Discard": "DISCARD"}
+THREE_PLAYER_SUBSEQUENT_HINT_KEYS = ["not_appropriate_at_hint", "intended", "invalid", "invalid_acted", "invalid_misplay",
+        "hints", "hints_invalidated"]
+# End of patterns for the three_player_subsequent_hints command
+# --------------------------------------------------------------
+
+# --------------------------------------------------------------
 # Start of functions useful to multiple commands
 # --------------------------------------------------------------
 def format_ratio(numerator: int, denominator: int) -> str:
@@ -1034,13 +1043,6 @@ def report_critical_hints(path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Command: three_player_subsequent_hints
 # ---------------------------------------------------------------------------
-
-HINT_TYPES = ("HINT_COLOR", "HINT_NUMBER")
-INTENDED_TO_TYPE = {"Play": "PLAY", "Discard": "DISCARD"}
-KEYS = ["not_appropriate_at_hint", "intended", "invalid", "invalid_acted", "invalid_misplay",
-        "hints", "hints_invalidated"]
-
-
 def _board_dict(state: dict) -> dict:
     return {b["color"]: b["rank"] for b in state["board"]}
 
@@ -1074,7 +1076,7 @@ def get_subsequent_hint_validity_info_from_json(path: Path, num_players: int = 3
         json_data = json.load(f)
 
     turns = [next(iter(entry.values())) for entry in json_data["actions"]]
-    result = collections.defaultdict(lambda: dict.fromkeys(KEYS, 0))
+    result = collections.defaultdict(lambda: dict.fromkeys(THREE_PLAYER_SUBSEQUENT_HINT_KEYS, 0))
 
     for i, turn in enumerate(turns):
         action = turn["action"]
@@ -1155,10 +1157,10 @@ def report_subsequent_hint_validity(path: Path) -> None:
         print("No JSON game logs found.")
         return
 
-    total = collections.defaultdict(lambda: dict.fromkeys(KEYS, 0))
+    total = collections.defaultdict(lambda: dict.fromkeys(THREE_PLAYER_SUBSEQUENT_HINT_KEYS, 0))
     for file in files:
         for distance, stats in get_subsequent_hint_validity_info_from_json(file).items():
-            for key in KEYS:
+            for key in THREE_PLAYER_SUBSEQUENT_HINT_KEYS:
                 total[distance][key] += stats[key]
 
     print("Games analyzed:", len(files))
@@ -1336,7 +1338,7 @@ def parse_knowledge(text: str, cast=str):
     return None if text == "any" else [cast(x) for x in text.split("/")]
 
 
-def parse_game_states(lines: List[str]) -> Tuple[dict, List[dict]]:
+def parse_all_game_states(lines: List[str]) -> Tuple[dict, List[dict]]:
     """
     Parse a game log into the starting state and a list with one entry per move.
     Every state printed in the log is the state AFTER the move was played, so the state BEFORE
@@ -1506,7 +1508,7 @@ def get_missed_dead_color_discards_from_file(path: Path) -> Tuple[int, int, int,
     with open(path, "r") as f:
         lines = f.readlines()
 
-    initial_state, states = parse_game_states(lines)
+    initial_state, states = parse_all_game_states(lines)
 
     discarded_known_dead = 0
     missed = 0
