@@ -859,7 +859,7 @@ class SelfIntentionalPlayer(Player):
                 hintee_intentions = intents_for_sub
 
             hint_action = (Action.ActionType.HINT_COLOR, colour)
-            isvalid, score, expl = pretend(
+            isvalid, score, expl, _ = pretend(
                 hint_action,
                 knowledge[hintee_id],
                 hintee_intentions,
@@ -880,7 +880,7 @@ class SelfIntentionalPlayer(Player):
 
 
             hint_action = (Action.ActionType.HINT_NUMBER, rank)
-            isvalid, score, expl = pretend(
+            isvalid, score, expl, _ = pretend(
                 hint_action,
                 knowledge[hintee_id],
                 hintee_intentions,
@@ -1495,14 +1495,10 @@ class SelfIntentionalPlayer(Player):
                         pnr=hintee_id,
                         num=selected_action[1],
                     )
-                if any((result.action_type, result.pnr) == hint[0] for hint in play_hints):
-                    if (result.action_type == Action.ActionType.HINT_COLOR and 
-                        any(result.col == hint[3] for hint in play_hints if (result.action_type, result.pnr) == hint[0])):
-                        self.intent = "Play"
-                    elif (result.action_type == Action.ActionType.HINT_NUMBER and 
-                          any(result.num == hint[3] for hint in play_hints if (result.action_type, result.pnr) == hint[0])):
-                        self.intent = "Play" 
-                    
+                # label the chosen hint for the logs: a play hint if pretend()
+                # predicted it makes this hintee play a card (same hint, same hintee)
+                if any(hint[0] == selected_action and hint[2] == hintee_id for hint in play_hints):
+                    self.intent = "Play"
                 else:
                     self.intent = "Discard"
 
@@ -2060,7 +2056,7 @@ class SelfIntentionalPlayer(Player):
         hint_action: tuple[Action.ActionType, Color | int]
         for c in Color:
             hint_action = (Action.ActionType.HINT_COLOR, c)
-            (isvalid, _, _) = pretend(
+            (isvalid, _, _, _) = pretend(
                 hint_action, hintee_knowledge, hintee_intents, hintee_hand,
                 board, trash,
             )
@@ -2068,7 +2064,7 @@ class SelfIntentionalPlayer(Player):
                 return True
         for r in range(1, 6):
             hint_action = (Action.ActionType.HINT_NUMBER, r)
-            (isvalid, _, _) = pretend(
+            (isvalid, _, _, _) = pretend(
                 hint_action, hintee_knowledge, hintee_intents, hintee_hand,
                 board, trash,
             )
@@ -2201,7 +2197,7 @@ class SelfIntentionalPlayer(Player):
                     hintee_intentions = intents_for_sub
 
                 for hint_action in candidates:
-                    (isvalid, score, expl) = pretend(
+                    (isvalid, score, expl, _) = pretend(
                         hint_action,
                         knowledge[hintee_id],
                         hintee_intentions,
