@@ -203,10 +203,10 @@ def plot_behavioral_bars(means, stds, out_dir):
 # +1 = higher is better, -1 = lower is better
 METRIC_DIRECTION = {
     "IPP": +1,
-    "Discard Playable": -1,
+    "Discard Playable": +1,
     "Play Playable": +1,
-    "Play Unplayable": -1,
-    "Communicativeness": +1,   # debatable: more hinting isn't inherently better
+    "Play Unplayable": +1,
+    "Communicativeness": +1,
 }
 
 RADAR_MAX_RATIO = 2.0   # clip ratios above this so one outlier can't squash the chart
